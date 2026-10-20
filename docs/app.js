@@ -20,6 +20,7 @@ const DIGITOS_POR_DIFICULDADE = { FACIL: 2, MEDIO: 3 };
 const ROTULOS_COLUNA = ['unidades', 'dezenas', 'centenas', 'milhares'];
 const CHAVE_PLACAR = 'reforco-tia-thais-placar';
 const CHAVE_PLACAR_LEGADA = 'lousa-matematica-placar';
+const LIMITE_AVISO_SERVIDOR = 2000;
 const META_NIVEL = 5;
 const NIVEIS_DIFICULDADE = ['FACIL', 'MEDIO'];
 const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio' };
@@ -243,6 +244,60 @@ function montarRequisicao(questao, entradas) {
   };
 }
 
+/*
+ * Agenda o aviso de servidor lento. O aviso só aparece se a requisição ainda
+ * estiver ativa depois do limite; ao concluir, o temporizador é cancelado e o
+ * aviso é removido. Requisições simultâneas compartilham o mesmo indicador.
+ */
+function criarAvisoServidor(el, limite = LIMITE_AVISO_SERVIDOR) {
+  let ativos = 0;
+  let temporizador = null;
+  let visivel = false;
+
+  function mostrar() {
+    visivel = true;
+    el.avisoServidor.hidden = false;
+  }
+
+  function esconder() {
+    visivel = false;
+    el.avisoServidor.hidden = true;
+  }
+
+  return {
+    iniciar() {
+      ativos += 1;
+      if (ativos === 1) {
+        temporizador = setTimeout(() => {
+          temporizador = null;
+          if (ativos > 0) {
+            mostrar();
+          }
+        }, limite);
+      }
+
+      let concluido = false;
+      return () => {
+        if (concluido) {
+          return;
+        }
+        concluido = true;
+        ativos = Math.max(0, ativos - 1);
+
+        if (ativos === 0) {
+          if (temporizador !== null) {
+            clearTimeout(temporizador);
+            temporizador = null;
+          }
+          if (visivel) {
+            esconder();
+          }
+        }
+      };
+    },
+  };
+}
+
 /* ------------------------------------------------------------------------- */
 /* Interface                                                                  */
 /* ------------------------------------------------------------------------- */
@@ -268,6 +323,7 @@ function iniciarInterface() {
     pontos: document.getElementById('pontos'),
     sequencia: document.getElementById('sequencia'),
     aviso: document.getElementById('aviso'),
+    avisoServidor: document.getElementById('aviso-servidor'),
     confete: document.getElementById('confete'),
     modal: document.getElementById('modal'),
     modalEmoji: document.getElementById('modal-emoji'),
@@ -289,6 +345,7 @@ function iniciarInterface() {
     carregando: false,
     validando: false,
     pedido: 0,
+    avisoServidor: criarAvisoServidor(el),
   };
 
   aplicarPreferencias(estado, typeof window !== 'undefined' ? window.location.search : '');
@@ -375,6 +432,7 @@ async function carregarQuestao(estado, el) {
   estado.pedido = pedido;
   el.btnValidar.disabled = true;
   mostrarPlaceholder(el, 'Buscando um desafio...', false);
+  const concluirAviso = estado.avisoServidor.iniciar();
 
   try {
     const url = API_BASE + '/proxima-questao?operacao='
@@ -410,6 +468,7 @@ async function carregarQuestao(estado, el) {
     );
     el.dica.textContent = 'Dica: inicie o backend com ./mvnw spring-boot:run';
   } finally {
+    concluirAviso();
     if (pedido === estado.pedido) {
       estado.carregando = false;
     }
@@ -698,6 +757,7 @@ async function validarResposta(estado, el) {
   estado.validando = true;
   el.btnValidar.disabled = true;
   el.btnValidar.textContent = 'Conferindo...';
+  const concluirAviso = estado.avisoServidor.iniciar();
 
   try {
     const resposta = await fetch(API_BASE + '/validar', {
@@ -717,6 +777,7 @@ async function validarResposta(estado, el) {
     console.error(erro);
     mostrarAviso(el, 'Não consegui conferir agora. O servidor está rodando na porta 8080?');
   } finally {
+    concluirAviso();
     estado.validando = false;
     el.btnValidar.disabled = false;
     el.btnValidar.textContent = 'Conferir resposta';
@@ -964,6 +1025,7 @@ if (typeof module !== 'undefined' && module.exports) {
     comporResultado,
     montarRequisicao,
     aplicarPreferencias,
+    criarAvisoServidor,
   };
 }
 

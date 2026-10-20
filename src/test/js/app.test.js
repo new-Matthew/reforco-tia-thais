@@ -18,7 +18,10 @@ const {
   comporResultado,
   montarRequisicao,
   aplicarPreferencias,
+  criarAvisoServidor,
 } = require('../../main/resources/static/app.js');
+
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test('normalizarPasso converte campos vazios e inválidos em zero', () => {
   assert.equal(normalizarPasso(''), 0);
@@ -245,4 +248,45 @@ test('aplicarPreferencias ignora valores desconhecidos', () => {
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
   aplicarPreferencias(estado, '');
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
+});
+
+test('criarAvisoServidor mostra o aviso após o limite e o remove ao concluir', async () => {
+  const el = { avisoServidor: { hidden: true } };
+  const aviso = criarAvisoServidor(el, 10);
+  const concluir = aviso.iniciar();
+
+  assert.equal(el.avisoServidor.hidden, true);
+  await esperar(25);
+  assert.equal(el.avisoServidor.hidden, false);
+
+  concluir();
+  assert.equal(el.avisoServidor.hidden, true);
+});
+
+test('criarAvisoServidor não mostra o aviso quando a requisição termina antes do limite', async () => {
+  const el = { avisoServidor: { hidden: true } };
+  const aviso = criarAvisoServidor(el, 40);
+  const concluir = aviso.iniciar();
+
+  concluir();
+  await esperar(55);
+
+  assert.equal(el.avisoServidor.hidden, true);
+});
+
+test('criarAvisoServidor mantém o aviso enquanto houver requisições simultâneas', async () => {
+  const el = { avisoServidor: { hidden: true } };
+  const aviso = criarAvisoServidor(el, 10);
+  const concluirPrimeira = aviso.iniciar();
+  const concluirSegunda = aviso.iniciar();
+
+  await esperar(25);
+  assert.equal(el.avisoServidor.hidden, false);
+
+  concluirPrimeira();
+  concluirPrimeira();
+  assert.equal(el.avisoServidor.hidden, false);
+
+  concluirSegunda();
+  assert.equal(el.avisoServidor.hidden, true);
 });
