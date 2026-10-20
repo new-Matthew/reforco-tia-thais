@@ -1,5 +1,5 @@
 ---
-name: project-local
+name: testes
 description: Garante a criação e execução de testes unitários automatizados para cada nova função, método ou funcionalidade criada neste projeto.
 ---
 <!-- unit-testing-workflow -->
