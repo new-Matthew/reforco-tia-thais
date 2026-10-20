@@ -1,18 +1,20 @@
 'use strict';
 
 /*
- * Reforço Escolar da Tia Thaís — integração com a API REST do jogo.
+- Reforço Escolar da Tia Thaís — integração com a API REST do jogo.
  *
- * As funções puras no topo do arquivo também são exportadas quando o arquivo
- * roda no Node (usado pelos testes unitários). A inicialização da interface
- * só acontece quando existe um `document`.
+- As funções puras no topo do arquivo também são exportadas quando o arquivo
+- roda no Node (usado pelos testes unitários). A inicialização da interface
+- só acontece quando existe um `document`.
  */
 
 const API_BASE = (typeof window !== 'undefined' && window.LOUSADA_API)
   ? window.LOUSADA_API
   : (typeof window !== 'undefined' && window.location.protocol === 'file:'
     ? 'http://localhost:8080/api/jogo'
-    : '/api/jogo');
+    : (typeof window !== 'undefined' && window.location.hostname.includes('github.io'))
+      ? 'https://reforco-tia-thais.onrender.com/api/jogo'
+      : '/api/jogo');
 
 const DIGITOS_POR_DIFICULDADE = { FACIL: 2, MEDIO: 3 };
 const ROTULOS_COLUNA = ['unidades', 'dezenas', 'centenas', 'milhares'];
@@ -42,9 +44,9 @@ function quantidadeColunas(dificuldade, operacao) {
 }
 
 /*
- * Só existem caixinhas de "vai um" entre as colunas dos operandos: uma acima
- * das dezenas (2 dígitos) ou duas, acima das dezenas e das centenas (3 dígitos).
- * O transporte final, que vira o dígito extra do resultado, é calculado sozinho.
+- Só existem caixinhas de "vai um" entre as colunas dos operandos: uma acima
+- das dezenas (2 dígitos) ou duas, acima das dezenas e das centenas (3 dígitos).
+- O transporte final, que vira o dígito extra do resultado, é calculado sozinho.
  */
 function quantidadeCaixasVaiUm(dificuldade) {
   const digitos = DIGITOS_POR_DIFICULDADE[dificuldade];
@@ -71,9 +73,9 @@ function calcularProgresso(sequencia, meta = META_NIVEL) {
 }
 
 /*
- * Resolve o efeito de uma resposta no streak e no nível. Acertos enchem a
- * barra; erros e acertos parciais zeram. Ao completar a meta, o nível sobe
- * automaticamente (ou a rodada recomeça no nível máximo).
+- Resolve o efeito de uma resposta no streak e no nível. Acertos enchem a
+- barra; erros e acertos parciais zeram. Ao completar a meta, o nível sobe
+- automaticamente (ou a rodada recomeça no nível máximo).
  */
 function resolverProgresso(sequenciaAtual, dificuldadeAtual, correto, meta = META_NIVEL) {
   const resultadoBase = {
@@ -108,9 +110,9 @@ function resolverProgresso(sequenciaAtual, dificuldadeAtual, correto, meta = MET
 }
 
 /*
- * Converte o conteúdo de uma caixinha em 0 ou 1. Campos vazios, em branco,
- * nulos ou indefinidos viram 0 — a criança só precisa preencher as colunas
- * que realmente têm transporte/empréstimo.
+- Converte o conteúdo de uma caixinha em 0 ou 1. Campos vazios, em branco,
+- nulos ou indefinidos viram 0 — a criança só precisa preencher as colunas
+- que realmente têm transporte/empréstimo.
  */
 function normalizarPasso(valor) {
   if (valor === true) {
@@ -128,8 +130,8 @@ function normalizarPasso(valor) {
 }
 
 /*
- * Garante que o array enviado ao backend contenha apenas inteiros 0/1.
- * `null` é preservado porque o Java trata a ausência dos passos como opcional.
+- Garante que o array enviado ao backend contenha apenas inteiros 0/1.
+- `null` é preservado porque o Java trata a ausência dos passos como opcional.
  */
 function normalizarPassos(valores) {
   if (valores == null) {
@@ -147,9 +149,9 @@ function preencherAte(valores, quantidade) {
 }
 
 /*
- * Calcula os transportes coluna a coluna, da direita para a esquerda, do mesmo
- * jeito que o backend faz. Usado para completar o último "vai um" quando a
- * criança o deixa em branco (o dígito extra do resultado já o representa).
+- Calcula os transportes coluna a coluna, da direita para a esquerda, do mesmo
+- jeito que o backend faz. Usado para completar o último "vai um" quando a
+- criança o deixa em branco (o dígito extra do resultado já o representa).
  */
 function calcularVaiUm(numeroA, numeroB) {
   let a = Math.abs(Math.trunc(Number(numeroA) || 0));
@@ -168,11 +170,11 @@ function calcularVaiUm(numeroA, numeroB) {
 }
 
 /*
- * As caixinhas de "vai um" são preenchidas da direita para a esquerda e cada
- * uma representa o transporte que sai da coluna anterior. Campos em branco são
- * normalizados para 0. A posição final do array (o transporte que cria o dígito
- * extra do resultado) não tem caixinha: ela é calculada automaticamente. Quando
- * esse transporte é 1, o backend acrescenta um 0 final.
+- As caixinhas de "vai um" são preenchidas da direita para a esquerda e cada
+- uma representa o transporte que sai da coluna anterior. Campos em branco são
+- normalizados para 0. A posição final do array (o transporte que cria o dígito
+- extra do resultado) não tem caixinha: ela é calculada automaticamente. Quando
+- esse transporte é 1, o backend acrescenta um 0 final.
  */
 function montarArrayVaiUm(valores, quantidadeDeCaixas, passosEsperados) {
   const brutos = Array.from(valores ?? [], (valor) => String(valor ?? '').trim());
@@ -196,9 +198,9 @@ function montarArrayVaiUm(valores, quantidadeDeCaixas, passosEsperados) {
 }
 
 /*
- * `colunasQueEmprestam` guarda os índices das colunas que emprestam para a
- * coluna da direita. O backend espera um valor por coluna (da direita para a
- * esquerda), marcando 1 onde houve empréstimo e 0 nas demais.
+- `colunasQueEmprestam` guarda os índices das colunas que emprestam para a
+- coluna da direita. O backend espera um valor por coluna (da direita para a
+- esquerda), marcando 1 onde houve empréstimo e 0 nas demais.
  */
 function montarArrayEmprestimos(colunasQueEmprestam, quantidadeDeColunas) {
   const passos = [];
