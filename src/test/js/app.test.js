@@ -18,6 +18,8 @@ const {
   comporResultado,
   montarRequisicao,
   aplicarPreferencias,
+  podeIniciarQuestao,
+  podeValidarResposta,
   criarAvisoServidor,
 } = require('../../main/resources/static/app.js');
 
@@ -289,4 +291,26 @@ test('criarAvisoServidor mantém o aviso enquanto houver requisições simultân
 
   concluirSegunda();
   assert.equal(el.avisoServidor.hidden, true);
+});
+
+test('podeIniciarQuestao bloqueia uma nova carga enquanto a anterior está em andamento', () => {
+  assert.equal(podeIniciarQuestao({ carregando: false, validando: false }), true);
+  assert.equal(podeIniciarQuestao({ carregando: true, validando: false }), false);
+  assert.equal(podeIniciarQuestao({ carregando: false, validando: true }), false);
+});
+
+test('podeValidarResposta exige questão ativa e bloqueia resposta duplicada', () => {
+  const questao = { id: 'q-1' };
+  const base = {
+    questao,
+    carregando: false,
+    validando: false,
+    questaoRespondida: false,
+  };
+
+  assert.equal(podeValidarResposta(base), true);
+  assert.equal(podeValidarResposta({ ...base, questao: null }), false);
+  assert.equal(podeValidarResposta({ ...base, questaoRespondida: true }), false);
+  assert.equal(podeValidarResposta({ ...base, carregando: true }), false);
+  assert.equal(podeValidarResposta({ ...base, validando: true }), false);
 });

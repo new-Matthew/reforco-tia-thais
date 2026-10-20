@@ -244,6 +244,17 @@ function montarRequisicao(questao, entradas) {
   };
 }
 
+function podeIniciarQuestao(estado) {
+  return !estado.carregando && !estado.validando;
+}
+
+function podeValidarResposta(estado) {
+  return Boolean(estado.questao)
+    && !estado.carregando
+    && !estado.validando
+    && !estado.questaoRespondida;
+}
+
 /*
  * Agenda o aviso de servidor lento. O aviso só aparece se a requisição ainda
  * estiver ativa depois do limite; ao concluir, o temporizador é cancelado e o
@@ -344,6 +355,7 @@ function iniciarInterface() {
     progresso: 0,
     carregando: false,
     validando: false,
+    questaoRespondida: false,
     pedido: 0,
     avisoServidor: criarAvisoServidor(el),
   };
@@ -426,11 +438,46 @@ function atualizarSegmentado(container, valor) {
   });
 }
 
+function atualizarControles(estado, el) {
+  const ocupado = estado.carregando || estado.validando;
+  const respondida = Boolean(estado.questaoRespondida);
+  const desabilitarResposta = ocupado || respondida;
+
+  [el.seletorOperacao, el.seletorDificuldade].forEach((container) => {
+    if (!container) {
+      return;
+    }
+    container.querySelectorAll('button').forEach((botao) => {
+      botao.disabled = ocupado;
+    });
+  });
+
+  if (el.btnNovaQuestao) {
+    el.btnNovaQuestao.disabled = ocupado;
+  }
+  if (el.btnRecarregar) {
+    el.btnRecarregar.disabled = ocupado;
+  }
+  if (el.btnValidar) {
+    el.btnValidar.disabled = desabilitarResposta || !estado.questao;
+  }
+  if (el.conta) {
+    el.conta.querySelectorAll('button, input').forEach((controle) => {
+      controle.disabled = desabilitarResposta;
+    });
+  }
+}
+
 async function carregarQuestao(estado, el) {
+  if (!podeIniciarQuestao(estado)) {
+    return;
+  }
+
   estado.carregando = true;
+  estado.questaoRespondida = false;
   const pedido = estado.pedido + 1;
   estado.pedido = pedido;
-  el.btnValidar.disabled = true;
+  atualizarControles(estado, el);
   mostrarPlaceholder(el, 'Buscando um desafio...', false);
   const concluirAviso = estado.avisoServidor.iniciar();
 
@@ -454,7 +501,6 @@ async function carregarQuestao(estado, el) {
     atualizarBarraProgresso(estado, el);
     renderConta(estado, el);
     atualizarDica(estado, el);
-    el.btnValidar.disabled = false;
   } catch (erro) {
     console.error(erro);
     if (pedido !== estado.pedido) {
@@ -471,6 +517,7 @@ async function carregarQuestao(estado, el) {
     concluirAviso();
     if (pedido === estado.pedido) {
       estado.carregando = false;
+      atualizarControles(estado, el);
     }
   }
 }
@@ -725,11 +772,11 @@ function lerResultados(el) {
 }
 
 async function validarResposta(estado, el) {
-  const questao = estado.questao;
-  if (!questao || estado.validando || estado.carregando) {
+  if (!podeValidarResposta(estado)) {
     return;
   }
 
+  const questao = estado.questao;
   const resultadoDigitado = comporResultado(lerResultados(el));
   if (resultadoDigitado === null) {
     mostrarAviso(el, 'Escreva o resultado nas caixas antes de conferir. ✏️');
@@ -755,7 +802,7 @@ async function validarResposta(estado, el) {
   });
 
   estado.validando = true;
-  el.btnValidar.disabled = true;
+  atualizarControles(estado, el);
   el.btnValidar.textContent = 'Conferindo...';
   const concluirAviso = estado.avisoServidor.iniciar();
 
@@ -771,6 +818,7 @@ async function validarResposta(estado, el) {
     }
 
     const dados = await resposta.json();
+    estado.questaoRespondida = true;
     const resolucao = atualizarPlacar(estado, el, dados);
     abrirFeedback(el, dados, resolucao);
   } catch (erro) {
@@ -779,7 +827,7 @@ async function validarResposta(estado, el) {
   } finally {
     concluirAviso();
     estado.validando = false;
-    el.btnValidar.disabled = false;
+    atualizarControles(estado, el);
     el.btnValidar.textContent = 'Conferir resposta';
   }
 }
@@ -930,7 +978,12 @@ function abrirFeedback(el, dados, resolucao) {
 
 function fecharModal(el) {
   el.modal.hidden = true;
-  el.btnValidar.focus();
+  const alvo = el.btnValidar && !el.btnValidar.disabled
+    ? el.btnValidar
+    : el.btnNovaQuestao;
+  if (alvo) {
+    alvo.focus();
+  }
 }
 
 function mostrarAviso(el, texto) {
@@ -1025,6 +1078,8 @@ if (typeof module !== 'undefined' && module.exports) {
     comporResultado,
     montarRequisicao,
     aplicarPreferencias,
+    podeIniciarQuestao,
+    podeValidarResposta,
     criarAvisoServidor,
   };
 }

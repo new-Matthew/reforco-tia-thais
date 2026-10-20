@@ -930,7 +930,14 @@ h1 {
   }
 
   .progresso {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    margin-top: 0;
     padding: 14px;
+    background: rgba(5, 31, 74, 0.97);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
   }
 
   .segmentado {
