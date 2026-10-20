@@ -752,6 +752,55 @@ h1 {
 
 /* ------------------------------- Aviso ---------------------------------- */
 
+.aviso-servidor {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 340px);
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: rgba(5, 31, 74, 0.95);
+  border: 2px solid rgba(255, 222, 89, 0.72);
+  color: var(--branco);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+  transform: translateX(-50%);
+  animation: surgir-aviso-servidor 0.2s ease;
+}
+
+.aviso-servidor-spinner {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  border-top-color: var(--amarelo);
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes surgir-aviso-servidor {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 .aviso {
   position: fixed;
   left: 50%;
