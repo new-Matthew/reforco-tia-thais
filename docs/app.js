@@ -753,7 +753,7 @@ function atualizarDica(estado, el) {
     return;
   }
   if (estado.questao.operacao === 'SOMA') {
-    el.dica.textContent = 'Dica: some da direita para a esquerda. Quando a conta passar de 9, escreva 1 na caixinha do “vai um”.';
+    el.dica.textContent = 'Dica: some da direita para a esquerda os números que estão um embaixo do outro. Passou de 9? Suba o 1 para a caixinha.';
   } else {
     el.dica.textContent = 'Dica: se o número de cima for menor, toque no número da esquerda para pedir emprestado. Ele diminui 1 e o vizinho ganha 10.';
   }
