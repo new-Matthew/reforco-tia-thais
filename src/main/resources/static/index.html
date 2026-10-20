@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Jogo de adição e subtração do Reforço Escolar da Tia Thaís. Aprender é o caminho para realizar sonhos!">
+  <title>Reforço Escolar — Tia Thaís</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topo">
+      <div class="marca">
+        <span class="marca-icone" aria-hidden="true">🎓</span>
+        <div>
+          <h1>Reforço Escolar — Tia Thaís</h1>
+          <p class="subtitulo">Aprender é o caminho para realizar sonhos!</p>
+        </div>
+      </div>
+
+      <div class="placar" aria-label="Placar do jogo">
+        <div class="placar-card">
+          <span class="placar-rotulo">⭐ Pontos</span>
+          <strong id="pontos" class="placar-valor">0</strong>
+        </div>
+        <div class="placar-card">
+          <span class="placar-rotulo">🔥 Sequência</span>
+          <strong id="sequencia" class="placar-valor">0</strong>
+        </div>
+      </div>
+    </header>
+
+    <section id="progresso" class="progresso" aria-label="Progresso do nível">
+      <div class="progresso-cabecalho">
+        <span class="progresso-nivel">Nível <strong id="progresso-nivel">Fácil</strong></span>
+        <span class="progresso-contagem">
+          <strong id="progresso-acertos">0</strong>/5 acertos seguidos
+        </span>
+      </div>
+      <div id="barra-progresso" class="progresso-trilha" role="progressbar"
+           aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"
+           aria-label="Progresso até o próximo nível">
+        <div id="progresso-preenchimento" class="progresso-preenchimento"></div>
+      </div>
+      <p id="progresso-legenda" class="progresso-legenda">
+        Acerte 5 seguidas para subir de nível!
+      </p>
+    </section>
+
+    <section class="controles" aria-label="Escolhas do jogo">
+      <div class="grupo-controle">
+        <span class="grupo-rotulo">Operação</span>
+        <div id="seletor-operacao" class="segmentado" role="group" aria-label="Operação">
+          <button type="button" class="seg-btn ativo" data-operacao="SOMA" aria-pressed="true">
+            Adição <b>+</b>
+          </button>
+          <button type="button" class="seg-btn" data-operacao="SUBTRACAO" aria-pressed="false">
+            Subtração <b>−</b>
+          </button>
+        </div>
+      </div>
+
+      <div class="grupo-controle">
+        <span class="grupo-rotulo">Dificuldade</span>
+        <div id="seletor-dificuldade" class="segmentado" role="group" aria-label="Dificuldade">
+          <button type="button" class="seg-btn ativo" data-dificuldade="FACIL" aria-pressed="true">
+            Fácil <small>2 dígitos</small>
+          </button>
+          <button type="button" class="seg-btn" data-dificuldade="MEDIO" aria-pressed="false">
+            Médio <small>3 dígitos</small>
+          </button>
+        </div>
+      </div>
+
+      <button type="button" id="btn-nova-questao" class="btn btn-primario">✨ Novo desafio</button>
+    </section>
+
+    <section class="lousa" aria-live="polite">
+      <div class="moldura">
+        <div id="placeholder" class="placeholder">
+          <span id="placeholder-icone" class="placeholder-icone" aria-hidden="true">🧮</span>
+          <p id="placeholder-texto">Buscando um desafio...</p>
+          <button type="button" id="btn-recarregar" class="btn btn-secundario" hidden>Tentar de novo</button>
+        </div>
+        <div id="conta" class="conta" hidden></div>
+      </div>
+    </section>
+
+    <div class="acoes">
+      <button type="button" id="btn-validar" class="btn btn-validar">Conferir resposta</button>
+    </div>
+
+    <p id="dica" class="dica" aria-live="polite"></p>
+  </div>
+
+  <footer class="rodape">
+    <p class="rodape-marca">Reforço Escolar da Tia Thaís</p>
+    <a href="https://wa.me/5585984273357?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20reforço!" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" class="btn-whatsapp">📱 (85) 98427-3357 — Fale pelo WhatsApp</a>
+    <p class="rodape-aviso">Atendimento comercial pelo WhatsApp.</p>
+  </footer>
+
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" hidden>
+    <div class="modal-card">
+      <span id="modal-emoji" class="modal-emoji" aria-hidden="true">⭐</span>
+      <h2 id="modal-titulo">Muito bem!</h2>
+      <p id="modal-mensagem" class="modal-mensagem"></p>
+      <p id="modal-pontos" class="modal-pontos"></p>
+      <div class="modal-acoes">
+        <button type="button" id="modal-proxima" class="btn btn-primario">Próximo desafio</button>
+        <button type="button" id="modal-fechar" class="btn btn-secundario">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="aviso" class="aviso" role="status" hidden></div>
+  <canvas id="confete" class="confete" aria-hidden="true"></canvas>
+
+  <script src="app.js"></script>
+</body>
+</html>
