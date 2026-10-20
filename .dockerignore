@@ -1,0 +1,25 @@
+.git
+.gitignore
+.gitattributes
+
+# Build local
+target/
+out/
+
+# IDEs e ferramentas locais
+.vscode/
+.idea/
+*.iml
+.ai-jail
+.opencode/
+
+# Testes/artefatos que não entram na imagem
+*.log
+*.class
+
+# Arquivos não utilizados no build
+README.md
+LICENSE
+Dockerfile
+.dockerignore
+mvnw.cmd
