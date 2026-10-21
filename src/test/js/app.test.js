@@ -20,6 +20,11 @@ const {
   aplicarPreferencias,
   podeIniciarQuestao,
   podeValidarResposta,
+  normalizarNomeJogador,
+  nomeJogadorValido,
+  lerNomeJogador,
+  salvarNomeJogador,
+  montarTituloFeedback,
   criarAvisoServidor,
 } = require('../../main/resources/static/app.js');
 
@@ -313,4 +318,90 @@ test('podeValidarResposta exige questão ativa e bloqueia resposta duplicada', (
   assert.equal(podeValidarResposta({ ...base, questaoRespondida: true }), false);
   assert.equal(podeValidarResposta({ ...base, carregando: true }), false);
   assert.equal(podeValidarResposta({ ...base, validando: true }), false);
+});
+
+test('normalizarNomeJogador remove espaços extras e limita o tamanho', () => {
+  assert.equal(normalizarNomeJogador('  Ana   Maria  '), 'Ana Maria');
+  assert.equal(normalizarNomeJogador(null), '');
+  assert.equal(normalizarNomeJogador('   '), '');
+  assert.equal(Array.from(normalizarNomeJogador('a'.repeat(40))).length, 30);
+  assert.equal(Array.from(normalizarNomeJogador('😀'.repeat(31))).length, 30);
+});
+
+test('nomeJogadorValido exige pelo menos um caractere visível', () => {
+  assert.equal(nomeJogadorValido('Ana'), true);
+  assert.equal(nomeJogadorValido('  A  '), true);
+  assert.equal(nomeJogadorValido('    '), false);
+  assert.equal(nomeJogadorValido(null), false);
+});
+
+test('lerNomeJogador recupera o nome da sessão e tolera falhas de acesso', () => {
+  const armazenamento = {
+    valor: '  Bia  ',
+    getItem() {
+      return this.valor;
+    },
+  };
+  assert.equal(lerNomeJogador(armazenamento), 'Bia');
+
+  armazenamento.getItem = () => {
+    throw new Error('indisponível');
+  };
+  assert.equal(lerNomeJogador(armazenamento), '');
+  assert.equal(lerNomeJogador(null), '');
+});
+
+test('salvarNomeJogador grava apenas o nome normalizado na sessão', () => {
+  const armazenamento = {
+    valor: null,
+    setItem(chave, valor) {
+      this.chave = chave;
+      this.valor = valor;
+    },
+  };
+
+  assert.equal(salvarNomeJogador('  João   Pedro  ', armazenamento), 'João Pedro');
+  assert.equal(armazenamento.valor, 'João Pedro');
+  assert.equal(salvarNomeJogador('   ', armazenamento), '');
+  assert.equal(armazenamento.valor, 'João Pedro');
+});
+
+test('montarTituloFeedback personaliza os feedbacks com o nome do jogador', () => {
+  const acerto = { correto: true, pontosGanhos: 10 };
+  const parcial = { correto: false, pontosGanhos: 4 };
+  const erro = { correto: false, pontosGanhos: 0 };
+
+  assert.equal(montarTituloFeedback('Ana', acerto, {}), 'Parabéns, Ana!');
+  assert.equal(montarTituloFeedback('Ana', parcial, {}), 'Quase lá, Ana!');
+  assert.equal(montarTituloFeedback('Ana', erro, {}), 'Tente novamente, Ana!');
+  assert.equal(montarTituloFeedback('', acerto, {}), 'Muito bem!');
+  assert.equal(montarTituloFeedback('', parcial, {}), 'Quase perfeito!');
+  assert.equal(montarTituloFeedback('', erro, {}), 'Vamos tentar de novo!');
+  assert.equal(
+    montarTituloFeedback('Ana', acerto, { subiuNivel: true }),
+    'Parabéns, Ana!',
+  );
+  assert.equal(
+    montarTituloFeedback('', acerto, { subiuNivel: true }),
+    'Subiu de nível!',
+  );
+  assert.equal(
+    montarTituloFeedback('', acerto, { nivelMaximo: true }),
+    'Nível máximo!',
+  );
+});
+
+test('salvarNomeJogador mantém o nome em memória se a sessão estiver indisponível', () => {
+  const armazenamento = {
+    setItem() {
+      throw new Error('indisponível');
+    },
+  };
+  const avisoOriginal = console.warn;
+  console.warn = () => {};
+  try {
+    assert.equal(salvarNomeJogador('  Lia  ', armazenamento), 'Lia');
+  } finally {
+    console.warn = avisoOriginal;
+  }
 });

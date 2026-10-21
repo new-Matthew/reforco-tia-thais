@@ -23,6 +23,10 @@
 
       <div class="placar" aria-label="Placar do jogo">
         <div class="placar-card">
+          <span class="placar-rotulo">🙋 Jogador</span>
+          <strong id="jogador" class="placar-valor placar-nome" title="">—</strong>
+        </div>
+        <div class="placar-card">
           <span class="placar-rotulo">⭐ Pontos</span>
           <strong id="pontos" class="placar-valor">0</strong>
         </div>
@@ -101,6 +105,21 @@
     <a href="https://wa.me/5585984273357?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20reforço!" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" class="btn-whatsapp">📱 (85) 98427-3357 — Fale pelo WhatsApp</a>
     <p class="rodape-aviso">Atendimento comercial pelo WhatsApp.</p>
   </footer>
+
+  <div id="modal-nome" class="modal modal-nome" role="dialog" aria-modal="true" aria-labelledby="modal-nome-titulo" aria-describedby="modal-nome-descricao" hidden>
+    <div class="modal-card">
+      <span class="modal-emoji" aria-hidden="true">👋</span>
+      <h2 id="modal-nome-titulo">Como você se chama?</h2>
+      <p id="modal-nome-descricao" class="modal-mensagem">Digite seu nome para começar a jogar.</p>
+      <form id="form-nome" class="form-nome" novalidate>
+        <label for="input-nome" class="nome-rotulo">Seu nome</label>
+        <input id="input-nome" class="nome-input" type="text" name="nome" maxlength="30"
+               autocomplete="off" autocapitalize="words" spellcheck="false" required>
+        <p id="nome-erro" class="nome-erro" role="alert" hidden>Digite seu nome para continuar.</p>
+        <button type="submit" id="btn-salvar-nome" class="btn btn-primario">Começar a jogar</button>
+      </form>
+    </div>
+  </div>
 
   <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" hidden>
     <div class="modal-card">
