@@ -111,19 +111,19 @@ test('quantidadeColunas acrescenta uma coluna extra somente na soma', () => {
 });
 
 test('quantidadeColunas rejeita dificuldade desconhecida', () => {
-  assert.throws(() => quantidadeColunas('DIFICIL', 'SOMA'), /Dificuldade inválida/);
+  assert.throws(() => quantidadeColunas('IMPOSSIVEL', 'SOMA'), /Dificuldade inválida/);
 });
 
 test('quantidadeCaixasVaiUm só cria caixinhas entre as colunas dos operandos', () => {
   assert.equal(quantidadeCaixasVaiUm('FACIL'), 1);
   assert.equal(quantidadeCaixasVaiUm('MEDIO'), 2);
-  assert.throws(() => quantidadeCaixasVaiUm('DIFICIL'), /Dificuldade inválida/);
+  assert.throws(() => quantidadeCaixasVaiUm('IMPOSSIVEL'), /Dificuldade inválida/);
 });
 
 test('proximaDificuldade avança do fácil para o médio e para no topo', () => {
   assert.equal(proximaDificuldade('FACIL'), 'MEDIO');
   assert.equal(proximaDificuldade('MEDIO'), null);
-  assert.throws(() => proximaDificuldade('DIFICIL'), /Dificuldade inválida/);
+  assert.throws(() => proximaDificuldade('IMPOSSIVEL'), /Dificuldade inválida/);
 });
 
 test('calcularProgresso limita a barra entre 0 e 1', () => {
