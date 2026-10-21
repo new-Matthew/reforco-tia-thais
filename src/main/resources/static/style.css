@@ -313,6 +313,7 @@ h1 {
 
 .segmentado {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 6px;
   border-radius: 16px;
@@ -349,6 +350,11 @@ h1 {
 
 .seg-btn:hover {
   background: rgba(255, 255, 255, 0.12);
+}
+
+.seg-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .seg-btn.ativo {

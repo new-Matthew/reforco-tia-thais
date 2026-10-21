@@ -5,6 +5,7 @@ Jogo educativo de adição e subtração para crianças, com lousa interativa, c
 ## Funcionalidades
 
 - Contas de adição e subtração nos níveis fácil (2 dígitos) e médio (3 dígitos).
+- Multiplicação no nível fácil (1 dígito por 1 dígito).
 - Preenchimento dos passos de "vai um" e empréstimo.
 - Correção automática das respostas pela API.
 - Placar, sequência de acertos e barra de progresso.

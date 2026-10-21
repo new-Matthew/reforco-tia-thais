@@ -52,6 +52,27 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Retorna uma questão de multiplicação no endpoint de próxima questão")
+    void retornaQuestaoDeMultiplicacao() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "MULTIPLICACAO")
+                        .param("dificuldade", "FACIL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("MULTIPLICACAO"))
+                .andExpect(jsonPath("$.dificuldade").value("FACIL"));
+    }
+
+    @Test
+    @DisplayName("Retorna 400 ao pedir multiplicação no nível médio")
+    void retornaErroParaMultiplicacaoNoNivelMedio() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "MULTIPLICACAO")
+                        .param("dificuldade", "MEDIO"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").isNotEmpty());
+    }
+
+    @Test
     @DisplayName("Valida uma resposta correta pelo endpoint de validação")
     void validaRespostaCorreta() throws Exception {
         String corpo = """

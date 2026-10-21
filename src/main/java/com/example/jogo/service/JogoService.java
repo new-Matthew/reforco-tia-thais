@@ -40,6 +40,10 @@ public class JogoService {
             throw new IllegalArgumentException("A dificuldade é obrigatória.");
         }
 
+        if (operacao == Operacao.MULTIPLICACAO) {
+            return gerarMultiplicacao(operacao, dificuldade);
+        }
+
         int minimo = dificuldade.getValorMinimo();
         int maximo = dificuldade.getValorMaximo();
 
@@ -56,14 +60,23 @@ public class JogoService {
         int numeroB = requisicao.getNumeroB();
         int resultadoDigitado = requisicao.getResultadoDigitado();
 
-        boolean soma = requisicao.getOperacao() == Operacao.SOMA;
-        int respostaCorreta = soma ? numeroA + numeroB : numeroA - numeroB;
-        List<Integer> passosEsperados = soma
-                ? calcularVaiUm(numeroA, numeroB)
-                : calcularEmprestimos(numeroA, numeroB);
-        List<Integer> passosInformados = soma
-                ? requisicao.getVaiUm()
-                : requisicao.getEmprestados();
+        Operacao operacao = requisicao.getOperacao();
+        int respostaCorreta;
+        List<Integer> passosEsperados = null;
+        List<Integer> passosInformados = null;
+
+        if (operacao == Operacao.MULTIPLICACAO) {
+            respostaCorreta = numeroA * numeroB;
+        } else {
+            boolean soma = operacao == Operacao.SOMA;
+            respostaCorreta = soma ? numeroA + numeroB : numeroA - numeroB;
+            passosEsperados = soma
+                    ? calcularVaiUm(numeroA, numeroB)
+                    : calcularEmprestimos(numeroA, numeroB);
+            passosInformados = soma
+                    ? requisicao.getVaiUm()
+                    : requisicao.getEmprestados();
+        }
 
         boolean resultadoCorreto = resultadoDigitado == respostaCorreta;
         boolean passosCorretos = passosInformados == null
@@ -81,7 +94,7 @@ public class JogoService {
             return new RespostaValidacaoDTO(
                     false,
                     "O resultado está certo, mas confira os passos do "
-                            + (soma ? "'vai um'." : "empréstimo."),
+                            + (operacao == Operacao.SOMA ? "'vai um'." : "empréstimo."),
                     PONTOS_ACERTO_PARCIAL,
                     respostaCorreta);
         }
@@ -167,6 +180,16 @@ public class JogoService {
             }
         }
         throw new IllegalStateException("Não foi possível gerar uma subtração com empréstimo.");
+    }
+
+    private QuestaoDTO gerarMultiplicacao(Operacao operacao, Dificuldade dificuldade) {
+        if (dificuldade != Dificuldade.FACIL) {
+            throw new IllegalArgumentException(
+                    "A multiplicação está disponível apenas no nível fácil.");
+        }
+        int numeroA = sortear(1, 9);
+        int numeroB = sortear(1, 9);
+        return novaQuestao(operacao, dificuldade, numeroA, numeroB);
     }
 
     private QuestaoDTO novaQuestao(Operacao operacao, Dificuldade dificuldade, int numeroA, int numeroB) {

@@ -86,6 +86,54 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Gera multiplicações fáceis com um dígito em cada fator")
+    void geraMultiplicacaoFacilComUmDigito() {
+        for (int i = 0; i < 200; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(Operacao.MULTIPLICACAO, Dificuldade.FACIL);
+
+            assertEquals(Operacao.MULTIPLICACAO, questao.getOperacao());
+            assertEquals(Dificuldade.FACIL, questao.getDificuldade());
+            assertTrue(questao.getNumeroA() >= 1 && questao.getNumeroA() <= 9);
+            assertTrue(questao.getNumeroB() >= 1 && questao.getNumeroB() <= 9);
+            assertTrue(questao.getId() != null && !questao.getId().isBlank());
+        }
+    }
+
+    @Test
+    @DisplayName("Rejeita multiplicação fora do nível fácil")
+    void rejeitaMultiplicacaoNoNivelMedio() {
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.gerarQuestao(Operacao.MULTIPLICACAO, Dificuldade.MEDIO));
+    }
+
+    @Test
+    @DisplayName("Valida multiplicação correta sem exigir passos intermediários")
+    void validaMultiplicacaoCorreta() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult", Operacao.MULTIPLICACAO, 7, 8, 56, null, null);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(56, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Zera os pontos quando o resultado da multiplicação está errado")
+    void validaMultiplicacaoErrada() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-errada", Operacao.MULTIPLICACAO, 7, 8, 54, null, null);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(56, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("56"));
+    }
+
+    @Test
     @DisplayName("Rejeita geração sem operação ou sem dificuldade")
     void rejeitaParametrosNulosNaGeracao() {
         assertThrows(IllegalArgumentException.class,

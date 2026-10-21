@@ -39,11 +39,31 @@ function digitosDe(numero) {
 }
 
 function quantidadeColunas(dificuldade, operacao) {
+  if (operacao === 'MULTIPLICACAO') {
+    if (dificuldade !== 'FACIL') {
+      throw new Error('A multiplicação está disponível apenas no nível fácil.');
+    }
+    return 2;
+  }
   const digitos = DIGITOS_POR_DIFICULDADE[dificuldade];
   if (!digitos) {
     throw new Error('Dificuldade inválida: ' + dificuldade);
   }
   return digitos + (operacao === 'SOMA' ? 1 : 0);
+}
+
+function digitosDosOperandos(dificuldade, operacao) {
+  if (operacao === 'MULTIPLICACAO') {
+    if (dificuldade !== 'FACIL') {
+      throw new Error('A multiplicação está disponível apenas no nível fácil.');
+    }
+    return 1;
+  }
+  const digitos = DIGITOS_POR_DIFICULDADE[dificuldade];
+  if (!digitos) {
+    throw new Error('Dificuldade inválida: ' + dificuldade);
+  }
+  return digitos;
 }
 
 /*
@@ -235,6 +255,7 @@ function comporResultado(valores) {
 
 function montarRequisicao(questao, entradas) {
   const soma = questao.operacao === 'SOMA';
+  const subtracao = questao.operacao === 'SUBTRACAO';
   return {
     idQuestao: questao.id,
     operacao: questao.operacao,
@@ -242,7 +263,7 @@ function montarRequisicao(questao, entradas) {
     numeroB: questao.numeroB,
     resultadoDigitado: entradas.resultadoDigitado,
     vaiUm: soma ? normalizarPassos(entradas.vaiUm) : null,
-    emprestados: soma ? null : normalizarPassos(entradas.emprestados),
+    emprestados: subtracao ? normalizarPassos(entradas.emprestados) : null,
   };
 }
 
@@ -437,6 +458,10 @@ function iniciarInterface() {
       return;
     }
     estado.operacao = botao.dataset.operacao;
+    if (estado.operacao === 'MULTIPLICACAO') {
+      estado.dificuldade = 'FACIL';
+      atualizarSegmentado(el.seletorDificuldade, estado.dificuldade);
+    }
     atualizarSegmentado(el.seletorOperacao, estado.operacao);
     carregarQuestao(estado, el);
   });
@@ -486,11 +511,14 @@ function aplicarPreferencias(estado, busca) {
   const operacao = parametros.get('operacao');
   const dificuldade = parametros.get('dificuldade');
 
-  if (operacao === 'SOMA' || operacao === 'SUBTRACAO') {
+  if (operacao === 'SOMA' || operacao === 'SUBTRACAO' || operacao === 'MULTIPLICACAO') {
     estado.operacao = operacao;
   }
   if (dificuldade === 'FACIL' || dificuldade === 'MEDIO') {
     estado.dificuldade = dificuldade;
+  }
+  if (estado.operacao === 'MULTIPLICACAO') {
+    estado.dificuldade = 'FACIL';
   }
   return estado;
 }
@@ -517,6 +545,14 @@ function atualizarControles(estado, el) {
       botao.disabled = ocupado;
     });
   });
+
+  if (el.seletorDificuldade) {
+    el.seletorDificuldade.querySelectorAll('[data-dificuldade]').forEach((botao) => {
+      const indisponivel = estado.operacao === 'MULTIPLICACAO'
+        && botao.dataset.dificuldade !== 'FACIL';
+      botao.disabled = ocupado || indisponivel;
+    });
+  }
 
   if (el.btnNovaQuestao) {
     el.btnNovaQuestao.disabled = ocupado;
@@ -650,8 +686,9 @@ function esconderPlaceholder(el) {
 
 function renderConta(estado, el) {
   const questao = estado.questao;
-  const digitos = DIGITOS_POR_DIFICULDADE[questao.dificuldade];
   const soma = questao.operacao === 'SOMA';
+  const subtracao = questao.operacao === 'SUBTRACAO';
+  const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
   const colunas = quantidadeColunas(questao.dificuldade, questao.operacao);
   const colunaDaGrade = (indice) => colunas + 1 - indice;
 
@@ -684,7 +721,7 @@ function renderConta(estado, el) {
 
   const digitosA = digitosDe(questao.numeroA);
   for (let indice = 0; indice < digitos; indice += 1) {
-    const podeEmprestar = !soma && indice >= 1;
+    const podeEmprestar = subtracao && indice >= 1;
     const celula = podeEmprestar ? document.createElement('button') : document.createElement('div');
     if (podeEmprestar) {
       celula.type = 'button';
@@ -743,7 +780,7 @@ function renderConta(estado, el) {
 
   const sinal = document.createElement('span');
   sinal.className = 'sinal';
-  sinal.textContent = soma ? '+' : '−';
+  sinal.textContent = soma ? '+' : (subtracao ? '−' : '×');
   sinal.style.gridColumn = '1';
   sinal.style.gridRow = '3';
   el.conta.appendChild(sinal);
@@ -813,7 +850,7 @@ function renderConta(estado, el) {
     el.conta.appendChild(campo);
   }
 
-  if (!soma) {
+  if (subtracao) {
     atualizarEmprestimos(estado, el);
   }
 }
@@ -867,6 +904,10 @@ function atualizarDica(estado, el) {
   }
   if (estado.questao.operacao === 'SOMA') {
     el.dica.textContent = 'Dica: some da direita para a esquerda. Quando a conta passar de 9, escreva 1 na caixinha do “vai um”.';
+  } else if (estado.questao.operacao === 'MULTIPLICACAO') {
+    el.dica.textContent = 'Dica: multiplique ' + estado.questao.numeroA + ' × ' + estado.questao.numeroB
+      + '. Pense em grupos iguais: somar ' + estado.questao.numeroA
+      + ' por ' + estado.questao.numeroB + ' vezes dá o mesmo resultado.';
   } else {
     el.dica.textContent = 'Dica: se o número de cima for menor, toque no número da esquerda para pedir emprestado. Ele diminui 1 e o vizinho ganha 10.';
   }
@@ -901,7 +942,8 @@ async function validarResposta(estado, el) {
   }
 
   const soma = questao.operacao === 'SOMA';
-  const digitos = DIGITOS_POR_DIFICULDADE[questao.dificuldade];
+  const subtracao = questao.operacao === 'SUBTRACAO';
+  const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
   const requisicao = montarRequisicao(questao, {
     resultadoDigitado,
     vaiUm: soma
@@ -911,7 +953,7 @@ async function validarResposta(estado, el) {
         calcularVaiUm(questao.numeroA, questao.numeroB),
       )
       : null,
-    emprestados: soma ? null : montarArrayEmprestimos(estado.emprestimos, digitos),
+    emprestados: subtracao ? montarArrayEmprestimos(estado.emprestimos, digitos) : null,
   });
 
   estado.validando = true;
@@ -981,7 +1023,16 @@ function salvarPlacar(estado) {
 }
 
 function atualizarPlacar(estado, el, dados) {
-  const resolucao = resolverProgresso(estado.sequencia, estado.dificuldade, dados.correto);
+  let resolucao = resolverProgresso(estado.sequencia, estado.dificuldade, dados.correto);
+
+  if (estado.operacao === 'MULTIPLICACAO' && resolucao.subiuNivel) {
+    resolucao = {
+      ...resolucao,
+      subiuNivel: false,
+      nivelMaximo: true,
+      dificuldade: 'FACIL',
+    };
+  }
 
   estado.pontos += dados.pontosGanhos;
   estado.sequencia = resolucao.sequencia;
@@ -1176,6 +1227,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     digitosDe,
     quantidadeColunas,
+    digitosDosOperandos,
     quantidadeCaixasVaiUm,
     proximaDificuldade,
     calcularProgresso,
