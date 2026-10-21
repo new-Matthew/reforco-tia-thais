@@ -194,6 +194,39 @@ function lerVaiUmMultiplicacao(caixasVaiUm) {
   return normalizarVaiUmMultiplicacao(caixasVaiUm[0]);
 }
 
+/*
+- Ordem lógica do preenchimento na multiplicação: unidades do resultado,
+- transporte ("vai um") daquela coluna e só então a próxima coluna do
+- resultado. Sem transporte, as colunas seguem em sequência.
+ */
+function ordemFocoMultiplicacao(colunas, temVaiUm) {
+  const ordem = [];
+  for (let indice = 0; indice < colunas; indice += 1) {
+    ordem.push({ tipo: 'resultado', coluna: indice });
+    if (temVaiUm && indice === 0) {
+      ordem.push({ tipo: 'vaiUm', coluna: 1 });
+    }
+  }
+  return ordem;
+}
+
+function focarProximoMultiplicacao(el, ordem, atual) {
+  const posicao = ordem.findIndex(
+    (item) => item.tipo === atual.tipo && item.coluna === atual.coluna,
+  );
+  const proximo = posicao >= 0 ? ordem[posicao + 1] : null;
+  if (!proximo) {
+    return;
+  }
+  const seletor = proximo.tipo === 'vaiUm'
+    ? '.caixa-vai-um'
+    : '.resultado-input[data-coluna="' + proximo.coluna + '"]';
+  const campo = el.conta.querySelector(seletor);
+  if (campo) {
+    campo.focus();
+  }
+}
+
 function preencherAte(valores, quantidade) {
   const passos = valores.slice();
   while (passos.length < quantidade) {
@@ -714,6 +747,12 @@ function renderConta(estado, el) {
   const digitosB = digitosDoMultiplicador(questao.dificuldade, questao.operacao);
   const colunas = quantidadeColunas(questao.dificuldade, questao.operacao);
   const colunaDaGrade = (indice) => colunas + 1 - indice;
+  const carryMultiplicacao = media
+    ? Number(questao.vaiUm ?? calcularVaiUmMultiplicacao(questao.numeroA, questao.numeroB))
+    : 0;
+  const ordemFoco = multiplicacao
+    ? ordemFocoMultiplicacao(colunas, carryMultiplicacao > 0)
+    : [];
 
   el.conta.innerHTML = '';
   el.conta.style.setProperty('--colunas', String(colunas));
@@ -741,8 +780,7 @@ function renderConta(estado, el) {
       el.conta.appendChild(caixa);
     }
   } else if (media) {
-    const carry = questao.vaiUm ?? calcularVaiUmMultiplicacao(questao.numeroA, questao.numeroB);
-    if (Number(carry) > 0) {
+    if (carryMultiplicacao > 0) {
       const caixa = document.createElement('input');
       caixa.type = 'text';
       caixa.className = 'caixa-vai-um';
@@ -756,6 +794,9 @@ function renderConta(estado, el) {
       caixa.style.gridRow = '1';
       caixa.addEventListener('input', () => {
         caixa.value = caixa.value.replace(/\D/g, '').slice(-1);
+        if (caixa.value !== '') {
+          focarProximoMultiplicacao(el, ordemFoco, { tipo: 'vaiUm', coluna: 1 });
+        }
       });
       el.conta.appendChild(caixa);
     }
@@ -864,11 +905,15 @@ function renderConta(estado, el) {
     campo.addEventListener('input', () => {
       campo.value = campo.value.replace(/\D/g, '').slice(-1);
       if (campo.value !== '') {
-        const proximo = el.conta.querySelector(
-          '.resultado-input[data-coluna="' + (indice + 1) + '"]',
-        );
-        if (proximo) {
-          proximo.focus();
+        if (multiplicacao) {
+          focarProximoMultiplicacao(el, ordemFoco, { tipo: 'resultado', coluna: indice });
+        } else {
+          const proximo = el.conta.querySelector(
+            '.resultado-input[data-coluna="' + (indice + 1) + '"]',
+          );
+          if (proximo) {
+            proximo.focus();
+          }
         }
       }
     });
@@ -1279,6 +1324,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizarPassos,
     normalizarVaiUmMultiplicacao,
     lerVaiUmMultiplicacao,
+    ordemFocoMultiplicacao,
     calcularVaiUm,
     montarArrayVaiUm,
     montarArrayEmprestimos,

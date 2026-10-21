@@ -14,6 +14,7 @@ const {
   normalizarPassos,
   normalizarVaiUmMultiplicacao,
   lerVaiUmMultiplicacao,
+  ordemFocoMultiplicacao,
   calcularVaiUm,
   montarArrayVaiUm,
   montarArrayEmprestimos,
@@ -456,6 +457,27 @@ test('lerVaiUmMultiplicacao envia o valor real da caixinha', () => {
 test('normalizarPasso não pode ser usado no transporte da multiplicação', () => {
   assert.equal(normalizarPasso('7'), 1);
   assert.equal(lerVaiUmMultiplicacao(['7']), 7);
+});
+
+test('ordemFocoMultiplicacao coloca o vai um entre as unidades e as dezenas', () => {
+  assert.deepEqual(ordemFocoMultiplicacao(3, true), [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'vaiUm', coluna: 1 },
+    { tipo: 'resultado', coluna: 1 },
+    { tipo: 'resultado', coluna: 2 },
+  ]);
+});
+
+test('ordemFocoMultiplicacao segue em sequência quando não há transporte', () => {
+  assert.deepEqual(ordemFocoMultiplicacao(2, false), [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'resultado', coluna: 1 },
+  ]);
+  assert.deepEqual(ordemFocoMultiplicacao(3, false), [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'resultado', coluna: 1 },
+    { tipo: 'resultado', coluna: 2 },
+  ]);
 });
 
 test('calcularVaiUmMultiplicacao usa o transporte das unidades', () => {
