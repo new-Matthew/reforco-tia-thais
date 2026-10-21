@@ -920,10 +920,10 @@ function atualizarDica(estado, el) {
     return;
   }
   if (estado.questao.operacao === 'SOMA') {
-    el.dica.textContent = 'Dica: some da direita para a esquerda. Quando a conta passar de 9, escreva 1 na caixinha do “vai um”.';
+    el.dica.textContent = 'Some os números que estão um embaixo do outro, da direita para a esquerda: se passar de 9, deixe o último número embaixo e suba o 1.';
   } else if (estado.questao.operacao === 'MULTIPLICACAO') {
     if (estado.questao.dificuldade === 'MEDIO') {
-      el.dica.textContent = 'Dica: multiplique as unidades, anote o “vai um” acima das dezenas e depois multiplique as dezenas somando esse “vai um”.';
+      el.dica.textContent = 'Multiplique o número de baixo pelo de cima (da direita para a esquerda): se passar de 9, deixe a unidade embaixo e suba o outro número para somar no vizinho';
     } else {
       el.dica.textContent = 'Dica: multiplique ' + estado.questao.numeroA + ' × ' + estado.questao.numeroB
         + '. Pense em grupos iguais: somar ' + estado.questao.numeroA
