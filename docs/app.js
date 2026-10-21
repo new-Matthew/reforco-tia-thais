@@ -20,6 +20,8 @@ const DIGITOS_POR_DIFICULDADE = { FACIL: 2, MEDIO: 3 };
 const ROTULOS_COLUNA = ['unidades', 'dezenas', 'centenas', 'milhares'];
 const CHAVE_PLACAR = 'reforco-tia-thais-placar';
 const CHAVE_PLACAR_LEGADA = 'lousa-matematica-placar';
+const CHAVE_JOGADOR = 'reforco-tia-thais-jogador';
+const LIMITE_NOME_JOGADOR = 30;
 const LIMITE_AVISO_SERVIDOR = 2000;
 const META_NIVEL = 5;
 const NIVEIS_DIFICULDADE = ['FACIL', 'MEDIO'];
@@ -255,6 +257,63 @@ function podeValidarResposta(estado) {
     && !estado.questaoRespondida;
 }
 
+function normalizarNomeJogador(valor) {
+  const limpo = String(valor ?? '').replace(/\s+/g, ' ').trim();
+  return Array.from(limpo).slice(0, LIMITE_NOME_JOGADOR).join('').trim();
+}
+
+function nomeJogadorValido(valor) {
+  return normalizarNomeJogador(valor).length > 0;
+}
+
+function obterArmazenamentoSessao() {
+  try {
+    return typeof window !== 'undefined' ? window.sessionStorage : null;
+  } catch (erro) {
+    return null;
+  }
+}
+
+function lerNomeJogador(armazenamento = obterArmazenamentoSessao()) {
+  try {
+    return normalizarNomeJogador(armazenamento && armazenamento.getItem(CHAVE_JOGADOR));
+  } catch (erro) {
+    return '';
+  }
+}
+
+function salvarNomeJogador(nome, armazenamento = obterArmazenamentoSessao()) {
+  const normalizado = normalizarNomeJogador(nome);
+  if (!normalizado) {
+    return '';
+  }
+  try {
+    if (armazenamento) {
+      armazenamento.setItem(CHAVE_JOGADOR, normalizado);
+    }
+  } catch (erro) {
+    console.warn('Não foi possível guardar o nome na sessão.', erro);
+  }
+  return normalizado;
+}
+
+function montarTituloFeedback(nome, dados, resolucao) {
+  const jogador = normalizarNomeJogador(nome);
+  if (resolucao && resolucao.subiuNivel) {
+    return jogador ? 'Parabéns, ' + jogador + '!' : 'Subiu de nível!';
+  }
+  if (resolucao && resolucao.nivelMaximo) {
+    return jogador ? 'Parabéns, ' + jogador + '!' : 'Nível máximo!';
+  }
+  if (dados.correto) {
+    return jogador ? 'Parabéns, ' + jogador + '!' : 'Muito bem!';
+  }
+  if (dados.pontosGanhos > 0) {
+    return jogador ? 'Quase lá, ' + jogador + '!' : 'Quase perfeito!';
+  }
+  return jogador ? 'Tente novamente, ' + jogador + '!' : 'Vamos tentar de novo!';
+}
+
 /*
  * Agenda o aviso de servidor lento. O aviso só aparece se a requisição ainda
  * estiver ativa depois do limite; ao concluir, o temporizador é cancelado e o
@@ -331,11 +390,16 @@ function iniciarInterface() {
     placeholderTexto: document.getElementById('placeholder-texto'),
     conta: document.getElementById('conta'),
     dica: document.getElementById('dica'),
+    jogador: document.getElementById('jogador'),
     pontos: document.getElementById('pontos'),
     sequencia: document.getElementById('sequencia'),
     aviso: document.getElementById('aviso'),
     avisoServidor: document.getElementById('aviso-servidor'),
     confete: document.getElementById('confete'),
+    modalNome: document.getElementById('modal-nome'),
+    formNome: document.getElementById('form-nome'),
+    inputNome: document.getElementById('input-nome'),
+    nomeErro: document.getElementById('nome-erro'),
     modal: document.getElementById('modal'),
     modalEmoji: document.getElementById('modal-emoji'),
     modalTitulo: document.getElementById('modal-titulo'),
@@ -348,6 +412,7 @@ function iniciarInterface() {
   const estado = {
     operacao: 'SOMA',
     dificuldade: 'FACIL',
+    jogador: '',
     questao: null,
     emprestimos: new Set(),
     pontos: 0,
@@ -364,6 +429,7 @@ function iniciarInterface() {
   atualizarSegmentado(el.seletorOperacao, estado.operacao);
   atualizarSegmentado(el.seletorDificuldade, estado.dificuldade);
   carregarPlacar(estado, el);
+  configurarNomeJogador(estado, el);
 
   el.seletorOperacao.addEventListener('click', (evento) => {
     const botao = evento.target.closest('[data-operacao]');
@@ -466,6 +532,53 @@ function atualizarControles(estado, el) {
       controle.disabled = desabilitarResposta;
     });
   }
+}
+
+function atualizarNomeJogador(estado, el) {
+  const nome = normalizarNomeJogador(estado.jogador);
+  if (el.jogador) {
+    el.jogador.textContent = nome || '—';
+    el.jogador.title = nome;
+  }
+}
+
+function abrirModalNome(el) {
+  el.nomeErro.hidden = true;
+  el.inputNome.value = '';
+  el.modalNome.hidden = false;
+  window.setTimeout(() => el.inputNome.focus(), 0);
+}
+
+function fecharModalNome(el) {
+  el.modalNome.hidden = true;
+}
+
+function configurarNomeJogador(estado, el) {
+  estado.jogador = lerNomeJogador();
+  atualizarNomeJogador(estado, el);
+
+  if (!estado.jogador) {
+    abrirModalNome(el);
+  }
+
+  el.formNome.addEventListener('submit', (evento) => {
+    evento.preventDefault();
+    if (!nomeJogadorValido(el.inputNome.value)) {
+      el.nomeErro.hidden = false;
+      el.inputNome.focus();
+      return;
+    }
+    estado.jogador = salvarNomeJogador(el.inputNome.value);
+    atualizarNomeJogador(estado, el);
+    fecharModalNome(el);
+    el.btnNovaQuestao.focus();
+  });
+
+  el.inputNome.addEventListener('input', () => {
+    if (!el.nomeErro.hidden) {
+      el.nomeErro.hidden = true;
+    }
+  });
 }
 
 async function carregarQuestao(estado, el) {
@@ -820,7 +933,7 @@ async function validarResposta(estado, el) {
     const dados = await resposta.json();
     estado.questaoRespondida = true;
     const resolucao = atualizarPlacar(estado, el, dados);
-    abrirFeedback(el, dados, resolucao);
+    abrirFeedback(el, dados, resolucao, estado.jogador);
   } catch (erro) {
     console.error(erro);
     mostrarAviso(el, 'Não consegui conferir agora. O servidor está rodando na porta 8080?');
@@ -937,23 +1050,20 @@ function atualizarPlacarVisual(estado, el) {
   el.sequencia.textContent = String(estado.sequencia);
 }
 
-function abrirFeedback(el, dados, resolucao) {
+function abrirFeedback(el, dados, resolucao, nomeJogador) {
   if (resolucao && resolucao.subiuNivel) {
     el.modalEmoji.textContent = '🚀';
-    el.modalTitulo.textContent = 'Subiu de nível!';
   } else if (resolucao && resolucao.nivelMaximo) {
     el.modalEmoji.textContent = '🏆';
-    el.modalTitulo.textContent = 'Nível máximo!';
   } else if (dados.correto) {
     el.modalEmoji.textContent = '🎉';
-    el.modalTitulo.textContent = 'Muito bem!';
   } else if (dados.pontosGanhos > 0) {
     el.modalEmoji.textContent = '💡';
-    el.modalTitulo.textContent = 'Quase perfeito!';
   } else {
     el.modalEmoji.textContent = '🌱';
-    el.modalTitulo.textContent = 'Vamos tentar de novo!';
   }
+
+  el.modalTitulo.textContent = montarTituloFeedback(nomeJogador, dados, resolucao);
 
   let mensagemNivel = '';
   if (resolucao && resolucao.subiuNivel) {
@@ -1080,6 +1190,11 @@ if (typeof module !== 'undefined' && module.exports) {
     aplicarPreferencias,
     podeIniciarQuestao,
     podeValidarResposta,
+    normalizarNomeJogador,
+    nomeJogadorValido,
+    lerNomeJogador,
+    salvarNomeJogador,
+    montarTituloFeedback,
     criarAvisoServidor,
   };
 }

@@ -142,6 +142,16 @@ h1 {
   animation: pulsar 0.6s ease;
 }
 
+.placar-nome {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.15rem;
+  line-height: 1.2;
+  color: var(--branco);
+}
+
 @keyframes pulsar {
   0% { transform: scale(1); }
   40% { transform: scale(1.35); color: #fff; }
@@ -683,6 +693,56 @@ h1 {
   padding: 20px;
   background: rgba(3, 18, 46, 0.6);
   backdrop-filter: blur(4px);
+}
+
+.modal-nome {
+  z-index: 60;
+}
+
+.form-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  text-align: left;
+}
+
+.nome-rotulo {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4a5d7a;
+}
+
+.nome-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #c9d8f3;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--tinta);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.nome-input:focus {
+  border-color: var(--azul-royal);
+  outline: 3px solid rgba(11, 60, 140, 0.28);
+  outline-offset: 2px;
+}
+
+.nome-erro {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.form-nome .btn {
+  width: 100%;
+  margin-top: 4px;
 }
 
 .modal-card {
