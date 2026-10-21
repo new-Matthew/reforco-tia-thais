@@ -27,6 +27,8 @@ const {
   montarTituloFeedback,
   criarAvisoServidor,
   digitosDosOperandos,
+  digitosDoMultiplicador,
+  calcularVaiUmMultiplicacao,
 } = require('../../main/resources/static/app.js');
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -212,6 +214,7 @@ test('montarRequisicao envia vaiUm apenas na soma', () => {
     resultadoDigitado: 63,
     vaiUm: [1, 0],
     emprestados: null,
+    vaiUmMultiplicacao: null,
   });
 
   assert.deepEqual(requisicao, {
@@ -222,6 +225,7 @@ test('montarRequisicao envia vaiUm apenas na soma', () => {
     resultadoDigitado: 63,
     vaiUm: [1, 0],
     emprestados: null,
+    vaiUmMultiplicacao: null,
   });
 });
 
@@ -231,6 +235,7 @@ test('montarRequisicao envia emprestados apenas na subtração', () => {
     resultadoDigitado: 15,
     vaiUm: null,
     emprestados: [1, 0],
+    vaiUmMultiplicacao: null,
   });
 
   assert.deepEqual(requisicao, {
@@ -241,6 +246,7 @@ test('montarRequisicao envia emprestados apenas na subtração', () => {
     resultadoDigitado: 15,
     vaiUm: null,
     emprestados: [1, 0],
+    vaiUmMultiplicacao: null,
   });
 });
 
@@ -407,27 +413,61 @@ test('salvarNomeJogador mantém o nome em memória se a sessão estiver indispon
   }
 });
 
-test('quantidadeColunas reserva duas colunas no resultado da multiplicação fácil', () => {
+test('quantidadeColunas reserva colunas suficientes para o resultado da multiplicação', () => {
   assert.equal(quantidadeColunas('FACIL', 'MULTIPLICACAO'), 2);
-  assert.throws(
-    () => quantidadeColunas('MEDIO', 'MULTIPLICACAO'),
-    /apenas no nível fácil/,
-  );
+  assert.equal(quantidadeColunas('MEDIO', 'MULTIPLICACAO'), 3);
 });
 
-test('digitosDosOperandos usa um dígito por fator na multiplicação fácil', () => {
+test('digitosDosOperandos usa um ou dois dígitos no multiplicando', () => {
   assert.equal(digitosDosOperandos('FACIL', 'MULTIPLICACAO'), 1);
+  assert.equal(digitosDosOperandos('MEDIO', 'MULTIPLICACAO'), 2);
   assert.equal(digitosDosOperandos('FACIL', 'SOMA'), 2);
   assert.equal(digitosDosOperandos('MEDIO', 'SUBTRACAO'), 3);
-  assert.throws(
-    () => digitosDosOperandos('MEDIO', 'MULTIPLICACAO'),
-    /apenas no nível fácil/,
-  );
 });
 
-test('montarRequisicao não envia passos na multiplicação', () => {
+test('digitosDoMultiplicador usa sempre um dígito na multiplicação', () => {
+  assert.equal(digitosDoMultiplicador('FACIL', 'MULTIPLICACAO'), 1);
+  assert.equal(digitosDoMultiplicador('MEDIO', 'MULTIPLICACAO'), 1);
+  assert.equal(digitosDoMultiplicador('MEDIO', 'SOMA'), 3);
+});
+
+test('calcularVaiUmMultiplicacao usa o transporte das unidades', () => {
+  assert.equal(calcularVaiUmMultiplicacao(35, 3), 1);
+  assert.equal(calcularVaiUmMultiplicacao(24, 4), 1);
+  assert.equal(calcularVaiUmMultiplicacao(12, 3), 0);
+  assert.equal(calcularVaiUmMultiplicacao(98, 9), 7);
+});
+
+test('montarRequisicao envia o vai um da multiplicação média', () => {
   const questao = {
     id: 'id-mult',
+    operacao: 'MULTIPLICACAO',
+    dificuldade: 'MEDIO',
+    numeroA: 35,
+    numeroB: 3,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 105,
+    vaiUm: ['1'],
+    emprestados: new Set([0]),
+    vaiUmMultiplicacao: 1,
+  });
+
+  assert.deepEqual(requisicao, {
+    idQuestao: 'id-mult',
+    operacao: 'MULTIPLICACAO',
+    numeroA: 35,
+    numeroB: 3,
+    resultadoDigitado: 105,
+    vaiUm: null,
+    emprestados: null,
+    vaiUmMultiplicacao: 1,
+  });
+});
+
+test('montarRequisicao não envia passos de soma ou subtração na multiplicação', () => {
+  const questao = {
+    id: 'id-mult-facil',
     operacao: 'MULTIPLICACAO',
     dificuldade: 'FACIL',
     numeroA: 7,
@@ -437,25 +477,20 @@ test('montarRequisicao não envia passos na multiplicação', () => {
     resultadoDigitado: 56,
     vaiUm: ['1'],
     emprestados: new Set([0]),
+    vaiUmMultiplicacao: null,
   });
 
-  assert.deepEqual(requisicao, {
-    idQuestao: 'id-mult',
-    operacao: 'MULTIPLICACAO',
-    numeroA: 7,
-    numeroB: 8,
-    resultadoDigitado: 56,
-    vaiUm: null,
-    emprestados: null,
-  });
+  assert.equal(requisicao.vaiUm, null);
+  assert.equal(requisicao.emprestados, null);
+  assert.equal(requisicao.vaiUmMultiplicacao, null);
 });
 
-test('aplicarPreferencias aceita multiplicação e força o nível fácil', () => {
+test('aplicarPreferencias aceita multiplicação no nível médio', () => {
   const estado = aplicarPreferencias(
     { operacao: 'SOMA', dificuldade: 'FACIL' },
     '?operacao=MULTIPLICACAO&dificuldade=MEDIO',
   );
 
   assert.equal(estado.operacao, 'MULTIPLICACAO');
-  assert.equal(estado.dificuldade, 'FACIL');
+  assert.equal(estado.dificuldade, 'MEDIO');
 });

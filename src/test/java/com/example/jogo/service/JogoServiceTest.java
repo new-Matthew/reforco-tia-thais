@@ -14,6 +14,7 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -95,22 +96,82 @@ class JogoServiceTest {
             assertEquals(Dificuldade.FACIL, questao.getDificuldade());
             assertTrue(questao.getNumeroA() >= 1 && questao.getNumeroA() <= 9);
             assertTrue(questao.getNumeroB() >= 1 && questao.getNumeroB() <= 9);
+            assertNull(questao.getVaiUm());
+            assertNull(questao.getResultadoParcial());
             assertTrue(questao.getId() != null && !questao.getId().isBlank());
         }
     }
 
     @Test
-    @DisplayName("Rejeita multiplicação fora do nível fácil")
-    void rejeitaMultiplicacaoNoNivelMedio() {
-        assertThrows(IllegalArgumentException.class,
-                () -> jogoService.gerarQuestao(Operacao.MULTIPLICACAO, Dificuldade.MEDIO));
+    @DisplayName("Gera multiplicações médias com dois dígitos por um e calcula os passos")
+    void geraMultiplicacaoMediaComDoisDigitosPorUm() {
+        for (int i = 0; i < 200; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(Operacao.MULTIPLICACAO, Dificuldade.MEDIO);
+
+            assertEquals(Operacao.MULTIPLICACAO, questao.getOperacao());
+            assertEquals(Dificuldade.MEDIO, questao.getDificuldade());
+            assertTrue(questao.getNumeroA() >= 10 && questao.getNumeroA() <= 99);
+            assertTrue(questao.getNumeroB() >= 1 && questao.getNumeroB() <= 9);
+            assertEquals(
+                    jogoService.calcularVaiUmMultiplicacao(questao.getNumeroA(), questao.getNumeroB()),
+                    questao.getVaiUm());
+            assertEquals(questao.getNumeroA() * questao.getNumeroB(), questao.getResultadoParcial());
+        }
     }
 
     @Test
-    @DisplayName("Valida multiplicação correta sem exigir passos intermediários")
+    @DisplayName("Calcula o vai um da multiplicação a partir das unidades")
+    void calculaVaiUmDaMultiplicacao() {
+        assertEquals(1, jogoService.calcularVaiUmMultiplicacao(35, 3));
+        assertEquals(1, jogoService.calcularVaiUmMultiplicacao(24, 4));
+        assertEquals(0, jogoService.calcularVaiUmMultiplicacao(12, 3));
+        assertEquals(7, jogoService.calcularVaiUmMultiplicacao(98, 9));
+    }
+
+    @Test
+    @DisplayName("Valida multiplicação média correta com o vai um correto")
+    void validaMultiplicacaoMediaComVaiUmCorreto() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-media", Operacao.MULTIPLICACAO, 35, 3, 105, null, null, 1);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(105, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando o resultado está certo mas o vai um está errado")
+    void validaMultiplicacaoMediaComVaiUmErrado() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-media-carry", Operacao.MULTIPLICACAO, 35, 3, 105, null, null, 0);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(105, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("vai um"));
+    }
+
+    @Test
+    @DisplayName("Aceita vai um ausente quando a multiplicação das unidades não gera transporte")
+    void validaMultiplicacaoMediaSemVaiUmEsperado() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-media-sem-carry", Operacao.MULTIPLICACAO, 12, 3, 36, null, null, null);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Valida multiplicação fácil sem exigir passos intermediários")
     void validaMultiplicacaoCorreta() {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
-                "id-mult", Operacao.MULTIPLICACAO, 7, 8, 56, null, null);
+                "id-mult", Operacao.MULTIPLICACAO, 7, 8, 56, null, null, null);
 
         RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
 
@@ -123,7 +184,7 @@ class JogoServiceTest {
     @DisplayName("Zera os pontos quando o resultado da multiplicação está errado")
     void validaMultiplicacaoErrada() {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
-                "id-mult-errada", Operacao.MULTIPLICACAO, 7, 8, 54, null, null);
+                "id-mult-errada", Operacao.MULTIPLICACAO, 7, 8, 54, null, null, null);
 
         RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
 
@@ -178,7 +239,7 @@ class JogoServiceTest {
     @DisplayName("Valida soma correta com passos corretos")
     void validaSomaCorretaComPassosCorretos() {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
-                "id-1", Operacao.SOMA, 38, 25, 63, List.of(1, 0), null);
+                "id-1", Operacao.SOMA, 38, 25, 63, List.of(1, 0), null, null);
 
         RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
 
@@ -192,7 +253,7 @@ class JogoServiceTest {
     @DisplayName("Valida subtração correta com passos corretos")
     void validaSubtracaoCorretaComPassosCorretos() {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
-                "id-2", Operacao.SUBTRACAO, 52, 37, 15, null, List.of(1, 0));
+                "id-2", Operacao.SUBTRACAO, 52, 37, 15, null, List.of(1, 0), null);
 
         RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
 
@@ -205,7 +266,7 @@ class JogoServiceTest {
     @DisplayName("Aceita validação apenas do resultado quando os passos não são enviados")
     void validaSomenteResultadoQuandoPassosSaoNulos() {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
-                "id-3", Operacao.SOMA, 38, 25, 63, null, null);
+                "id-3", Operacao.SOMA, 38, 25, 63, null, null, null);
 
         RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
 
@@ -217,7 +278,7 @@ class JogoServiceTest {
     @DisplayName("Dá acerto parcial quando o resultado está certo mas os passos estão errados")
     void validaResultadoCertoComPassosErrados() {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
-                "id-4", Operacao.SOMA, 38, 25, 63, List.of(0, 0), null);
+                "id-4", Operacao.SOMA, 38, 25, 63, List.of(0, 0), null, null);
 
         RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
 
@@ -231,7 +292,7 @@ class JogoServiceTest {
     @DisplayName("Zera os pontos quando o resultado está errado")
     void validaResultadoErrado() {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
-                "id-5", Operacao.SOMA, 38, 25, 60, List.of(1, 0), null);
+                "id-5", Operacao.SOMA, 38, 25, 60, List.of(1, 0), null, null);
 
         RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
 
@@ -246,12 +307,12 @@ class JogoServiceTest {
     void rejeitaRequisicaoInvalida() {
         assertThrows(IllegalArgumentException.class, () -> jogoService.validar(null));
         assertThrows(IllegalArgumentException.class, () -> jogoService.validar(
-                new RequisicaoValidacaoDTO("id", null, 10, 5, 15, null, null)));
+                new RequisicaoValidacaoDTO("id", null, 10, 5, 15, null, null, null)));
         assertThrows(IllegalArgumentException.class, () -> jogoService.validar(
-                new RequisicaoValidacaoDTO("id", Operacao.SOMA, null, 5, 15, null, null)));
+                new RequisicaoValidacaoDTO("id", Operacao.SOMA, null, 5, 15, null, null, null)));
         assertThrows(IllegalArgumentException.class, () -> jogoService.validar(
-                new RequisicaoValidacaoDTO("id", Operacao.SOMA, 10, null, 15, null, null)));
+                new RequisicaoValidacaoDTO("id", Operacao.SOMA, 10, null, 15, null, null, null)));
         assertThrows(IllegalArgumentException.class, () -> jogoService.validar(
-                new RequisicaoValidacaoDTO("id", Operacao.SOMA, 10, 5, null, null, null)));
+                new RequisicaoValidacaoDTO("id", Operacao.SOMA, 10, 5, null, null, null, null)));
     }
 }
