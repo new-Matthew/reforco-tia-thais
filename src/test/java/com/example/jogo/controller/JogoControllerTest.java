@@ -98,6 +98,28 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Valida multiplicação média com transporte maior que um")
+    void validaMultiplicacaoMediaComVaiUmMaiorQueUm() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "MULTIPLICACAO",
+                  "numeroA": 98,
+                  "numeroB": 9,
+                  "resultadoDigitado": 882,
+                  "vaiUmMultiplicacao": 7
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(882));
+    }
+
+    @Test
     @DisplayName("Valida uma resposta correta pelo endpoint de validação")
     void validaRespostaCorreta() throws Exception {
         String corpo = """

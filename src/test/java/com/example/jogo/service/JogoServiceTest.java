@@ -142,6 +142,19 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Valida multiplicação média quando o transporte é maior que um")
+    void validaMultiplicacaoMediaComVaiUmMaiorQueUm() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-media-carry-alto", Operacao.MULTIPLICACAO, 98, 9, 882, null, null, 7);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(882, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
     @DisplayName("Dá acerto parcial quando o resultado está certo mas o vai um está errado")
     void validaMultiplicacaoMediaComVaiUmErrado() {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(

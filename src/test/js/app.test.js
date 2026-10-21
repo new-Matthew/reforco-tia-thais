@@ -12,6 +12,8 @@ const {
   resolverProgresso,
   normalizarPasso,
   normalizarPassos,
+  normalizarVaiUmMultiplicacao,
+  lerVaiUmMultiplicacao,
   calcularVaiUm,
   montarArrayVaiUm,
   montarArrayEmprestimos,
@@ -431,6 +433,31 @@ test('digitosDoMultiplicador usa sempre um dígito na multiplicação', () => {
   assert.equal(digitosDoMultiplicador('MEDIO', 'SOMA'), 3);
 });
 
+test('normalizarVaiUmMultiplicacao preserva transportes maiores que um', () => {
+  assert.equal(normalizarVaiUmMultiplicacao('7'), 7);
+  assert.equal(normalizarVaiUmMultiplicacao('9'), 9);
+  assert.equal(normalizarVaiUmMultiplicacao('4'), 4);
+  assert.equal(normalizarVaiUmMultiplicacao('0'), 0);
+  assert.equal(normalizarVaiUmMultiplicacao(7), 7);
+  assert.equal(normalizarVaiUmMultiplicacao(''), null);
+  assert.equal(normalizarVaiUmMultiplicacao(null), null);
+  assert.equal(normalizarVaiUmMultiplicacao('10'), null);
+  assert.equal(normalizarVaiUmMultiplicacao('x'), null);
+});
+
+test('lerVaiUmMultiplicacao envia o valor real da caixinha', () => {
+  assert.equal(lerVaiUmMultiplicacao(['7']), 7);
+  assert.equal(lerVaiUmMultiplicacao(['4']), 4);
+  assert.equal(lerVaiUmMultiplicacao(['0']), 0);
+  assert.equal(lerVaiUmMultiplicacao(['']), null);
+  assert.equal(lerVaiUmMultiplicacao([]), null);
+});
+
+test('normalizarPasso não pode ser usado no transporte da multiplicação', () => {
+  assert.equal(normalizarPasso('7'), 1);
+  assert.equal(lerVaiUmMultiplicacao(['7']), 7);
+});
+
 test('calcularVaiUmMultiplicacao usa o transporte das unidades', () => {
   assert.equal(calcularVaiUmMultiplicacao(35, 3), 1);
   assert.equal(calcularVaiUmMultiplicacao(24, 4), 1);
@@ -463,6 +490,24 @@ test('montarRequisicao envia o vai um da multiplicação média', () => {
     emprestados: null,
     vaiUmMultiplicacao: 1,
   });
+});
+
+test('montarRequisicao envia o transporte 7 da multiplicação intacto', () => {
+  const questao = {
+    id: 'id-mult-carry-alto',
+    operacao: 'MULTIPLICACAO',
+    numeroA: 98,
+    numeroB: 9,
+  };
+
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 882,
+    vaiUm: null,
+    emprestados: null,
+    vaiUmMultiplicacao: lerVaiUmMultiplicacao(['7']),
+  });
+
+  assert.equal(requisicao.vaiUmMultiplicacao, 7);
 });
 
 test('montarRequisicao não envia passos de soma ou subtração na multiplicação', () => {
