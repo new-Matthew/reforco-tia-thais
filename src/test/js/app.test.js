@@ -26,6 +26,7 @@ const {
   salvarNomeJogador,
   montarTituloFeedback,
   criarAvisoServidor,
+  digitosDosOperandos,
 } = require('../../main/resources/static/app.js');
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -251,7 +252,7 @@ test('aplicarPreferencias lê operação e dificuldade da URL', () => {
 
 test('aplicarPreferencias ignora valores desconhecidos', () => {
   const estado = { operacao: 'SOMA', dificuldade: 'FACIL' };
-  aplicarPreferencias(estado, '?operacao=MULTIPLICACAO&dificuldade=IMPOSSIVEL');
+  aplicarPreferencias(estado, '?operacao=DIVISAO&dificuldade=IMPOSSIVEL');
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
   aplicarPreferencias(estado, '');
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
@@ -404,4 +405,57 @@ test('salvarNomeJogador mantém o nome em memória se a sessão estiver indispon
   } finally {
     console.warn = avisoOriginal;
   }
+});
+
+test('quantidadeColunas reserva duas colunas no resultado da multiplicação fácil', () => {
+  assert.equal(quantidadeColunas('FACIL', 'MULTIPLICACAO'), 2);
+  assert.throws(
+    () => quantidadeColunas('MEDIO', 'MULTIPLICACAO'),
+    /apenas no nível fácil/,
+  );
+});
+
+test('digitosDosOperandos usa um dígito por fator na multiplicação fácil', () => {
+  assert.equal(digitosDosOperandos('FACIL', 'MULTIPLICACAO'), 1);
+  assert.equal(digitosDosOperandos('FACIL', 'SOMA'), 2);
+  assert.equal(digitosDosOperandos('MEDIO', 'SUBTRACAO'), 3);
+  assert.throws(
+    () => digitosDosOperandos('MEDIO', 'MULTIPLICACAO'),
+    /apenas no nível fácil/,
+  );
+});
+
+test('montarRequisicao não envia passos na multiplicação', () => {
+  const questao = {
+    id: 'id-mult',
+    operacao: 'MULTIPLICACAO',
+    dificuldade: 'FACIL',
+    numeroA: 7,
+    numeroB: 8,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 56,
+    vaiUm: ['1'],
+    emprestados: new Set([0]),
+  });
+
+  assert.deepEqual(requisicao, {
+    idQuestao: 'id-mult',
+    operacao: 'MULTIPLICACAO',
+    numeroA: 7,
+    numeroB: 8,
+    resultadoDigitado: 56,
+    vaiUm: null,
+    emprestados: null,
+  });
+});
+
+test('aplicarPreferencias aceita multiplicação e força o nível fácil', () => {
+  const estado = aplicarPreferencias(
+    { operacao: 'SOMA', dificuldade: 'FACIL' },
+    '?operacao=MULTIPLICACAO&dificuldade=MEDIO',
+  );
+
+  assert.equal(estado.operacao, 'MULTIPLICACAO');
+  assert.equal(estado.dificuldade, 'FACIL');
 });
