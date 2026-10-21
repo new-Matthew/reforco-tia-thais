@@ -40,10 +40,7 @@ function digitosDe(numero) {
 
 function quantidadeColunas(dificuldade, operacao) {
   if (operacao === 'MULTIPLICACAO') {
-    if (dificuldade !== 'FACIL') {
-      throw new Error('A multiplicação está disponível apenas no nível fácil.');
-    }
-    return 2;
+    return dificuldade === 'FACIL' ? 2 : 3;
   }
   const digitos = DIGITOS_POR_DIFICULDADE[dificuldade];
   if (!digitos) {
@@ -54,16 +51,26 @@ function quantidadeColunas(dificuldade, operacao) {
 
 function digitosDosOperandos(dificuldade, operacao) {
   if (operacao === 'MULTIPLICACAO') {
-    if (dificuldade !== 'FACIL') {
-      throw new Error('A multiplicação está disponível apenas no nível fácil.');
-    }
-    return 1;
+    return dificuldade === 'FACIL' ? 1 : 2;
   }
   const digitos = DIGITOS_POR_DIFICULDADE[dificuldade];
   if (!digitos) {
     throw new Error('Dificuldade inválida: ' + dificuldade);
   }
   return digitos;
+}
+
+function digitosDoMultiplicador(dificuldade, operacao) {
+  if (operacao === 'MULTIPLICACAO') {
+    return 1;
+  }
+  return digitosDosOperandos(dificuldade, operacao);
+}
+
+function calcularVaiUmMultiplicacao(numeroA, numeroB) {
+  const a = Math.abs(Math.trunc(Number(numeroA) || 0));
+  const b = Math.abs(Math.trunc(Number(numeroB) || 0));
+  return Math.floor(((a % 10) * b) / 10);
 }
 
 /*
@@ -256,6 +263,7 @@ function comporResultado(valores) {
 function montarRequisicao(questao, entradas) {
   const soma = questao.operacao === 'SOMA';
   const subtracao = questao.operacao === 'SUBTRACAO';
+  const multiplicacao = questao.operacao === 'MULTIPLICACAO';
   return {
     idQuestao: questao.id,
     operacao: questao.operacao,
@@ -264,6 +272,9 @@ function montarRequisicao(questao, entradas) {
     resultadoDigitado: entradas.resultadoDigitado,
     vaiUm: soma ? normalizarPassos(entradas.vaiUm) : null,
     emprestados: subtracao ? normalizarPassos(entradas.emprestados) : null,
+    vaiUmMultiplicacao: multiplicacao
+      ? (entradas.vaiUmMultiplicacao ?? null)
+      : null,
   };
 }
 
@@ -458,10 +469,6 @@ function iniciarInterface() {
       return;
     }
     estado.operacao = botao.dataset.operacao;
-    if (estado.operacao === 'MULTIPLICACAO') {
-      estado.dificuldade = 'FACIL';
-      atualizarSegmentado(el.seletorDificuldade, estado.dificuldade);
-    }
     atualizarSegmentado(el.seletorOperacao, estado.operacao);
     carregarQuestao(estado, el);
   });
@@ -517,9 +524,6 @@ function aplicarPreferencias(estado, busca) {
   if (dificuldade === 'FACIL' || dificuldade === 'MEDIO') {
     estado.dificuldade = dificuldade;
   }
-  if (estado.operacao === 'MULTIPLICACAO') {
-    estado.dificuldade = 'FACIL';
-  }
   return estado;
 }
 
@@ -545,14 +549,6 @@ function atualizarControles(estado, el) {
       botao.disabled = ocupado;
     });
   });
-
-  if (el.seletorDificuldade) {
-    el.seletorDificuldade.querySelectorAll('[data-dificuldade]').forEach((botao) => {
-      const indisponivel = estado.operacao === 'MULTIPLICACAO'
-        && botao.dataset.dificuldade !== 'FACIL';
-      botao.disabled = ocupado || indisponivel;
-    });
-  }
 
   if (el.btnNovaQuestao) {
     el.btnNovaQuestao.disabled = ocupado;
@@ -688,7 +684,10 @@ function renderConta(estado, el) {
   const questao = estado.questao;
   const soma = questao.operacao === 'SOMA';
   const subtracao = questao.operacao === 'SUBTRACAO';
-  const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
+  const multiplicacao = questao.operacao === 'MULTIPLICACAO';
+  const media = multiplicacao && questao.dificuldade === 'MEDIO';
+  const digitosA = digitosDosOperandos(questao.dificuldade, questao.operacao);
+  const digitosB = digitosDoMultiplicador(questao.dificuldade, questao.operacao);
   const colunas = quantidadeColunas(questao.dificuldade, questao.operacao);
   const colunaDaGrade = (indice) => colunas + 1 - indice;
 
@@ -717,11 +716,29 @@ function renderConta(estado, el) {
       });
       el.conta.appendChild(caixa);
     }
+  } else if (media) {
+    const carry = questao.vaiUm ?? calcularVaiUmMultiplicacao(questao.numeroA, questao.numeroB);
+    if (Number(carry) > 0) {
+      const caixa = document.createElement('input');
+      caixa.type = 'text';
+      caixa.className = 'caixa-vai-um';
+      caixa.dataset.coluna = '1';
+      caixa.maxLength = 1;
+      caixa.inputMode = 'numeric';
+      caixa.autocomplete = 'off';
+      caixa.placeholder = '·';
+      caixa.setAttribute('aria-label', 'Vai um da multiplicação das unidades');
+      caixa.style.gridColumn = String(colunaDaGrade(1));
+      caixa.style.gridRow = '1';
+      caixa.addEventListener('input', () => {
+        caixa.value = caixa.value.replace(/\D/g, '').slice(-1);
+      });
+      el.conta.appendChild(caixa);
+    }
   }
 
-  const digitosA = digitosDe(questao.numeroA);
-  for (let indice = 0; indice < digitos; indice += 1) {
-    const podeEmprestar = subtracao && indice >= 1;
+  const digitosDeA = digitosDe(questao.numeroA);
+  for (let indice = 0; indice < digitosA; indice += 1) {    const podeEmprestar = subtracao && indice >= 1;
     const celula = podeEmprestar ? document.createElement('button') : document.createElement('div');
     if (podeEmprestar) {
       celula.type = 'button';
@@ -742,7 +759,7 @@ function renderConta(estado, el) {
 
     const valorDoDigito = document.createElement('span');
     valorDoDigito.className = 'digito-valor';
-    valorDoDigito.textContent = String(digitosA[indice] ?? 0);
+    valorDoDigito.textContent = String(digitosDeA[indice] ?? 0);
 
     digito.append(umEmprestado, valorDoDigito);
     celula.appendChild(digito);
@@ -785,8 +802,8 @@ function renderConta(estado, el) {
   sinal.style.gridRow = '3';
   el.conta.appendChild(sinal);
 
-  const digitosB = digitosDe(questao.numeroB);
-  for (let indice = 0; indice < digitos; indice += 1) {
+  const valoresB = digitosDe(questao.numeroB);
+  for (let indice = 0; indice < digitosB; indice += 1) {
     const celula = document.createElement('div');
     celula.className = 'celula-digito';
     celula.style.gridColumn = String(colunaDaGrade(indice));
@@ -794,7 +811,7 @@ function renderConta(estado, el) {
 
     const digito = document.createElement('span');
     digito.className = 'digito';
-    digito.textContent = String(digitosB[indice] ?? 0);
+    digito.textContent = String(valoresB[indice] ?? 0);
     celula.appendChild(digito);
     el.conta.appendChild(celula);
   }
@@ -905,9 +922,13 @@ function atualizarDica(estado, el) {
   if (estado.questao.operacao === 'SOMA') {
     el.dica.textContent = 'Dica: some da direita para a esquerda. Quando a conta passar de 9, escreva 1 na caixinha do “vai um”.';
   } else if (estado.questao.operacao === 'MULTIPLICACAO') {
-    el.dica.textContent = 'Dica: multiplique ' + estado.questao.numeroA + ' × ' + estado.questao.numeroB
-      + '. Pense em grupos iguais: somar ' + estado.questao.numeroA
-      + ' por ' + estado.questao.numeroB + ' vezes dá o mesmo resultado.';
+    if (estado.questao.dificuldade === 'MEDIO') {
+      el.dica.textContent = 'Dica: multiplique as unidades, anote o “vai um” acima das dezenas e depois multiplique as dezenas somando esse “vai um”.';
+    } else {
+      el.dica.textContent = 'Dica: multiplique ' + estado.questao.numeroA + ' × ' + estado.questao.numeroB
+        + '. Pense em grupos iguais: somar ' + estado.questao.numeroA
+        + ' por ' + estado.questao.numeroB + ' vezes dá o mesmo resultado.';
+    }
   } else {
     el.dica.textContent = 'Dica: se o número de cima for menor, toque no número da esquerda para pedir emprestado. Ele diminui 1 e o vizinho ganha 10.';
   }
@@ -943,17 +964,22 @@ async function validarResposta(estado, el) {
 
   const soma = questao.operacao === 'SOMA';
   const subtracao = questao.operacao === 'SUBTRACAO';
+  const multiplicacao = questao.operacao === 'MULTIPLICACAO';
   const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
+  const caixasVaiUm = lerVaiUm(el);
   const requisicao = montarRequisicao(questao, {
     resultadoDigitado,
     vaiUm: soma
       ? montarArrayVaiUm(
-        lerVaiUm(el),
+        caixasVaiUm,
         digitos,
         calcularVaiUm(questao.numeroA, questao.numeroB),
       )
       : null,
     emprestados: subtracao ? montarArrayEmprestimos(estado.emprestimos, digitos) : null,
+    vaiUmMultiplicacao: multiplicacao && caixasVaiUm.length
+      ? normalizarPasso(caixasVaiUm[0])
+      : null,
   });
 
   estado.validando = true;
@@ -1023,16 +1049,7 @@ function salvarPlacar(estado) {
 }
 
 function atualizarPlacar(estado, el, dados) {
-  let resolucao = resolverProgresso(estado.sequencia, estado.dificuldade, dados.correto);
-
-  if (estado.operacao === 'MULTIPLICACAO' && resolucao.subiuNivel) {
-    resolucao = {
-      ...resolucao,
-      subiuNivel: false,
-      nivelMaximo: true,
-      dificuldade: 'FACIL',
-    };
-  }
+  const resolucao = resolverProgresso(estado.sequencia, estado.dificuldade, dados.correto);
 
   estado.pontos += dados.pontosGanhos;
   estado.sequencia = resolucao.sequencia;
@@ -1228,6 +1245,8 @@ if (typeof module !== 'undefined' && module.exports) {
     digitosDe,
     quantidadeColunas,
     digitosDosOperandos,
+    digitosDoMultiplicador,
+    calcularVaiUmMultiplicacao,
     quantidadeCaixasVaiUm,
     proximaDificuldade,
     calcularProgresso,

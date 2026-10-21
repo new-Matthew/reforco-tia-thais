@@ -63,13 +63,38 @@ class JogoControllerTest {
     }
 
     @Test
-    @DisplayName("Retorna 400 ao pedir multiplicação no nível médio")
-    void retornaErroParaMultiplicacaoNoNivelMedio() throws Exception {
+    @DisplayName("Retorna os passos da multiplicação média no endpoint de próxima questão")
+    void retornaQuestaoDeMultiplicacaoMedia() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
                         .param("operacao", "MULTIPLICACAO")
                         .param("dificuldade", "MEDIO"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").isNotEmpty());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("MULTIPLICACAO"))
+                .andExpect(jsonPath("$.dificuldade").value("MEDIO"))
+                .andExpect(jsonPath("$.vaiUm").isNumber())
+                .andExpect(jsonPath("$.resultadoParcial").isNumber());
+    }
+
+    @Test
+    @DisplayName("Valida os passos e o resultado da multiplicação média")
+    void validaMultiplicacaoMedia() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "MULTIPLICACAO",
+                  "numeroA": 35,
+                  "numeroB": 3,
+                  "resultadoDigitado": 105,
+                  "vaiUmMultiplicacao": 1
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(105));
     }
 
     @Test

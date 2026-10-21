@@ -62,11 +62,19 @@ public class JogoService {
 
         Operacao operacao = requisicao.getOperacao();
         int respostaCorreta;
+        boolean passosCorretos;
         List<Integer> passosEsperados = null;
         List<Integer> passosInformados = null;
 
         if (operacao == Operacao.MULTIPLICACAO) {
             respostaCorreta = numeroA * numeroB;
+            int carryEsperado = numeroA >= 10
+                    ? calcularVaiUmMultiplicacao(numeroA, numeroB)
+                    : 0;
+            int carryInformado = requisicao.getVaiUmMultiplicacao() == null
+                    ? 0
+                    : requisicao.getVaiUmMultiplicacao();
+            passosCorretos = carryInformado == carryEsperado;
         } else {
             boolean soma = operacao == Operacao.SOMA;
             respostaCorreta = soma ? numeroA + numeroB : numeroA - numeroB;
@@ -76,11 +84,11 @@ public class JogoService {
             passosInformados = soma
                     ? requisicao.getVaiUm()
                     : requisicao.getEmprestados();
+            passosCorretos = passosInformados == null
+                    || passosInformados.equals(passosEsperados);
         }
 
         boolean resultadoCorreto = resultadoDigitado == respostaCorreta;
-        boolean passosCorretos = passosInformados == null
-                || passosInformados.equals(passosEsperados);
 
         if (resultadoCorreto && passosCorretos) {
             return new RespostaValidacaoDTO(
@@ -94,7 +102,7 @@ public class JogoService {
             return new RespostaValidacaoDTO(
                     false,
                     "O resultado está certo, mas confira os passos do "
-                            + (operacao == Operacao.SOMA ? "'vai um'." : "empréstimo."),
+                            + descreverPasso(operacao),
                     PONTOS_ACERTO_PARCIAL,
                     respostaCorreta);
         }
@@ -183,13 +191,31 @@ public class JogoService {
     }
 
     private QuestaoDTO gerarMultiplicacao(Operacao operacao, Dificuldade dificuldade) {
-        if (dificuldade != Dificuldade.FACIL) {
-            throw new IllegalArgumentException(
-                    "A multiplicação está disponível apenas no nível fácil.");
-        }
-        int numeroA = sortear(1, 9);
+        int numeroA = dificuldade == Dificuldade.FACIL
+                ? sortear(1, 9)
+                : sortear(10, 99);
         int numeroB = sortear(1, 9);
-        return novaQuestao(operacao, dificuldade, numeroA, numeroB);
+
+        QuestaoDTO questao = novaQuestao(operacao, dificuldade, numeroA, numeroB);
+        if (dificuldade == Dificuldade.MEDIO) {
+            questao.setVaiUm(calcularVaiUmMultiplicacao(numeroA, numeroB));
+            questao.setResultadoParcial(numeroA * numeroB);
+        }
+        return questao;
+    }
+
+    public int calcularVaiUmMultiplicacao(int numeroA, int numeroB) {
+        return (numeroA % 10 * numeroB) / 10;
+    }
+
+    private String descreverPasso(Operacao operacao) {
+        if (operacao == Operacao.SOMA) {
+            return "'vai um'.";
+        }
+        if (operacao == Operacao.MULTIPLICACAO) {
+            return "'vai um' das unidades.";
+        }
+        return "empréstimo.";
     }
 
     private QuestaoDTO novaQuestao(Operacao operacao, Dificuldade dificuldade, int numeroA, int numeroB) {
@@ -198,7 +224,9 @@ public class JogoService {
                 operacao,
                 dificuldade,
                 numeroA,
-                numeroB);
+                numeroB,
+                null,
+                null);
     }
 
     private int sortear(int minimo, int maximo) {

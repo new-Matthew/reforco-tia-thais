@@ -19,4 +19,5 @@ public class RequisicaoValidacaoDTO {
     private Integer resultadoDigitado;
     private List<Integer> vaiUm;
     private List<Integer> emprestados;
+    private Integer vaiUmMultiplicacao;
 }
