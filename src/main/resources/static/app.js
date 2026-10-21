@@ -140,9 +140,10 @@ function resolverProgresso(sequenciaAtual, dificuldadeAtual, correto, meta = MET
 }
 
 /*
-- Converte o conteúdo de uma caixinha em 0 ou 1. Campos vazios, em branco,
-- nulos ou indefinidos viram 0 — a criança só precisa preencher as colunas
-- que realmente têm transporte/empréstimo.
+- Converte o conteúdo de uma caixinha de soma/subtração em 0 ou 1. Campos
+- vazios, em branco, nulos ou indefinidos viram 0 — a criança só precisa
+- preencher as colunas que realmente têm transporte/empréstimo.
+- Não use esta função na multiplicação: lá o transporte pode valer de 0 a 9.
  */
 function normalizarPasso(valor) {
   if (valor === true) {
@@ -168,6 +169,29 @@ function normalizarPassos(valores) {
     return null;
   }
   return Array.from(valores, normalizarPasso);
+}
+
+/*
+- O transporte da multiplicação não é booleano: 8 × 9 nas unidades gera 7.
+- Preserva o dígito 0–9 digitado e devolve null quando a caixinha está vazia.
+ */
+function normalizarVaiUmMultiplicacao(valor) {
+  const texto = String(valor ?? '').trim();
+  if (texto === '') {
+    return null;
+  }
+  const numero = Number(texto);
+  if (!Number.isInteger(numero) || numero < 0 || numero > 9) {
+    return null;
+  }
+  return numero;
+}
+
+function lerVaiUmMultiplicacao(caixasVaiUm) {
+  if (!caixasVaiUm.length) {
+    return null;
+  }
+  return normalizarVaiUmMultiplicacao(caixasVaiUm[0]);
 }
 
 function preencherAte(valores, quantidade) {
@@ -977,8 +1001,8 @@ async function validarResposta(estado, el) {
       )
       : null,
     emprestados: subtracao ? montarArrayEmprestimos(estado.emprestimos, digitos) : null,
-    vaiUmMultiplicacao: multiplicacao && caixasVaiUm.length
-      ? normalizarPasso(caixasVaiUm[0])
+    vaiUmMultiplicacao: multiplicacao
+      ? lerVaiUmMultiplicacao(caixasVaiUm)
       : null,
   });
 
@@ -1253,6 +1277,8 @@ if (typeof module !== 'undefined' && module.exports) {
     resolverProgresso,
     normalizarPasso,
     normalizarPassos,
+    normalizarVaiUmMultiplicacao,
+    lerVaiUmMultiplicacao,
     calcularVaiUm,
     montarArrayVaiUm,
     montarArrayEmprestimos,
