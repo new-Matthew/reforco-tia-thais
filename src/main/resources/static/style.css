@@ -690,12 +690,30 @@ h1 {
   line-height: 1;
 }
 
-.divisao-dividendo {
+.divisao-operando {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.divisao-operando-dividendo {
   grid-area: dividendo;
 }
 
-.divisao-divisor {
+.divisao-operando-divisor {
   grid-area: divisor;
+}
+
+.divisao-rotulo {
+  color: #5b6b7f;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .divisao-chave {
@@ -720,19 +738,38 @@ h1 {
   font-weight: 700;
 }
 
-.divisao-quociente {
+.divisao-quocientes {
   grid-area: quociente;
-  border-top-width: 4px;
-  border-top-color: var(--tinta);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.divisao-quocientes-campos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 4px solid var(--tinta);
+}
+
+.divisao-quociente {
+  border-top-width: 3px;
+  border-top-color: #c5d8ef;
 }
 
 .divisao-resto {
   grid-area: resto;
   display: flex;
+  align-items: center;
   justify-content: center;
-  width: 100%;
-  padding-top: 8px;
-  border-top: 4px solid var(--tinta);
+  gap: 8px;
+}
+
+.divisao-resto .divisao-input {
+  border-top-width: 4px;
+  border-top-color: var(--tinta);
 }
 
 .divisao-input {
@@ -765,8 +802,8 @@ h1 {
   grid-template-columns: minmax(110px, auto) 4px minmax(64px, auto);
   grid-template-areas:
     "dividendo chave divisor"
-    "subtracao1 chave quociente1"
-    "resto1 chave quociente2"
+    "subtracao1 chave quociente"
+    "resto1 chave ."
     "abaixado chave ."
     "subtracao2 chave ."
     "restoFinal . .";
@@ -774,7 +811,7 @@ h1 {
 }
 
 .divisao-longa .divisao-chave {
-  grid-area: 1 / 2 / 6 / 3;
+  grid-area: 1 / 2 / 7 / 3;
 }
 
 .divisao-longa .divisao-subtracao-etapa-1 {
@@ -785,16 +822,6 @@ h1 {
   grid-area: subtracao2;
 }
 
-.divisao-longa .divisao-quociente-parcial {
-  grid-area: quociente1;
-  border-top-width: 4px;
-  border-top-color: var(--tinta);
-}
-
-.divisao-longa .divisao-quociente-final {
-  grid-area: quociente2;
-}
-
 .divisao-longa .divisao-linha-resto-parcial {
   grid-area: resto1;
 }
@@ -803,8 +830,11 @@ h1 {
   grid-area: restoFinal;
 }
 
-.divisao-linha-resto-parcial,
-.divisao-linha-resto-final {
+.divisao-longa .divisao-abaixado {
+  grid-area: abaixado;
+}
+
+.divisao-linha-resto-parcial {
   display: flex;
   justify-content: center;
   width: 100%;
@@ -813,7 +843,15 @@ h1 {
 }
 
 .divisao-linha-resto-final {
-  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.divisao-linha-resto-final .divisao-input {
+  border-top-width: 4px;
+  border-top-color: var(--tinta);
 }
 
 .divisao-abaixado {

@@ -16,6 +16,7 @@ const {
   lerVaiUmMultiplicacao,
   ordemFocoMultiplicacao,
   ORDEM_CAMPOS_DIVISAO_MEDIA,
+  ROTULOS_DIVISAO,
   ehDivisaoLonga,
   ehDivisaoMedia,
   etapaDoCampoDivisao,
@@ -639,22 +640,35 @@ test('montarRequisicao não envia campos de divisão nas outras operações', ()
   assert.equal('restoDigitado' in requisicao, false);
 });
 
-test('a ordem da divisão média percorre as duas etapas antes do resto final', () => {
+test('os rótulos da divisão nomeiam os termos matemáticos da lousa', () => {
+  assert.deepEqual(ROTULOS_DIVISAO, {
+    dividendo: 'DIVIDENDO',
+    divisor: 'DIVISOR',
+    quociente: 'QUOCIENTE',
+    resto: 'RESTO',
+  });
+});
+
+test('a ordem da divisão média preenche o quociente horizontal antes das etapas', () => {
   assert.deepEqual(ORDEM_CAMPOS_DIVISAO_MEDIA, [
     'quocienteParcial',
+    'quocienteFinal',
     'subtracaoParcial',
     'restoParcial',
-    'quocienteFinal',
     'subtracaoFinal',
     'restoFinal',
   ]);
   assert.equal(
     proximoCampoDivisao('quocienteParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'quocienteFinal',
+  );
+  assert.equal(
+    proximoCampoDivisao('quocienteFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
     'subtracaoParcial',
   );
   assert.equal(
     proximoCampoDivisao('restoParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
-    'quocienteFinal',
+    'subtracaoFinal',
   );
   assert.equal(
     proximoCampoDivisao('subtracaoFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
@@ -666,7 +680,11 @@ test('a ordem da divisão média percorre as duas etapas antes do resto final', 
   );
   assert.equal(
     campoAnteriorDivisao('quocienteFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
-    'restoParcial',
+    'quocienteParcial',
+  );
+  assert.equal(
+    campoAnteriorDivisao('subtracaoParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'quocienteFinal',
   );
   assert.equal(
     campoAnteriorDivisao('restoFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
