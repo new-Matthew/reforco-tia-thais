@@ -29,9 +29,9 @@ const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio' };
 const ORDEM_CAMPOS_DIVISAO = ['quociente', 'subtracao', 'resto'];
 const ORDEM_CAMPOS_DIVISAO_MEDIA = [
   'quocienteParcial',
+  'quocienteFinal',
   'subtracaoParcial',
   'restoParcial',
-  'quocienteFinal',
   'subtracaoFinal',
   'restoFinal',
 ];
@@ -49,6 +49,12 @@ const SELETORES_CAMPOS_DIVISAO = {
   quocienteFinal: '.divisao-quociente-final',
   subtracaoFinal: '.divisao-subtracao-final',
   restoFinal: '.divisao-resto-final-input',
+};
+const ROTULOS_DIVISAO = {
+  dividendo: 'DIVIDENDO',
+  divisor: 'DIVISOR',
+  quociente: 'QUOCIENTE',
+  resto: 'RESTO',
 };
 
 /* ------------------------------------------------------------------------- */
@@ -1153,6 +1159,24 @@ function configurarCampoDivisao(
   });
 }
 
+function criarRotuloDivisao(texto, classe) {
+  const rotulo = document.createElement('span');
+  rotulo.className = 'divisao-rotulo ' + classe;
+  rotulo.textContent = texto;
+  return rotulo;
+}
+
+function criarOperandoDivisao(valor, nome, rotulo, classeRotulo) {
+  const operando = document.createElement('div');
+  operando.className = 'divisao-operando divisao-operando-' + nome;
+  const numero = document.createElement('div');
+  numero.className = 'divisao-' + nome;
+  numero.textContent = String(valor);
+  numero.setAttribute('aria-label', rotulo + ' ' + valor);
+  operando.append(criarRotuloDivisao(rotulo, classeRotulo), numero);
+  return operando;
+}
+
 function renderDivisao(estado, el) {
   if (ehDivisaoMedia(estado.questao)) {
     renderDivisaoMedia(estado, el);
@@ -1173,19 +1197,23 @@ function renderDivisao(estado, el) {
   const divisao = document.createElement('div');
   divisao.className = 'divisao';
 
-  const dividendo = document.createElement('div');
-  dividendo.className = 'divisao-dividendo';
-  dividendo.textContent = String(questao.numeroA);
-  dividendo.setAttribute('aria-label', 'Dividendo ' + questao.numeroA);
+  const dividendo = criarOperandoDivisao(
+    questao.numeroA,
+    'dividendo',
+    ROTULOS_DIVISAO.dividendo,
+    'divisao-rotulo-dividendo',
+  );
 
   const chave = document.createElement('div');
   chave.className = 'divisao-chave';
   chave.setAttribute('aria-hidden', 'true');
 
-  const divisor = document.createElement('div');
-  divisor.className = 'divisao-divisor';
-  divisor.textContent = String(questao.numeroB);
-  divisor.setAttribute('aria-label', 'Divisor ' + questao.numeroB);
+  const divisor = criarOperandoDivisao(
+    questao.numeroB,
+    'divisor',
+    ROTULOS_DIVISAO.divisor,
+    'divisao-rotulo-divisor',
+  );
 
   const linhaSubtracao = document.createElement('div');
   linhaSubtracao.className = 'divisao-subtracao';
@@ -1202,16 +1230,29 @@ function renderDivisao(estado, el) {
   linhaSubtracao.append(sinal, campoSubtracao);
 
   const campoQuociente = criarCampoDivisao('divisao-quociente', 'Quociente', digitosQuociente);
+  const camposQuociente = document.createElement('div');
+  camposQuociente.className = 'divisao-quocientes-campos';
+  camposQuociente.appendChild(campoQuociente);
+  const areaQuociente = document.createElement('div');
+  areaQuociente.className = 'divisao-quocientes';
+  areaQuociente.append(
+    camposQuociente,
+    criarRotuloDivisao(ROTULOS_DIVISAO.quociente, 'divisao-rotulo-quociente'),
+  );
+
   const campoResto = criarCampoDivisao('divisao-resto-input', 'Resto', digitosResto);
   const linhaResto = document.createElement('div');
   linhaResto.className = 'divisao-resto';
-  linhaResto.appendChild(campoResto);
+  linhaResto.append(
+    campoResto,
+    criarRotuloDivisao(ROTULOS_DIVISAO.resto, 'divisao-rotulo-resto'),
+  );
 
   configurarCampoDivisao(campoQuociente, 'quociente', el);
   configurarCampoDivisao(campoSubtracao, 'subtracao', el);
   configurarCampoDivisao(campoResto, 'resto', el);
 
-  divisao.append(dividendo, chave, divisor, linhaSubtracao, campoQuociente, linhaResto);
+  divisao.append(dividendo, chave, divisor, linhaSubtracao, areaQuociente, linhaResto);
   el.conta.appendChild(divisao);
 }
 
@@ -1231,19 +1272,23 @@ function renderDivisaoMedia(estado, el) {
   const divisao = document.createElement('div');
   divisao.className = 'divisao divisao-longa';
 
-  const dividendo = document.createElement('div');
-  dividendo.className = 'divisao-dividendo';
-  dividendo.textContent = String(questao.numeroA);
-  dividendo.setAttribute('aria-label', 'Dividendo ' + questao.numeroA);
+  const dividendo = criarOperandoDivisao(
+    questao.numeroA,
+    'dividendo',
+    ROTULOS_DIVISAO.dividendo,
+    'divisao-rotulo-dividendo',
+  );
 
   const chave = document.createElement('div');
   chave.className = 'divisao-chave';
   chave.setAttribute('aria-hidden', 'true');
 
-  const divisor = document.createElement('div');
-  divisor.className = 'divisao-divisor';
-  divisor.textContent = String(questao.numeroB);
-  divisor.setAttribute('aria-label', 'Divisor ' + questao.numeroB);
+  const divisor = criarOperandoDivisao(
+    questao.numeroB,
+    'divisor',
+    ROTULOS_DIVISAO.divisor,
+    'divisao-rotulo-divisor',
+  );
 
   const sinalParcial = document.createElement('span');
   sinalParcial.className = 'divisao-sinal';
@@ -1291,6 +1336,16 @@ function renderDivisaoMedia(estado, el) {
     1,
   );
 
+  const camposQuociente = document.createElement('div');
+  camposQuociente.className = 'divisao-quocientes-campos';
+  camposQuociente.append(campoQuocienteParcial, campoQuocienteFinal);
+  const areaQuociente = document.createElement('div');
+  areaQuociente.className = 'divisao-quocientes';
+  areaQuociente.append(
+    camposQuociente,
+    criarRotuloDivisao(ROTULOS_DIVISAO.quociente, 'divisao-rotulo-quociente'),
+  );
+
   const sinalFinal = document.createElement('span');
   sinalFinal.className = 'divisao-sinal';
   sinalFinal.textContent = '−';
@@ -1312,7 +1367,10 @@ function renderDivisaoMedia(estado, el) {
   );
   const linhaRestoFinal = document.createElement('div');
   linhaRestoFinal.className = 'divisao-linha-resto divisao-linha-resto-final';
-  linhaRestoFinal.appendChild(campoResto);
+  linhaRestoFinal.append(
+    campoResto,
+    criarRotuloDivisao(ROTULOS_DIVISAO.resto, 'divisao-rotulo-resto'),
+  );
 
   configurarCampoDivisao(campoQuocienteParcial, 'quocienteParcial', el, ordem, estado);
   configurarCampoDivisao(campoSubtracaoParcial, 'subtracaoParcial', el, ordem, estado);
@@ -1326,9 +1384,8 @@ function renderDivisaoMedia(estado, el) {
     chave,
     divisor,
     linhaSubtracaoParcial,
-    campoQuocienteParcial,
+    areaQuociente,
     linhaRestoParcial,
-    campoQuocienteFinal,
     abaixado,
     linhaSubtracaoFinal,
     linhaRestoFinal,
@@ -1903,6 +1960,7 @@ if (typeof module !== 'undefined' && module.exports) {
     lerVaiUmMultiplicacao,
     ordemFocoMultiplicacao,
     ORDEM_CAMPOS_DIVISAO_MEDIA,
+    ROTULOS_DIVISAO,
     ehDivisaoLonga,
     ehDivisaoMedia,
     etapaDoCampoDivisao,
