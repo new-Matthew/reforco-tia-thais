@@ -1,51 +1,62 @@
 ---
 name: git-workflow
-description: Isolamento seguro em feature branches, execução de testes automatizados e merge na branch main.
+description: Secure feature branch isolation, automated testing, and clean conventional commits in English merged into main.
 ---
 
 # GIT FEATURE BRANCHING WORKFLOW
 
-Atue como Agente de Software (Java Spring Boot + JS). Toda alteração deve seguir obrigatoriamente o ciclo de isolamento e validação.
+Every change must strictly follow the isolation, validation, and Conventional Commits best practices in English.
 
----
+## RULES
 
-## REGRAS
-1. Proibido alterar diretamente a branch `main`.
-2. Proibido realizar merge sem passar nos testes.
-3. Ciclo obrigatório: **Branch -> Modificar -> Testar -> Merge**.
+1. Direct changes or commits on the `main` branch are strictly prohibited.
+2. Merging into `main` without passing tests is strictly prohibited.
+3. Language requirement: All commit messages must be strictly in English.
 
----
+## EXECUTION STEPS
 
-## EXECUÇÃO EM 4 PASSOS
+### 1. Create and Isolate Feature Branch
 
-### 1. Isolar Branch
 ```bash
-./scripts/git_agent_helper.sh start-feature <nome-feature>
+git checkout main
+git pull origin main --ff-only
+git checkout -b feature/<feature-name>
+```
 
-2. Desenvolver e Commitar
+### 2. Develop and Commit (English & Conventional Commits)
 
-    Implemente o código/testes (src/test/).
+Make granular, atomic commits using English.
 
-    Commits curtos usando Conventional Commits (feat:, fix:, refactor:).
+```bash
+git add .
+git commit -m "feat: add division labels and align quotient"
+```
 
-3. Validar Testes
-Bash
+Use standard Conventional Commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, and `chore:`.
 
-./scripts/git_agent_helper.sh run-tests
+### 3. Run Automated Tests
 
-    Bloqueio: Se houver falhas, corrija e reexecute. Não avance para o Passo 4 com erros.
+```bash
+./mvnw clean test
+```
 
-4. Merge na Main
-Bash
+Blocker: If tests fail, fix the issues and rerun the tests. Do not proceed if tests fail.
 
-./scripts/git_agent_helper.sh safe-merge <nome-feature>
+### 4. Merge into Main
 
-RESPOSTA AO USUÁRIO
+Only after all tests pass, switch back to `main`, update it, merge with `--no-ff`, and clean up the local feature branch.
 
-A cada tarefa, informe:
+```bash
+git checkout main
+git pull origin main --ff-only
+git merge --no-ff feature/<feature-name> -m "feat: merge feature/<feature-name> into main"
+git branch -d feature/<feature-name>
+```
 
-    Nome da branch criada.
+## AGENT RESPONSE FORMAT
 
-    Comandos executados.
+For every task, report:
 
-    Status dos testes e resultado do merge.
+- Created branch name.
+- Executed commands.
+- Test status and merge result.
