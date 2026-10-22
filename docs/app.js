@@ -6,7 +6,35 @@
 - As funções puras no topo do arquivo também são exportadas quando o arquivo
 - roda no Node (usado pelos testes unitários). A inicialização da interface
 - só acontece quando existe um `document`.
+ *
+- Foco automático, navegação por digitação e eventos de teclado ficam em
+- lousa-foco.js; a interface carrega esse arquivo antes deste.
  */
+
+const LousaFoco = (typeof module !== 'undefined' && module.exports)
+  ? require('./lousa-foco.js')
+  : window.LousaFoco;
+
+const {
+  normalizarPasso,
+  ordemFocoMultiplicacao,
+  ordemFocoSoma,
+  proximaColunaResultadoADireita,
+  proximoItemOrdem,
+  itemAnteriorOrdem,
+  chaveAlvoFoco,
+  proximoItemVazioOrdem,
+  primeiroItemVazioOrdem,
+  preenchidosNaOrdem,
+  focarItemOrdem,
+  focarNaOrdemFoco,
+  focarProximoMultiplicacao,
+  focarResultadoPorColuna,
+  focarVaiUmPorColuna,
+  tratarTeclaResultado,
+  tratarTeclaVaiUm,
+  tratarTeclaDivisao,
+} = LousaFoco;
 
 const API_BASE = (typeof window !== 'undefined' && window.LOUSADA_API)
   ? window.LOUSADA_API
@@ -170,27 +198,6 @@ function resolverProgresso(sequenciaAtual, dificuldadeAtual, correto, meta = MET
 }
 
 /*
-- Converte o conteúdo de uma caixinha de soma/subtração em 0 ou 1. Campos
-- vazios, em branco, nulos ou indefinidos viram 0 — a criança só precisa
-- preencher as colunas que realmente têm transporte/empréstimo.
-- Não use esta função na multiplicação: lá o transporte pode valer de 0 a 9.
- */
-function normalizarPasso(valor) {
-  if (valor === true) {
-    return 1;
-  }
-  const texto = String(valor ?? '').trim();
-  if (texto === '') {
-    return 0;
-  }
-  const numero = Number(texto);
-  if (!Number.isFinite(numero)) {
-    return 0;
-  }
-  return numero >= 1 ? 1 : 0;
-}
-
-/*
 - Garante que o array enviado ao backend contenha apenas inteiros 0/1.
 - `null` é preservado porque o Java trata a ausência dos passos como opcional.
  */
@@ -222,169 +229,6 @@ function lerVaiUmMultiplicacao(caixasVaiUm) {
     return null;
   }
   return normalizarVaiUmMultiplicacao(caixasVaiUm[0]);
-}
-
-/*
-- Ordem lógica do preenchimento na multiplicação: unidades do resultado,
-- transporte ("vai um") daquela coluna e só então a próxima coluna do
-- resultado. Sem transporte, as colunas seguem em sequência.
- */
-function ordemFocoMultiplicacao(colunas, temVaiUm) {
-  const ordem = [];
-  for (let indice = 0; indice < colunas; indice += 1) {
-    ordem.push({ tipo: 'resultado', coluna: indice });
-    if (temVaiUm && indice === 0) {
-      ordem.push({ tipo: 'vaiUm', coluna: 1 });
-    }
-  }
-  return ordem;
-}
-
-/*
-- Ordem de preenchimento da adição como no papel: primeiro a unidade do
-- resultado; se aquela coluna gerar transporte, sobe para o "vai um" da coluna
-- à esquerda e só então desce para o resultado dessa coluna. A casa extra do
-- resultado (transporte que sai da coluna mais à esquerda) só entra no fluxo
-- quando realmente existe transporte final.
- */
-function ordemFocoSoma(digitos, transportes) {
-  const quantidade = Math.max(0, Math.trunc(Number(digitos) || 0));
-  const passos = Array.from(transportes ?? [], normalizarPasso);
-  const ordem = [];
-
-  for (let coluna = 0; coluna < quantidade; coluna += 1) {
-    ordem.push({ tipo: 'resultado', coluna });
-    if (passos[coluna] === 1 && coluna + 1 <= quantidade - 1) {
-      ordem.push({ tipo: 'vaiUm', coluna: coluna + 1 });
-    }
-  }
-
-  if (quantidade > 0 && passos[quantidade - 1] === 1) {
-    ordem.push({ tipo: 'resultado', coluna: quantidade });
-  }
-
-  return ordem;
-}
-
-/*
-- Quando a criança prefere digitar o resultado da esquerda para a direita, o
-- cursor deve caminhar para a casa vazia imediatamente à direita (coluna menor)
-- em vez de voltar ao fluxo do papel. Sem casa vazia à direita, o fluxo normal
-- continua valendo.
- */
-function proximaColunaResultadoADireita(colunaAtual, preenchidas) {
-  const atual = Math.trunc(Number(colunaAtual) || 0);
-  for (let coluna = atual - 1; coluna >= 0; coluna -= 1) {
-    if (!preenchidas[coluna]) {
-      return coluna;
-    }
-  }
-  return null;
-}
-
-function mesmoAlvoFoco(item, atual) {
-  return Boolean(item && atual)
-    && item.tipo === atual.tipo
-    && item.coluna === atual.coluna;
-}
-
-function itemNaOrdemFoco(ordem, atual, passo) {
-  const posicao = ordem.findIndex((item) => mesmoAlvoFoco(item, atual));
-  if (posicao < 0) {
-    return null;
-  }
-  return ordem[posicao + passo] ?? null;
-}
-
-function proximoItemOrdem(ordem, atual) {
-  return itemNaOrdemFoco(ordem, atual, 1);
-}
-
-function itemAnteriorOrdem(ordem, atual) {
-  return itemNaOrdemFoco(ordem, atual, -1);
-}
-
-function chaveAlvoFoco(alvo) {
-  return alvo ? alvo.tipo + ':' + alvo.coluna : null;
-}
-
-/*
-- Avança para o próximo passo ainda vazio do fluxo. Isso evita que o cursor
-- volte para uma casa já preenchida quando a criança digitou o resultado da
-- esquerda para a direita e só faltam os passos do "vai um".
- */
-function proximoItemVazioOrdem(ordem, atual, preenchidos) {
-  const posicao = ordem.findIndex((item) => mesmoAlvoFoco(item, atual));
-  if (posicao < 0) {
-    return null;
-  }
-  const ocupados = preenchidos instanceof Set
-    ? preenchidos
-    : new Set(preenchidos ?? []);
-
-  for (let indice = posicao + 1; indice < ordem.length; indice += 1) {
-    if (!ocupados.has(chaveAlvoFoco(ordem[indice]))) {
-      return ordem[indice];
-    }
-  }
-  return null;
-}
-
-function primeiroItemVazioOrdem(ordem, preenchidos) {
-  const ocupados = preenchidos instanceof Set
-    ? preenchidos
-    : new Set(preenchidos ?? []);
-
-  for (let indice = 0; indice < ordem.length; indice += 1) {
-    if (!ocupados.has(chaveAlvoFoco(ordem[indice]))) {
-      return ordem[indice];
-    }
-  }
-  return null;
-}
-
-function seletorAlvoFoco(alvo) {
-  if (!alvo) {
-    return null;
-  }
-  return alvo.tipo === 'vaiUm'
-    ? '.caixa-vai-um[data-coluna="' + alvo.coluna + '"]'
-    : '.resultado-input[data-coluna="' + alvo.coluna + '"]';
-}
-
-function preenchidosNaOrdem(el, ordem) {
-  const preenchidos = new Set();
-  ordem.forEach((item) => {
-    const campo = el.conta.querySelector(seletorAlvoFoco(item));
-    if (campo && String(campo.value).trim() !== '') {
-      preenchidos.add(chaveAlvoFoco(item));
-    }
-  });
-  return preenchidos;
-}
-
-function focarItemOrdem(el, alvo) {
-  const seletor = seletorAlvoFoco(alvo);
-  if (!seletor) {
-    return false;
-  }
-  const campo = el.conta.querySelector(seletor);
-  if (campo) {
-    campo.focus();
-    return true;
-  }
-  return false;
-}
-
-function focarNaOrdemFoco(el, ordem, atual, passo) {
-  const alvo = passo >= 0
-    ? proximoItemOrdem(ordem, atual)
-    : itemAnteriorOrdem(ordem, atual);
-  return focarItemOrdem(el, alvo);
-}
-
-function focarProximoMultiplicacao(el, ordem, atual) {
-  focarNaOrdemFoco(el, ordem, atual, 1);
 }
 
 function preencherAte(valores, quantidade) {
@@ -1018,6 +862,7 @@ function renderConta(estado, el) {
     renderDivisao(estado, el);
     return;
   }
+
   const soma = questao.operacao === 'SOMA';
   const subtracao = questao.operacao === 'SUBTRACAO';
   const multiplicacao = questao.operacao === 'MULTIPLICACAO';
@@ -1042,147 +887,36 @@ function renderConta(estado, el) {
   if (soma) {
     const caixasVaiUm = quantidadeCaixasVaiUm(questao.dificuldade);
     for (let indice = 1; indice <= caixasVaiUm; indice += 1) {
-      const caixa = document.createElement('input');
-      caixa.type = 'text';
-      caixa.className = 'caixa-vai-um';
-      caixa.dataset.coluna = String(indice);
-      caixa.maxLength = 1;
-      caixa.inputMode = 'numeric';
-      caixa.autocomplete = 'off';
-      caixa.placeholder = '·';
-      caixa.setAttribute(
-        'aria-label',
-        'Vai um para a coluna das ' + (ROTULOS_COLUNA[indice] ?? 'milhares'),
+      el.conta.appendChild(
+        criarCaixaVaiUmSoma(indice, colunaDaGrade(indice), el, ordemFoco),
       );
-      caixa.style.gridColumn = String(colunaDaGrade(indice));
-      caixa.style.gridRow = '1';
-      caixa.addEventListener('input', () => {
-        caixa.value = caixa.value.replace(/[^01]/g, '').slice(-1);
-        if (caixa.value !== '') {
-          const preenchidos = preenchidosNaOrdem(el, ordemFoco);
-          let alvo = proximoItemVazioOrdem(
-            ordemFoco, { tipo: 'vaiUm', coluna: indice }, preenchidos,
-          );
-          if (!alvo) {
-            alvo = primeiroItemVazioOrdem(ordemFoco, preenchidos);
-          }
-          if (!focarItemOrdem(el, alvo)) {
-            const resultadoAbaixo = el.conta.querySelector(
-              '.resultado-input[data-coluna="' + indice + '"]',
-            );
-            if (resultadoAbaixo && String(resultadoAbaixo.value).trim() === '') {
-              resultadoAbaixo.focus();
-            }
-          }
-        }
-      });
-      caixa.addEventListener('keydown', (evento) => {
-        if (evento.key === 'Backspace' && caixa.value === '') {
-          focarNaOrdemFoco(el, ordemFoco, { tipo: 'vaiUm', coluna: indice }, -1);
-        }
-      });
-      el.conta.appendChild(caixa);
     }
-  } else if (media) {
-    if (carryMultiplicacao > 0) {
-      const caixa = document.createElement('input');
-      caixa.type = 'text';
-      caixa.className = 'caixa-vai-um';
-      caixa.dataset.coluna = '1';
-      caixa.maxLength = 1;
-      caixa.inputMode = 'numeric';
-      caixa.autocomplete = 'off';
-      caixa.placeholder = '·';
-      caixa.setAttribute('aria-label', 'Vai um da multiplicação das unidades');
-      caixa.style.gridColumn = String(colunaDaGrade(1));
-      caixa.style.gridRow = '1';
-      caixa.addEventListener('input', () => {
-        caixa.value = caixa.value.replace(/\D/g, '').slice(-1);
-        if (caixa.value !== '') {
-          focarProximoMultiplicacao(el, ordemFoco, { tipo: 'vaiUm', coluna: 1 });
-        }
-      });
-      el.conta.appendChild(caixa);
-    }
+  } else if (media && carryMultiplicacao > 0) {
+    el.conta.appendChild(
+      criarCaixaVaiUmMultiplicacao(colunaDaGrade(1), el, ordemFoco),
+    );
   }
 
   const digitosDeA = digitosDe(questao.numeroA);
-  for (let indice = 0; indice < digitosA; indice += 1) {    const podeEmprestar = subtracao && indice >= 1;
-    const celula = podeEmprestar ? document.createElement('button') : document.createElement('div');
-    if (podeEmprestar) {
-      celula.type = 'button';
-    }
-    celula.className = 'celula-digito' + (podeEmprestar ? ' clicavel' : '');
-    celula.dataset.coluna = String(indice);
-    celula.style.gridColumn = String(colunaDaGrade(indice));
-    celula.style.gridRow = '2';
-
-    const digito = document.createElement('span');
-    digito.className = 'digito';
-
-    const umEmprestado = document.createElement('span');
-    umEmprestado.className = 'um-emprestado';
-    umEmprestado.textContent = '1';
-    umEmprestado.setAttribute('aria-hidden', 'true');
-    umEmprestado.hidden = true;
-
-    const valorDoDigito = document.createElement('span');
-    valorDoDigito.className = 'digito-valor';
-    valorDoDigito.textContent = String(digitosDeA[indice] ?? 0);
-
-    digito.append(umEmprestado, valorDoDigito);
-    celula.appendChild(digito);
-
-    const risco = document.createElement('span');
-    risco.className = 'risco';
-    risco.setAttribute('aria-hidden', 'true');
-    risco.hidden = true;
-    celula.appendChild(risco);
-
-    const valorEmprestado = document.createElement('span');
-    valorEmprestado.className = 'valor-emprestado';
-    valorEmprestado.setAttribute('aria-hidden', 'true');
-    valorEmprestado.hidden = true;
-    celula.appendChild(valorEmprestado);
-
-    if (podeEmprestar) {
-      celula.setAttribute('aria-pressed', 'false');
-      celula.setAttribute(
-        'aria-label',
-        'Pedir emprestado para a coluna das ' + (ROTULOS_COLUNA[indice - 1] ?? 'unidades'),
-      );
-      celula.addEventListener('click', () => {
-        if (estado.emprestimos.has(indice)) {
-          estado.emprestimos.delete(indice);
-        } else {
-          estado.emprestimos.add(indice);
-        }
-        atualizarEmprestimos(estado, el);
-      });
-    }
-
-    el.conta.appendChild(celula);
+  for (let indice = 0; indice < digitosA; indice += 1) {
+    const podeEmprestar = subtracao && indice >= 1;
+    el.conta.appendChild(criarCelulaOperandoA(
+      indice,
+      digitosDeA[indice] ?? 0,
+      colunaDaGrade(indice),
+      podeEmprestar,
+      estado,
+      el,
+    ));
   }
 
-  const sinal = document.createElement('span');
-  sinal.className = 'sinal';
-  sinal.textContent = soma ? '+' : (subtracao ? '−' : '×');
-  sinal.style.gridColumn = '1';
-  sinal.style.gridRow = '3';
-  el.conta.appendChild(sinal);
+  el.conta.appendChild(criarSinalConta(soma, subtracao));
 
   const valoresB = digitosDe(questao.numeroB);
   for (let indice = 0; indice < digitosB; indice += 1) {
-    const celula = document.createElement('div');
-    celula.className = 'celula-digito';
-    celula.style.gridColumn = String(colunaDaGrade(indice));
-    celula.style.gridRow = '3';
-
-    const digito = document.createElement('span');
-    digito.className = 'digito';
-    digito.textContent = String(valoresB[indice] ?? 0);
-    celula.appendChild(digito);
-    el.conta.appendChild(celula);
+    el.conta.appendChild(
+      criarCelulaOperandoB(valoresB[indice] ?? 0, colunaDaGrade(indice)),
+    );
   }
 
   const linha = document.createElement('div');
@@ -1191,110 +925,255 @@ function renderConta(estado, el) {
   linha.style.gridRow = '4';
   el.conta.appendChild(linha);
 
+  const contexto = { el, ordemFoco, colunas, soma, multiplicacao };
   for (let indice = 0; indice < colunas; indice += 1) {
-    const campo = document.createElement('input');
-    campo.type = 'text';
-    campo.className = 'resultado-input';
-    campo.dataset.coluna = String(indice);
-    campo.maxLength = 1;
-    campo.inputMode = 'numeric';
-    campo.autocomplete = 'off';
-    campo.setAttribute(
-      'aria-label',
-      'Resultado na coluna das ' + (ROTULOS_COLUNA[indice] ?? 'milhares'),
+    el.conta.appendChild(
+      criarCampoResultado(indice, colunaDaGrade(indice), contexto),
     );
-    campo.style.gridColumn = String(colunaDaGrade(indice));
-    campo.style.gridRow = '5';
-
-    campo.addEventListener('input', () => {
-      campo.value = campo.value.replace(/\D/g, '').slice(-1);
-      if (campo.value !== '') {
-        if (soma && indice > 0) {
-          const preenchidas = [];
-          for (let coluna = 0; coluna < colunas; coluna += 1) {
-            const outro = el.conta.querySelector(
-              '.resultado-input[data-coluna="' + coluna + '"]',
-            );
-            preenchidas.push(Boolean(outro && String(outro.value).trim() !== ''));
-          }
-          const colunaDireita = proximaColunaResultadoADireita(indice, preenchidas);
-          if (colunaDireita !== null) {
-            const destino = el.conta.querySelector(
-              '.resultado-input[data-coluna="' + colunaDireita + '"]',
-            );
-            if (destino) {
-              destino.focus();
-            }
-            return;
-          }
-        }
-        if (soma) {
-          const preenchidos = preenchidosNaOrdem(el, ordemFoco);
-          let alvo = proximoItemVazioOrdem(
-            ordemFoco, { tipo: 'resultado', coluna: indice }, preenchidos,
-          );
-          if (!alvo) {
-            alvo = primeiroItemVazioOrdem(ordemFoco, preenchidos);
-          }
-          focarItemOrdem(el, alvo);
-        } else if (multiplicacao) {
-          focarProximoMultiplicacao(el, ordemFoco, { tipo: 'resultado', coluna: indice });
-        } else {
-          const proximo = el.conta.querySelector(
-            '.resultado-input[data-coluna="' + (indice + 1) + '"]',
-          );
-          if (proximo) {
-            proximo.focus();
-          }
-        }
-      }
-    });
-
-    campo.addEventListener('keydown', (evento) => {
-      if (evento.key === 'Backspace' && campo.value === '') {
-        if (multiplicacao || soma) {
-          focarNaOrdemFoco(el, ordemFoco, { tipo: 'resultado', coluna: indice }, -1);
-          return;
-        }
-        if (indice > 0) {
-          const anterior = el.conta.querySelector(
-            '.resultado-input[data-coluna="' + (indice - 1) + '"]',
-          );
-          if (anterior) {
-            anterior.focus();
-          }
-        }
-      }
-      if (evento.key === 'ArrowLeft' && indice < colunas - 1) {
-        evento.preventDefault();
-        const proximaColuna = el.conta.querySelector(
-          '.resultado-input[data-coluna="' + (indice + 1) + '"]',
-        );
-        if (proximaColuna) {
-          proximaColuna.focus();
-        }
-      }
-      if (evento.key === 'ArrowRight' && indice > 0) {
-        evento.preventDefault();
-        const colunaAnterior = el.conta.querySelector(
-          '.resultado-input[data-coluna="' + (indice - 1) + '"]',
-        );
-        if (colunaAnterior) {
-          colunaAnterior.focus();
-        }
-      }
-      if (evento.key === 'Enter') {
-        evento.preventDefault();
-        el.btnValidar.click();
-      }
-    });
-
-    el.conta.appendChild(campo);
   }
 
   if (subtracao) {
     atualizarEmprestimos(estado, el);
   }
+}
+
+function criarCaixaVaiUmSoma(indice, colunaGrade, el, ordemFoco) {
+  const caixa = document.createElement('input');
+  caixa.type = 'text';
+  caixa.className = 'caixa-vai-um';
+  caixa.dataset.coluna = String(indice);
+  caixa.maxLength = 1;
+  caixa.inputMode = 'numeric';
+  caixa.autocomplete = 'off';
+  caixa.placeholder = '·';
+  caixa.setAttribute(
+    'aria-label',
+    'Vai um para a coluna das ' + (ROTULOS_COLUNA[indice] ?? 'milhares'),
+  );
+  caixa.style.gridColumn = String(colunaGrade);
+  caixa.style.gridRow = '1';
+
+  caixa.addEventListener('input', () => {
+    caixa.value = caixa.value.replace(/[^01]/g, '').slice(-1);
+    if (caixa.value === '') {
+      return;
+    }
+    const preenchidos = preenchidosNaOrdem(el, ordemFoco);
+    let alvo = proximoItemVazioOrdem(
+      ordemFoco, { tipo: 'vaiUm', coluna: indice }, preenchidos,
+    );
+    if (!alvo) {
+      alvo = primeiroItemVazioOrdem(ordemFoco, preenchidos);
+    }
+    if (!focarItemOrdem(el, alvo)) {
+      const resultadoAbaixo = el.conta.querySelector(
+        '.resultado-input[data-coluna="' + indice + '"]',
+      );
+      if (resultadoAbaixo && String(resultadoAbaixo.value).trim() === '') {
+        resultadoAbaixo.focus();
+      }
+    }
+  });
+
+  caixa.addEventListener('keydown', (evento) => {
+    tratarTeclaVaiUm(evento, { el, ordemFoco, indice, caixa });
+  });
+
+  return caixa;
+}
+
+function criarCaixaVaiUmMultiplicacao(colunaGrade, el, ordemFoco) {
+  const caixa = document.createElement('input');
+  caixa.type = 'text';
+  caixa.className = 'caixa-vai-um';
+  caixa.dataset.coluna = '1';
+  caixa.maxLength = 1;
+  caixa.inputMode = 'numeric';
+  caixa.autocomplete = 'off';
+  caixa.placeholder = '·';
+  caixa.setAttribute('aria-label', 'Vai um da multiplicação das unidades');
+  caixa.style.gridColumn = String(colunaGrade);
+  caixa.style.gridRow = '1';
+
+  caixa.addEventListener('input', () => {
+    caixa.value = caixa.value.replace(/\D/g, '').slice(-1);
+    if (caixa.value !== '') {
+      focarProximoMultiplicacao(el, ordemFoco, { tipo: 'vaiUm', coluna: 1 });
+    }
+  });
+
+  return caixa;
+}
+
+function criarCelulaOperandoA(indice, digito, colunaGrade, podeEmprestar, estado, el) {
+  const celula = podeEmprestar
+    ? document.createElement('button')
+    : document.createElement('div');
+  if (podeEmprestar) {
+    celula.type = 'button';
+  }
+  celula.className = 'celula-digito' + (podeEmprestar ? ' clicavel' : '');
+  celula.dataset.coluna = String(indice);
+  celula.style.gridColumn = String(colunaGrade);
+  celula.style.gridRow = '2';
+
+  const conteudo = document.createElement('span');
+  conteudo.className = 'digito';
+
+  const umEmprestado = document.createElement('span');
+  umEmprestado.className = 'um-emprestado';
+  umEmprestado.textContent = '1';
+  umEmprestado.setAttribute('aria-hidden', 'true');
+  umEmprestado.hidden = true;
+
+  const valorDoDigito = document.createElement('span');
+  valorDoDigito.className = 'digito-valor';
+  valorDoDigito.textContent = String(digito);
+
+  conteudo.append(umEmprestado, valorDoDigito);
+  celula.appendChild(conteudo);
+
+  const risco = document.createElement('span');
+  risco.className = 'risco';
+  risco.setAttribute('aria-hidden', 'true');
+  risco.hidden = true;
+  celula.appendChild(risco);
+
+  const valorEmprestado = document.createElement('span');
+  valorEmprestado.className = 'valor-emprestado';
+  valorEmprestado.setAttribute('aria-hidden', 'true');
+  valorEmprestado.hidden = true;
+  celula.appendChild(valorEmprestado);
+
+  if (podeEmprestar) {
+    celula.setAttribute('aria-pressed', 'false');
+    celula.setAttribute(
+      'aria-label',
+      'Pedir emprestado para a coluna das ' + (ROTULOS_COLUNA[indice - 1] ?? 'unidades'),
+    );
+    celula.addEventListener('click', () => {
+      if (estado.emprestimos.has(indice)) {
+        estado.emprestimos.delete(indice);
+      } else {
+        estado.emprestimos.add(indice);
+      }
+      atualizarEmprestimos(estado, el);
+    });
+  }
+
+  return celula;
+}
+
+function criarCelulaOperandoB(digito, colunaGrade) {
+  const celula = document.createElement('div');
+  celula.className = 'celula-digito';
+  celula.style.gridColumn = String(colunaGrade);
+  celula.style.gridRow = '3';
+
+  const conteudo = document.createElement('span');
+  conteudo.className = 'digito';
+  conteudo.textContent = String(digito);
+  celula.appendChild(conteudo);
+  return celula;
+}
+
+function criarSinalConta(soma, subtracao) {
+  const sinal = document.createElement('span');
+  sinal.className = 'sinal';
+  sinal.textContent = soma ? '+' : (subtracao ? '−' : '×');
+  sinal.style.gridColumn = '1';
+  sinal.style.gridRow = '3';
+  return sinal;
+}
+
+function resultadosPreenchidos(el, colunas) {
+  const preenchidas = [];
+  for (let coluna = 0; coluna < colunas; coluna += 1) {
+    const campo = el.conta.querySelector(
+      '.resultado-input[data-coluna="' + coluna + '"]',
+    );
+    preenchidas.push(Boolean(campo && String(campo.value).trim() !== ''));
+  }
+  return preenchidas;
+}
+
+function configurarEntradaResultado(campo, indice, contexto) {
+  const { el, ordemFoco, colunas, soma, multiplicacao } = contexto;
+
+  campo.addEventListener('input', () => {
+    campo.value = campo.value.replace(/\D/g, '').slice(-1);
+    if (campo.value === '') {
+      return;
+    }
+
+    if (soma && indice > 0) {
+      const colunaDireita = proximaColunaResultadoADireita(
+        indice,
+        resultadosPreenchidos(el, colunas),
+      );
+      if (colunaDireita !== null) {
+        focarResultadoPorColuna(el, colunaDireita);
+        return;
+      }
+    }
+
+    if (soma) {
+      const preenchidos = preenchidosNaOrdem(el, ordemFoco);
+      let alvo = proximoItemVazioOrdem(
+        ordemFoco, { tipo: 'resultado', coluna: indice }, preenchidos,
+      );
+      if (!alvo) {
+        alvo = primeiroItemVazioOrdem(ordemFoco, preenchidos);
+      }
+      focarItemOrdem(el, alvo);
+    } else if (multiplicacao) {
+      focarProximoMultiplicacao(el, ordemFoco, { tipo: 'resultado', coluna: indice });
+    } else {
+      focarResultadoPorColuna(el, indice + 1);
+    }
+  });
+}
+
+function configurarTecladoResultado(campo, indice, contexto) {
+  const { el, ordemFoco, colunas, soma, multiplicacao } = contexto;
+
+  campo.addEventListener('keydown', (evento) => {
+    const tratado = tratarTeclaResultado(evento, {
+      el,
+      ordemFoco,
+      indice,
+      colunas,
+      usarOrdemFoco: soma || multiplicacao,
+      campo,
+    });
+    if (tratado) {
+      return;
+    }
+    if (evento.key === 'Enter') {
+      evento.preventDefault();
+      el.btnValidar.click();
+    }
+  });
+}
+
+function criarCampoResultado(indice, colunaGrade, contexto) {
+  const campo = document.createElement('input');
+  campo.type = 'text';
+  campo.className = 'resultado-input';
+  campo.dataset.coluna = String(indice);
+  campo.maxLength = 1;
+  campo.inputMode = 'numeric';
+  campo.autocomplete = 'off';
+  campo.setAttribute(
+    'aria-label',
+    'Resultado na coluna das ' + (ROTULOS_COLUNA[indice] ?? 'milhares'),
+  );
+  campo.style.gridColumn = String(colunaGrade);
+  campo.style.gridRow = '5';
+
+  configurarEntradaResultado(campo, indice, contexto);
+  configurarTecladoResultado(campo, indice, contexto);
+  return campo;
 }
 
 function quantidadeDigitos(valor) {
@@ -1337,13 +1216,21 @@ function configurarCampoDivisao(
   estado = null,
 ) {
   campo.dataset.campo = nome;
+  configurarEntradaCampoDivisao(campo, nome, el, ordem);
+  configurarFocoCampoDivisao(campo, nome, el, estado);
+  configurarTecladoCampoDivisao(campo, nome, el, ordem);
+}
+
+function configurarEntradaCampoDivisao(campo, nome, el, ordem) {
   campo.addEventListener('input', () => {
     campo.value = campo.value.replace(/\D/g, '').slice(0, Number(campo.maxLength));
     if (campo.value.length >= Number(campo.maxLength)) {
       focarCampoDivisao(el, proximoCampoDivisao(nome, ordem));
     }
   });
+}
 
+function configurarFocoCampoDivisao(campo, nome, el, estado) {
   campo.addEventListener('focus', () => {
     if (!estado || !estado.apoioDivisao || !ehDivisaoMedia(estado.questao)) {
       return;
@@ -1354,15 +1241,15 @@ function configurarCampoDivisao(
       renderApoioDivisao(estado, el);
     }
   });
+}
 
+function configurarTecladoCampoDivisao(campo, nome, el, ordem) {
   campo.addEventListener('keydown', (evento) => {
-    if (evento.key === 'Backspace' && campo.value === '') {
-      focarCampoDivisao(el, campoAnteriorDivisao(nome, ordem));
-    }
-    if (evento.key === 'Enter') {
-      evento.preventDefault();
-      el.btnValidar.click();
-    }
+    tratarTeclaDivisao(evento, {
+      campo,
+      aoFocarAnterior: () => focarCampoDivisao(el, campoAnteriorDivisao(nome, ordem)),
+      aoConfirmar: () => el.btnValidar.click(),
+    });
   });
 }
 
@@ -2173,6 +2060,12 @@ if (typeof module !== 'undefined' && module.exports) {
     chaveAlvoFoco,
     proximoItemVazioOrdem,
     primeiroItemVazioOrdem,
+    preenchidosNaOrdem,
+    focarResultadoPorColuna,
+    focarVaiUmPorColuna,
+    tratarTeclaResultado,
+    tratarTeclaVaiUm,
+    tratarTeclaDivisao,
     ORDEM_CAMPOS_DIVISAO_MEDIA,
     ROTULOS_DIVISAO,
     ehDivisaoLonga,

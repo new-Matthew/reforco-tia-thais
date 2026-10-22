@@ -22,6 +22,12 @@ const {
   chaveAlvoFoco,
   proximoItemVazioOrdem,
   primeiroItemVazioOrdem,
+  preenchidosNaOrdem,
+  focarResultadoPorColuna,
+  focarVaiUmPorColuna,
+  tratarTeclaResultado,
+  tratarTeclaVaiUm,
+  tratarTeclaDivisao,
   ORDEM_CAMPOS_DIVISAO_MEDIA,
   ROTULOS_DIVISAO,
   ehDivisaoLonga,
@@ -966,4 +972,190 @@ test('montarRequisicao não envia etapas médias na divisão fácil', () => {
   assert.equal('restoParcialDigitado' in requisicao, false);
   assert.equal('quocienteFinalDigitado' in requisicao, false);
   assert.equal('subtracaoFinalDigitada' in requisicao, false);
+});
+
+function campoFalso(valor = '') {
+  return {
+    value: valor,
+    focado: false,
+    focus() {
+      this.focado = true;
+    },
+  };
+}
+
+function contaFalsa(mapa) {
+  return {
+    querySelector(seletor) {
+      return Object.prototype.hasOwnProperty.call(mapa, seletor) ? mapa[seletor] : null;
+    },
+  };
+}
+
+test('focarResultadoPorColuna e focarVaiUmPorColuna focam o campo da coluna', () => {
+  const resultado = campoFalso();
+  const vaiUm = campoFalso();
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="2"]': resultado,
+      '.caixa-vai-um[data-coluna="1"]': vaiUm,
+    }),
+  };
+
+  assert.equal(focarResultadoPorColuna(el, 2), true);
+  assert.equal(resultado.focado, true);
+  assert.equal(focarVaiUmPorColuna(el, 1), true);
+  assert.equal(vaiUm.focado, true);
+  assert.equal(focarResultadoPorColuna(el, 9), false);
+  assert.equal(focarResultadoPorColuna(null, 0), false);
+});
+
+test('preenchidosNaOrdem marca apenas os passos com valor preenchido', () => {
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="0"]': campoFalso('5'),
+      '.caixa-vai-um[data-coluna="1"]': campoFalso('   '),
+      '.resultado-input[data-coluna="1"]': campoFalso(' 7 '),
+    }),
+  };
+  const ordem = ordemFocoSoma(2, [1, 0]);
+
+  assert.deepEqual(Array.from(preenchidosNaOrdem(el, ordem)), [
+    'resultado:0',
+    'resultado:1',
+  ]);
+});
+
+test('tratarTeclaResultado volta um passo do fluxo no Backspace vazio', () => {
+  const unidade = campoFalso('');
+  const dezena = campoFalso('');
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="0"]': unidade,
+      '.resultado-input[data-coluna="1"]': dezena,
+    }),
+  };
+  const ordem = ordemFocoSoma(2, [0, 0]);
+
+  const tratado = tratarTeclaResultado(
+    { key: 'Backspace', preventDefault() {} },
+    { el, ordemFoco: ordem, indice: 1, colunas: 2, usarOrdemFoco: true, campo: dezena },
+  );
+
+  assert.equal(tratado, true);
+  assert.equal(unidade.focado, true);
+});
+
+test('tratarTeclaResultado usa a coluna da esquerda sem fluxo no Backspace vazio', () => {
+  const coluna0 = campoFalso('');
+  const coluna1 = campoFalso('');
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="0"]': coluna0,
+      '.resultado-input[data-coluna="1"]': coluna1,
+    }),
+  };
+
+  const tratado = tratarTeclaResultado(
+    { key: 'Backspace', preventDefault() {} },
+    { el, ordemFoco: [], indice: 1, colunas: 2, usarOrdemFoco: false, campo: coluna1 },
+  );
+
+  assert.equal(tratado, true);
+  assert.equal(coluna0.focado, true);
+});
+
+test('tratarTeclaResultado navega com as setas entre as colunas', () => {
+  const coluna0 = campoFalso('1');
+  const coluna1 = campoFalso('');
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="0"]': coluna0,
+      '.resultado-input[data-coluna="1"]': coluna1,
+    }),
+  };
+  let prevencoes = 0;
+  const preventDefault = () => {
+    prevencoes += 1;
+  };
+
+  const esquerda = tratarTeclaResultado(
+    { key: 'ArrowLeft', preventDefault },
+    { el, ordemFoco: [], indice: 0, colunas: 2, usarOrdemFoco: false, campo: coluna0 },
+  );
+  assert.equal(esquerda, true);
+  assert.equal(coluna1.focado, true);
+  assert.equal(prevencoes, 1);
+
+  const direita = tratarTeclaResultado(
+    { key: 'ArrowRight', preventDefault },
+    { el, ordemFoco: [], indice: 1, colunas: 2, usarOrdemFoco: false, campo: coluna1 },
+  );
+  assert.equal(direita, true);
+  assert.equal(coluna0.focado, true);
+  assert.equal(prevencoes, 2);
+});
+
+test('tratarTeclaResultado ignora teclas que não são de navegação', () => {
+  const tratado = tratarTeclaResultado(
+    { key: 'Enter', preventDefault() {} },
+    { el: null, ordemFoco: [], indice: 0, colunas: 1, usarOrdemFoco: false, campo: campoFalso() },
+  );
+
+  assert.equal(tratado, false);
+});
+
+test('tratarTeclaVaiUm volta ao passo anterior do fluxo no Backspace vazio', () => {
+  const resultado = campoFalso('4');
+  const caixa = campoFalso('');
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="0"]': resultado,
+      '.caixa-vai-um[data-coluna="1"]': caixa,
+    }),
+  };
+  const ordem = ordemFocoSoma(2, calcularVaiUm(98, 35));
+
+  assert.equal(
+    tratarTeclaVaiUm({ key: 'Backspace' }, { el, ordemFoco: ordem, indice: 1, caixa }),
+    true,
+  );
+  assert.equal(resultado.focado, true);
+
+  caixa.value = '1';
+  resultado.focado = false;
+  assert.equal(
+    tratarTeclaVaiUm({ key: 'Backspace' }, { el, ordemFoco: ordem, indice: 1, caixa }),
+    false,
+  );
+});
+
+test('tratarTeclaDivisao volta no Backspace vazio e confirma no Enter', () => {
+  const campo = campoFalso('');
+  let anteriores = 0;
+  let confirmacoes = 0;
+  const opcoes = {
+    campo,
+    aoFocarAnterior: () => {
+      anteriores += 1;
+    },
+    aoConfirmar: () => {
+      confirmacoes += 1;
+    },
+  };
+
+  assert.equal(tratarTeclaDivisao({ key: 'Backspace' }, opcoes), true);
+  assert.equal(anteriores, 1);
+
+  let prevenido = false;
+  assert.equal(
+    tratarTeclaDivisao({ key: 'Enter', preventDefault() { prevenido = true; } }, opcoes),
+    true,
+  );
+  assert.equal(prevenido, true);
+  assert.equal(confirmacoes, 1);
+
+  campo.value = '3';
+  assert.equal(tratarTeclaDivisao({ key: 'Backspace' }, opcoes), false);
+  assert.equal(anteriores, 1);
 });
