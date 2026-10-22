@@ -526,6 +526,44 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Esgota as tentativas e lança erro quando o sorteio nunca gera questão válida")
+    void lancaErroAoEsgotarTentativasDeGeracao() {
+        JogoService servico = new JogoService(new Random() {
+            @Override
+            public int nextInt(int bound) {
+                return 0;
+            }
+        });
+
+        assertThrows(IllegalStateException.class,
+                () -> servico.gerarQuestao(Operacao.SOMA, Dificuldade.FACIL));
+        assertThrows(IllegalStateException.class,
+                () -> servico.gerarQuestao(Operacao.SUBTRACAO, Dificuldade.FACIL));
+        assertThrows(IllegalStateException.class,
+                () -> servico.gerarQuestao(Operacao.DIVISAO, Dificuldade.FACIL));
+        assertThrows(IllegalStateException.class,
+                () -> servico.gerarQuestao(Operacao.DIVISAO, Dificuldade.MEDIO));
+    }
+
+    @Test
+    @DisplayName("Gera multiplicação média com o menor sorteio e calcula os passos")
+    void geraMultiplicacaoMediaComSorteioMinimo() {
+        JogoService servico = new JogoService(new Random() {
+            @Override
+            public int nextInt(int bound) {
+                return 0;
+            }
+        });
+
+        QuestaoDTO questao = servico.gerarQuestao(Operacao.MULTIPLICACAO, Dificuldade.MEDIO);
+
+        assertEquals(10, questao.getNumeroA());
+        assertEquals(1, questao.getNumeroB());
+        assertEquals(0, questao.getVaiUm());
+        assertEquals(10, questao.getResultadoParcial());
+    }
+
+    @Test
     @DisplayName("Rejeita requisição de validação nula ou com campos obrigatórios ausentes")
     void rejeitaRequisicaoInvalida() {
         assertThrows(IllegalArgumentException.class, () -> jogoService.validar(null));

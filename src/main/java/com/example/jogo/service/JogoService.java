@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 @Service
 public class JogoService {
@@ -21,6 +22,17 @@ public class JogoService {
     static final int PONTOS_ERRO = 0;
 
     private static final int TENTATIVAS_MAXIMAS = 1_000;
+
+    private static final int MENOR_FATOR = 1;
+    private static final int MAIOR_FATOR_UMA_CASA = 9;
+    private static final int MENOR_FATOR_DUAS_CASAS = 10;
+    private static final int MAIOR_FATOR_DUAS_CASAS = 99;
+
+    private static final int DIVISOR_MINIMO_FACIL = 2;
+    private static final int DIVISOR_MAXIMO_FACIL = 9;
+    private static final int DIVIDENDO_MINIMO_LONGO = 100;
+    private static final int DIVIDENDO_MAXIMO_LONGO = 999;
+    private static final int DIVISOR_MINIMO_LONGO = 10;
 
     private final Random random;
 
@@ -40,113 +52,21 @@ public class JogoService {
             throw new IllegalArgumentException("A dificuldade é obrigatória.");
         }
 
-        if (operacao == Operacao.MULTIPLICACAO) {
-            return gerarMultiplicacao(operacao, dificuldade);
-        }
-
-        if (operacao == Operacao.DIVISAO) {
-            return gerarDivisao(operacao, dificuldade);
-        }
-
-        int minimo = dificuldade.getValorMinimo();
-        int maximo = dificuldade.getValorMaximo();
-
-        if (operacao == Operacao.SOMA) {
-            return gerarSoma(operacao, dificuldade, minimo, maximo);
-        }
-        return gerarSubtracao(operacao, dificuldade, minimo, maximo);
+        return switch (operacao) {
+            case MULTIPLICACAO -> gerarMultiplicacao(operacao, dificuldade);
+            case DIVISAO -> gerarDivisao(operacao, dificuldade);
+            case SOMA -> gerarSoma(operacao, dificuldade);
+            case SUBTRACAO -> gerarSubtracao(operacao, dificuldade);
+        };
     }
 
     public RespostaValidacaoDTO validar(RequisicaoValidacaoDTO requisicao) {
         validarCampos(requisicao);
 
-        int numeroA = requisicao.getNumeroA();
-        int numeroB = requisicao.getNumeroB();
-        int resultadoDigitado = requisicao.getResultadoDigitado();
+        AvaliacaoPassos avaliacao = avaliarPassos(requisicao);
+        boolean resultadoCorreto = requisicao.getResultadoDigitado() == avaliacao.respostaCorreta();
 
-        Operacao operacao = requisicao.getOperacao();
-        int respostaCorreta;
-        boolean passosCorretos;
-        List<Integer> passosEsperados = null;
-        List<Integer> passosInformados = null;
-
-        if (operacao == Operacao.MULTIPLICACAO) {
-            respostaCorreta = numeroA * numeroB;
-            int carryEsperado = numeroA >= 10
-                    ? calcularVaiUmMultiplicacao(numeroA, numeroB)
-                    : 0;
-            int carryInformado = requisicao.getVaiUmMultiplicacao() == null
-                    ? 0
-                    : requisicao.getVaiUmMultiplicacao();
-            passosCorretos = carryInformado == carryEsperado;
-        } else if (operacao == Operacao.DIVISAO) {
-            if (numeroB == 0) {
-                throw new IllegalArgumentException("O divisor não pode ser zero.");
-            }
-            respostaCorreta = numeroA / numeroB;
-            if (ehDivisaoLonga(numeroA, numeroB)) {
-                EtapasDivisao etapas = calcularEtapasDivisao(numeroA, numeroB);
-                passosCorretos = Objects.equals(
-                                requisicao.getQuocienteParcialDigitado(),
-                                etapas.quocienteParcial())
-                        && Objects.equals(
-                                requisicao.getSubtracaoParcialDigitada(),
-                                etapas.subtracaoParcial())
-                        && Objects.equals(
-                                requisicao.getRestoParcialDigitado(),
-                                etapas.restoParcial())
-                        && Objects.equals(
-                                requisicao.getQuocienteFinalDigitado(),
-                                etapas.quocienteFinal())
-                        && Objects.equals(
-                                requisicao.getSubtracaoFinalDigitada(),
-                                etapas.subtracaoFinal())
-                        && Objects.equals(requisicao.getRestoDigitado(), etapas.restoFinal());
-            } else {
-                int subtracaoEsperada = numeroB * respostaCorreta;
-                int restoEsperado = numeroA - subtracaoEsperada;
-                passosCorretos = Objects.equals(requisicao.getSubtracaoDigitada(), subtracaoEsperada)
-                        && Objects.equals(requisicao.getRestoDigitado(), restoEsperado);
-            }
-        } else {
-            boolean soma = operacao == Operacao.SOMA;
-            respostaCorreta = soma ? numeroA + numeroB : numeroA - numeroB;
-            passosEsperados = soma
-                    ? calcularVaiUm(numeroA, numeroB)
-                    : calcularEmprestimos(numeroA, numeroB);
-            passosInformados = soma
-                    ? requisicao.getVaiUm()
-                    : requisicao.getEmprestados();
-            passosCorretos = passosInformados == null
-                    || passosInformados.equals(passosEsperados);
-        }
-
-        boolean resultadoCorreto = resultadoDigitado == respostaCorreta;
-
-        if (resultadoCorreto && passosCorretos) {
-            return new RespostaValidacaoDTO(
-                    true,
-                    "Muito bem! Você acertou em cheio!",
-                    PONTOS_ACERTO_COMPLETO,
-                    respostaCorreta);
-        }
-
-        if (resultadoCorreto) {
-            String mensagem = operacao == Operacao.DIVISAO
-                    ? "O resultado está certo, mas confira os passos da divisão."
-                    : "O resultado está certo, mas confira os passos do " + descreverPasso(operacao);
-            return new RespostaValidacaoDTO(
-                    false,
-                    mensagem,
-                    PONTOS_ACERTO_PARCIAL,
-                    respostaCorreta);
-        }
-
-        return new RespostaValidacaoDTO(
-                false,
-                "Quase lá! A resposta correta é " + respostaCorreta + ". Tente de novo!",
-                PONTOS_ERRO,
-                respostaCorreta);
+        return montarResposta(requisicao.getOperacao(), avaliacao, resultadoCorreto);
     }
 
     public boolean exigeVaiUm(int numeroA, int numeroB) {
@@ -201,46 +121,185 @@ public class JogoService {
         return passos;
     }
 
-    private QuestaoDTO gerarSoma(Operacao operacao, Dificuldade dificuldade, int minimo, int maximo) {
-        for (int tentativa = 0; tentativa < TENTATIVAS_MAXIMAS; tentativa++) {
-            int numeroA = sortear(minimo, maximo);
-            int numeroB = sortear(minimo, maximo);
-
-            if (exigeVaiUm(numeroA, numeroB)) {
-                return novaQuestao(operacao, dificuldade, numeroA, numeroB);
-            }
-        }
-        throw new IllegalStateException("Não foi possível gerar uma soma com 'vai um'.");
+    public int calcularVaiUmMultiplicacao(int numeroA, int numeroB) {
+        return (numeroA % 10 * numeroB) / 10;
     }
 
-    private QuestaoDTO gerarSubtracao(Operacao operacao, Dificuldade dificuldade, int minimo, int maximo) {
-        for (int tentativa = 0; tentativa < TENTATIVAS_MAXIMAS; tentativa++) {
-            int numeroA = sortear(minimo, maximo);
-            int numeroB = sortear(minimo, maximo);
+    /* --------------------------------------------------------------------- */
+    /* Validação da resposta                                                  */
+    /* --------------------------------------------------------------------- */
 
-            if (numeroA > numeroB && exigeEmprestimo(numeroA, numeroB)) {
-                return novaQuestao(operacao, dificuldade, numeroA, numeroB);
-            }
+    private AvaliacaoPassos avaliarPassos(RequisicaoValidacaoDTO requisicao) {
+        return switch (requisicao.getOperacao()) {
+            case MULTIPLICACAO -> avaliarMultiplicacao(requisicao);
+            case DIVISAO -> avaliarDivisao(requisicao);
+            case SOMA, SUBTRACAO -> avaliarSomaOuSubtracao(requisicao);
+        };
+    }
+
+    private AvaliacaoPassos avaliarMultiplicacao(RequisicaoValidacaoDTO requisicao) {
+        int numeroA = requisicao.getNumeroA();
+        int numeroB = requisicao.getNumeroB();
+        int carryEsperado = numeroA >= MENOR_FATOR_DUAS_CASAS
+                ? calcularVaiUmMultiplicacao(numeroA, numeroB)
+                : 0;
+        int carryInformado = requisicao.getVaiUmMultiplicacao() == null
+                ? 0
+                : requisicao.getVaiUmMultiplicacao();
+        return new AvaliacaoPassos(numeroA * numeroB, carryInformado == carryEsperado);
+    }
+
+    private AvaliacaoPassos avaliarDivisao(RequisicaoValidacaoDTO requisicao) {
+        int numeroA = requisicao.getNumeroA();
+        int numeroB = requisicao.getNumeroB();
+        if (numeroB == 0) {
+            throw new IllegalArgumentException("O divisor não pode ser zero.");
         }
-        throw new IllegalStateException("Não foi possível gerar uma subtração com empréstimo.");
+
+        int respostaCorreta = numeroA / numeroB;
+        boolean passosCorretos = ehDivisaoLonga(numeroA, numeroB)
+                ? validarEtapasDivisaoLonga(requisicao, numeroA, numeroB)
+                : validarEtapasDivisaoSimples(requisicao, numeroA, numeroB, respostaCorreta);
+        return new AvaliacaoPassos(respostaCorreta, passosCorretos);
+    }
+
+    private boolean validarEtapasDivisaoLonga(RequisicaoValidacaoDTO requisicao, int numeroA, int numeroB) {
+        EtapasDivisao etapas = calcularEtapasDivisao(numeroA, numeroB);
+        return Objects.equals(
+                        requisicao.getQuocienteParcialDigitado(),
+                        etapas.quocienteParcial())
+                && Objects.equals(
+                        requisicao.getSubtracaoParcialDigitada(),
+                        etapas.subtracaoParcial())
+                && Objects.equals(
+                        requisicao.getRestoParcialDigitado(),
+                        etapas.restoParcial())
+                && Objects.equals(
+                        requisicao.getQuocienteFinalDigitado(),
+                        etapas.quocienteFinal())
+                && Objects.equals(
+                        requisicao.getSubtracaoFinalDigitada(),
+                        etapas.subtracaoFinal())
+                && Objects.equals(requisicao.getRestoDigitado(), etapas.restoFinal());
+    }
+
+    private boolean validarEtapasDivisaoSimples(
+            RequisicaoValidacaoDTO requisicao,
+            int numeroA,
+            int numeroB,
+            int respostaCorreta) {
+        int subtracaoEsperada = numeroB * respostaCorreta;
+        int restoEsperado = numeroA - subtracaoEsperada;
+        return Objects.equals(requisicao.getSubtracaoDigitada(), subtracaoEsperada)
+                && Objects.equals(requisicao.getRestoDigitado(), restoEsperado);
+    }
+
+    private AvaliacaoPassos avaliarSomaOuSubtracao(RequisicaoValidacaoDTO requisicao) {
+        boolean soma = requisicao.getOperacao() == Operacao.SOMA;
+        int numeroA = requisicao.getNumeroA();
+        int numeroB = requisicao.getNumeroB();
+
+        int respostaCorreta = soma ? numeroA + numeroB : numeroA - numeroB;
+        List<Integer> passosEsperados = soma
+                ? calcularVaiUm(numeroA, numeroB)
+                : calcularEmprestimos(numeroA, numeroB);
+        List<Integer> passosInformados = soma
+                ? requisicao.getVaiUm()
+                : requisicao.getEmprestados();
+        boolean passosCorretos = passosInformados == null
+                || passosInformados.equals(passosEsperados);
+
+        return new AvaliacaoPassos(respostaCorreta, passosCorretos);
+    }
+
+    private RespostaValidacaoDTO montarResposta(
+            Operacao operacao,
+            AvaliacaoPassos avaliacao,
+            boolean resultadoCorreto) {
+        int respostaCorreta = avaliacao.respostaCorreta();
+
+        if (resultadoCorreto && avaliacao.passosCorretos()) {
+            return new RespostaValidacaoDTO(
+                    true,
+                    "Muito bem! Você acertou em cheio!",
+                    PONTOS_ACERTO_COMPLETO,
+                    respostaCorreta);
+        }
+
+        if (resultadoCorreto) {
+            String mensagem = operacao == Operacao.DIVISAO
+                    ? "O resultado está certo, mas confira os passos da divisão."
+                    : "O resultado está certo, mas confira os passos do " + descreverPasso(operacao);
+            return new RespostaValidacaoDTO(
+                    false,
+                    mensagem,
+                    PONTOS_ACERTO_PARCIAL,
+                    respostaCorreta);
+        }
+
+        return new RespostaValidacaoDTO(
+                false,
+                "Quase lá! A resposta correta é " + respostaCorreta + ". Tente de novo!",
+                PONTOS_ERRO,
+                respostaCorreta);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Geração das questões                                                   */
+    /* --------------------------------------------------------------------- */
+
+    private QuestaoDTO gerarSoma(Operacao operacao, Dificuldade dificuldade) {
+        int minimo = dificuldade.getValorMinimo();
+        int maximo = dificuldade.getValorMaximo();
+
+        return gerarComTentativas(
+                "Não foi possível gerar uma soma com 'vai um'.",
+                () -> {
+                    int numeroA = sortear(minimo, maximo);
+                    int numeroB = sortear(minimo, maximo);
+                    return exigeVaiUm(numeroA, numeroB)
+                            ? novaQuestao(operacao, dificuldade, numeroA, numeroB)
+                            : null;
+                });
+    }
+
+    private QuestaoDTO gerarSubtracao(Operacao operacao, Dificuldade dificuldade) {
+        int minimo = dificuldade.getValorMinimo();
+        int maximo = dificuldade.getValorMaximo();
+
+        return gerarComTentativas(
+                "Não foi possível gerar uma subtração com empréstimo.",
+                () -> {
+                    int numeroA = sortear(minimo, maximo);
+                    int numeroB = sortear(minimo, maximo);
+                    return numeroA > numeroB && exigeEmprestimo(numeroA, numeroB)
+                            ? novaQuestao(operacao, dificuldade, numeroA, numeroB)
+                            : null;
+                });
     }
 
     private QuestaoDTO gerarMultiplicacao(Operacao operacao, Dificuldade dificuldade) {
-        int numeroA = dificuldade == Dificuldade.FACIL
-                ? sortear(1, 9)
-                : sortear(10, 99);
-        int numeroB = sortear(1, 9);
+        int numeroA = sortearMultiplicando(dificuldade);
+        int numeroB = sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA);
 
         QuestaoDTO questao = novaQuestao(operacao, dificuldade, numeroA, numeroB);
         if (dificuldade == Dificuldade.MEDIO) {
-            questao.setVaiUm(calcularVaiUmMultiplicacao(numeroA, numeroB));
-            questao.setResultadoParcial(numeroA * numeroB);
+            aplicarPassosMultiplicacao(questao);
         }
         return questao;
     }
 
-    public int calcularVaiUmMultiplicacao(int numeroA, int numeroB) {
-        return (numeroA % 10 * numeroB) / 10;
+    private int sortearMultiplicando(Dificuldade dificuldade) {
+        return dificuldade == Dificuldade.FACIL
+                ? sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA)
+                : sortear(MENOR_FATOR_DUAS_CASAS, MAIOR_FATOR_DUAS_CASAS);
+    }
+
+    private void aplicarPassosMultiplicacao(QuestaoDTO questao) {
+        int numeroA = questao.getNumeroA();
+        int numeroB = questao.getNumeroB();
+        questao.setVaiUm(calcularVaiUmMultiplicacao(numeroA, numeroB));
+        questao.setResultadoParcial(numeroA * numeroB);
     }
 
     private QuestaoDTO gerarDivisao(Operacao operacao, Dificuldade dificuldade) {
@@ -248,55 +307,101 @@ public class JogoService {
             return gerarDivisaoLonga(operacao, dificuldade);
         }
 
-        for (int tentativa = 0; tentativa < TENTATIVAS_MAXIMAS; tentativa++) {
-            int divisor = sortear(2, 9);
-            int quociente = sortear(2, 9);
-            int dividendo = divisor * quociente;
+        return gerarComTentativas(
+                "Não foi possível gerar uma divisão exata.",
+                () -> {
+                    int divisor = sortear(DIVISOR_MINIMO_FACIL, DIVISOR_MAXIMO_FACIL);
+                    int quociente = sortear(DIVISOR_MINIMO_FACIL, DIVISOR_MAXIMO_FACIL);
+                    int dividendo = divisor * quociente;
 
-            if (dividendo >= Dificuldade.FACIL.getValorMinimo()
-                    && dividendo <= Dificuldade.FACIL.getValorMaximo()) {
-                QuestaoDTO questao = novaQuestao(operacao, dificuldade, dividendo, divisor);
-                questao.setQuociente(quociente);
-                questao.setSubtracaoIntermediaria(dividendo);
-                questao.setResto(0);
-                return questao;
-            }
-        }
-        throw new IllegalStateException("Não foi possível gerar uma divisão exata.");
+                    if (!dentroDosLimites(dividendo, Dificuldade.FACIL)) {
+                        return null;
+                    }
+                    return montarQuestaoDivisaoExata(
+                            operacao, dificuldade, dividendo, divisor, quociente);
+                });
+    }
+
+    private QuestaoDTO montarQuestaoDivisaoExata(
+            Operacao operacao,
+            Dificuldade dificuldade,
+            int dividendo,
+            int divisor,
+            int quociente) {
+        QuestaoDTO questao = novaQuestao(operacao, dificuldade, dividendo, divisor);
+        questao.setQuociente(quociente);
+        questao.setSubtracaoIntermediaria(dividendo);
+        questao.setResto(0);
+        return questao;
     }
 
     private QuestaoDTO gerarDivisaoLonga(Operacao operacao, Dificuldade dificuldade) {
-        for (int tentativa = 0; tentativa < TENTATIVAS_MAXIMAS; tentativa++) {
-            int dividendo = sortear(100, 999);
-            int divisor = sortear(10, dividendo / 10);
-            int quociente = dividendo / divisor;
+        return gerarComTentativas(
+                "Não foi possível gerar uma divisão longa.",
+                () -> {
+                    int dividendo = sortear(DIVIDENDO_MINIMO_LONGO, DIVIDENDO_MAXIMO_LONGO);
+                    int divisor = sortear(DIVISOR_MINIMO_LONGO, dividendo / 10);
+                    int quociente = dividendo / divisor;
 
-            if (quociente < 10 || quociente % 10 == 0) {
-                continue;
-            }
+                    if (quociente < MENOR_FATOR_DUAS_CASAS || quociente % 10 == 0) {
+                        return null;
+                    }
 
-            EtapasDivisao etapas = calcularEtapasDivisao(dividendo, divisor);
-            QuestaoDTO questao = novaQuestao(operacao, dificuldade, dividendo, divisor);
-            questao.setQuociente(quociente);
-            questao.setResto(etapas.restoFinal());
-            questao.setDividendoParcial(etapas.dividendoParcial());
-            questao.setQuocienteParcial(etapas.quocienteParcial());
-            questao.setSubtracaoParcial(etapas.subtracaoParcial());
-            questao.setRestoParcial(etapas.restoParcial());
-            questao.setDividendoAbaixado(etapas.dividendoAbaixado());
-            questao.setQuocienteFinal(etapas.quocienteFinal());
-            questao.setSubtracaoFinal(etapas.subtracaoFinal());
-            return questao;
-        }
-        throw new IllegalStateException("Não foi possível gerar uma divisão longa.");
+                    EtapasDivisao etapas = calcularEtapasDivisao(dividendo, divisor);
+                    return montarQuestaoDivisaoLonga(
+                            operacao, dificuldade, dividendo, divisor, quociente, etapas);
+                });
     }
 
+    private QuestaoDTO montarQuestaoDivisaoLonga(
+            Operacao operacao,
+            Dificuldade dificuldade,
+            int dividendo,
+            int divisor,
+            int quociente,
+            EtapasDivisao etapas) {
+        QuestaoDTO questao = novaQuestao(operacao, dificuldade, dividendo, divisor);
+        questao.setQuociente(quociente);
+        questao.setResto(etapas.restoFinal());
+        questao.setDividendoParcial(etapas.dividendoParcial());
+        questao.setQuocienteParcial(etapas.quocienteParcial());
+        questao.setSubtracaoParcial(etapas.subtracaoParcial());
+        questao.setRestoParcial(etapas.restoParcial());
+        questao.setDividendoAbaixado(etapas.dividendoAbaixado());
+        questao.setQuocienteFinal(etapas.quocienteFinal());
+        questao.setSubtracaoFinal(etapas.subtracaoFinal());
+        return questao;
+    }
+
+    /*
+     * Repete o sorteio até a tentativa montar uma questão válida. Devolver
+     * `null` sinaliza que os números sorteados não atendem aos critérios do
+     * nível, evitando duplicar o laço em cada operação.
+     */
+    private QuestaoDTO gerarComTentativas(String mensagemErro, Supplier<QuestaoDTO> tentativa) {
+        for (int tentativaAtual = 0; tentativaAtual < TENTATIVAS_MAXIMAS; tentativaAtual++) {
+            QuestaoDTO questao = tentativa.get();
+            if (questao != null) {
+                return questao;
+            }
+        }
+        throw new IllegalStateException(mensagemErro);
+    }
+
+    private boolean dentroDosLimites(int valor, Dificuldade dificuldade) {
+        return valor >= dificuldade.getValorMinimo() && valor <= dificuldade.getValorMaximo();
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Divisão longa                                                          */
+    /* --------------------------------------------------------------------- */
+
     private boolean ehDivisaoLonga(int dividendo, int divisor) {
-        return dividendo >= 100
-                && dividendo <= 999
-                && divisor >= 10
-                && divisor <= 99
-                && dividendo / divisor >= 10;
+        return dividendo >= DIVIDENDO_MINIMO_LONGO
+                && dividendo <= DIVIDENDO_MAXIMO_LONGO
+                && divisor >= DIVISOR_MINIMO_LONGO
+                && divisor <= MAIOR_FATOR_DUAS_CASAS
+                && dividendo / divisor >= MENOR_FATOR_DUAS_CASAS;
     }
 
     private EtapasDivisao calcularEtapasDivisao(int dividendo, int divisor) {
@@ -319,16 +424,9 @@ public class JogoService {
                 restoFinal);
     }
 
-    private record EtapasDivisao(
-            int dividendoParcial,
-            int quocienteParcial,
-            int subtracaoParcial,
-            int restoParcial,
-            int dividendoAbaixado,
-            int quocienteFinal,
-            int subtracaoFinal,
-            int restoFinal) {
-    }
+    /* --------------------------------------------------------------------- */
+    /* Apoio                                                                  */
+    /* --------------------------------------------------------------------- */
 
     private String descreverPasso(Operacao operacao) {
         if (operacao == Operacao.SOMA) {
@@ -378,5 +476,19 @@ public class JogoService {
         if (requisicao.getResultadoDigitado() == null) {
             throw new IllegalArgumentException("O resultado digitado é obrigatório.");
         }
+    }
+
+    private record EtapasDivisao(
+            int dividendoParcial,
+            int quocienteParcial,
+            int subtracaoParcial,
+            int restoParcial,
+            int dividendoAbaixado,
+            int quocienteFinal,
+            int subtracaoFinal,
+            int restoFinal) {
+    }
+
+    private record AvaliacaoPassos(int respostaCorreta, boolean passosCorretos) {
     }
 }
