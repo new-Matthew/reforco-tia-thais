@@ -662,7 +662,10 @@ h1 {
 
 .conta.conta-divisao {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: center;
+  gap: 24px;
   padding: 40px 34px;
 }
 
@@ -754,6 +757,211 @@ h1 {
   box-shadow:
     0 0 0 3px rgba(17, 138, 178, 0.18),
     inset 0 -3px 0 rgba(36, 59, 83, 0.08);
+}
+
+/* ------------------------ Divisão média (longa) ------------------------- */
+
+.divisao-longa {
+  grid-template-columns: minmax(110px, auto) 4px minmax(64px, auto);
+  grid-template-areas:
+    "dividendo chave divisor"
+    "subtracao1 chave quociente1"
+    "resto1 chave quociente2"
+    "abaixado chave ."
+    "subtracao2 chave ."
+    "restoFinal . .";
+  row-gap: 8px;
+}
+
+.divisao-longa .divisao-chave {
+  grid-area: 1 / 2 / 6 / 3;
+}
+
+.divisao-longa .divisao-subtracao-etapa-1 {
+  grid-area: subtracao1;
+}
+
+.divisao-longa .divisao-subtracao-etapa-2 {
+  grid-area: subtracao2;
+}
+
+.divisao-longa .divisao-quociente-parcial {
+  grid-area: quociente1;
+  border-top-width: 4px;
+  border-top-color: var(--tinta);
+}
+
+.divisao-longa .divisao-quociente-final {
+  grid-area: quociente2;
+}
+
+.divisao-longa .divisao-linha-resto-parcial {
+  grid-area: resto1;
+}
+
+.divisao-longa .divisao-linha-resto-final {
+  grid-area: restoFinal;
+}
+
+.divisao-linha-resto-parcial,
+.divisao-linha-resto-final {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-top: 6px;
+  border-top: 4px solid var(--tinta);
+}
+
+.divisao-linha-resto-final {
+  padding-top: 8px;
+}
+
+.divisao-abaixado {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--azul-royal);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.divisao-abaixado-seta {
+  color: var(--coral);
+  font-size: 1.1rem;
+}
+
+.apoio-divisao {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 270px);
+  padding: 18px;
+  border: 3px solid #c5d8ef;
+  border-radius: 18px;
+  background: #f7fbff;
+  box-shadow: inset 0 -3px 0 rgba(36, 59, 83, 0.08);
+}
+
+.apoio-cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.apoio-titulo {
+  color: var(--tinta);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.apoio-alvo {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #e4f2ff;
+  color: var(--azul-royal);
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.apoio-etapas {
+  display: flex;
+  gap: 8px;
+}
+
+.apoio-etapa {
+  flex: 1;
+  padding: 8px 6px;
+  border: 2px solid #c5d8ef;
+  border-radius: 12px;
+  background: #fff;
+  color: #4a607a;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.apoio-etapa.ativo {
+  border-color: var(--azul);
+  background: #e4f2ff;
+  color: var(--azul-royal);
+}
+
+.apoio-calculo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border: 2px solid #e2edf8;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.apoio-calculo.excedeu {
+  border-color: var(--coral);
+  background: #fff1ef;
+}
+
+.apoio-expressao {
+  flex: 1;
+  color: var(--tinta);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.apoio-calculo.excedeu .apoio-expressao {
+  color: #b3261e;
+}
+
+.apoio-menos,
+.apoio-mais {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 2px solid #c5d8ef;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--azul-royal);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.apoio-menos:hover,
+.apoio-mais:hover,
+.apoio-etapa:hover {
+  border-color: var(--azul);
+}
+
+.apoio-status {
+  min-height: 1.3em;
+  margin: 0;
+  color: var(--azul-royal);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.apoio-status.excedeu {
+  color: #b3261e;
+}
+
+.apoio-dica {
+  margin: 0;
+  color: #5b6b7f;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 /* ------------------------------- Ações ---------------------------------- */
@@ -1135,6 +1343,17 @@ h1 {
   }
 }
 
+@media (max-width: 620px) {
+  .conta.conta-divisao {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .apoio-divisao {
+    width: min(100%, 320px);
+  }
+}
+
 @media (max-width: 420px) {
   .conta {
     grid-template-columns: minmax(28px, auto) repeat(var(--colunas, 3), minmax(36px, 1fr));
@@ -1146,6 +1365,10 @@ h1 {
 
   .divisao {
     gap: 8px 12px;
+  }
+
+  .divisao-longa {
+    grid-template-columns: minmax(88px, auto) 4px minmax(52px, auto);
   }
 
   .divisao-input {

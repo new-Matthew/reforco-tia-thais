@@ -27,10 +27,27 @@ const META_NIVEL = 5;
 const NIVEIS_DIFICULDADE = ['FACIL', 'MEDIO'];
 const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio' };
 const ORDEM_CAMPOS_DIVISAO = ['quociente', 'subtracao', 'resto'];
+const ORDEM_CAMPOS_DIVISAO_MEDIA = [
+  'quocienteParcial',
+  'subtracaoParcial',
+  'restoParcial',
+  'quocienteFinal',
+  'subtracaoFinal',
+  'resto',
+];
+const CAMPOS_ETAPA_DIVISAO = {
+  1: ['quocienteParcial', 'subtracaoParcial', 'restoParcial'],
+  2: ['quocienteFinal', 'subtracaoFinal', 'resto'],
+};
 const SELETORES_CAMPOS_DIVISAO = {
   quociente: '.divisao-quociente',
   subtracao: '.divisao-subtracao-input',
   resto: '.divisao-resto-input',
+  quocienteParcial: '.divisao-quociente-parcial',
+  subtracaoParcial: '.divisao-subtracao-parcial',
+  restoParcial: '.divisao-resto-parcial-input',
+  quocienteFinal: '.divisao-quociente-final',
+  subtracaoFinal: '.divisao-subtracao-final',
 };
 
 /* ------------------------------------------------------------------------- */
@@ -241,14 +258,101 @@ function preencherAte(valores, quantidade) {
   return passos;
 }
 
-function proximoCampoDivisao(campo) {
-  const indice = ORDEM_CAMPOS_DIVISAO.indexOf(campo);
-  return indice >= 0 ? ORDEM_CAMPOS_DIVISAO[indice + 1] ?? null : null;
+function ehDivisaoLonga(questao) {
+  if (!questao || questao.operacao !== 'DIVISAO') {
+    return false;
+  }
+  const dividendo = Number(questao.numeroA);
+  const divisor = Number(questao.numeroB);
+  return Number.isInteger(dividendo)
+    && Number.isInteger(divisor)
+    && dividendo >= 100
+    && dividendo <= 999
+    && divisor >= 10
+    && divisor <= 99
+    && Math.floor(dividendo / divisor) >= 10;
 }
 
-function campoAnteriorDivisao(campo) {
-  const indice = ORDEM_CAMPOS_DIVISAO.indexOf(campo);
-  return indice > 0 ? ORDEM_CAMPOS_DIVISAO[indice - 1] : null;
+function ehDivisaoMedia(questao) {
+  return Boolean(questao)
+    && questao.operacao === 'DIVISAO'
+    && questao.dificuldade === 'MEDIO';
+}
+
+function proximoCampoDivisao(campo, ordem = ORDEM_CAMPOS_DIVISAO) {
+  const campos = Array.isArray(ordem) ? ordem : ORDEM_CAMPOS_DIVISAO;
+  const indice = campos.indexOf(campo);
+  return indice >= 0 ? campos[indice + 1] ?? null : null;
+}
+
+function campoAnteriorDivisao(campo, ordem = ORDEM_CAMPOS_DIVISAO) {
+  const campos = Array.isArray(ordem) ? ordem : ORDEM_CAMPOS_DIVISAO;
+  const indice = campos.indexOf(campo);
+  return indice > 0 ? campos[indice - 1] : null;
+}
+
+function etapaDoCampoDivisao(campo) {
+  if (CAMPOS_ETAPA_DIVISAO[1].includes(campo)) {
+    return 1;
+  }
+  if (CAMPOS_ETAPA_DIVISAO[2].includes(campo)) {
+    return 2;
+  }
+  return null;
+}
+
+function alvoApoioDivisao(questao, etapa) {
+  if (!questao) {
+    return 0;
+  }
+  const alvo = etapa === 2 ? questao.dividendoAbaixado : questao.dividendoParcial;
+  return Number.isFinite(Number(alvo)) ? Number(alvo) : 0;
+}
+
+function ajustarMultiplicador(valor, passo, minimo = 0, maximo = 9) {
+  const atual = Number.isFinite(Number(valor)) ? Math.trunc(Number(valor)) : 0;
+  const delta = Number.isFinite(Number(passo)) ? Math.trunc(Number(passo)) : 0;
+  const limiteInferior = Number.isFinite(Number(minimo)) ? Math.trunc(Number(minimo)) : 0;
+  const limiteSuperior = Number.isFinite(Number(maximo)) ? Math.trunc(Number(maximo)) : 9;
+  return Math.min(limiteSuperior, Math.max(limiteInferior, atual + delta));
+}
+
+function avaliarMultiploDivisao(divisor, multiplicador, alvo) {
+  const d = Math.max(0, Math.trunc(Number(divisor) || 0));
+  const m = Math.max(0, Math.trunc(Number(multiplicador) || 0));
+  const a = Math.max(0, Math.trunc(Number(alvo) || 0));
+  const produto = d * m;
+  const excedeu = produto > a;
+  const comparacao = produto === a ? 'igual' : (excedeu ? 'acima' : 'abaixo');
+  const expressao = d + ' × ' + m + ' = ' + produto;
+  let texto = expressao;
+  if (comparacao === 'igual') {
+    texto += ' — é o alvo!';
+  } else if (excedeu) {
+    texto += ' — passou de ' + a;
+  } else {
+    texto += ' — falta ' + (a - produto);
+  }
+  return { produto, comparacao, excedeu, expressao, texto };
+}
+
+function comporQuocienteDivisaoMedia(quocienteParcial, quocienteFinal) {
+  if (quocienteParcial === null || quocienteParcial === undefined
+    || quocienteFinal === null || quocienteFinal === undefined) {
+    return null;
+  }
+  if (String(quocienteParcial).trim() === '' || String(quocienteFinal).trim() === '') {
+    return null;
+  }
+  const parcial = Number(quocienteParcial);
+  const final = Number(quocienteFinal);
+  if (!Number.isInteger(parcial) || !Number.isInteger(final)) {
+    return null;
+  }
+  if (parcial < 0 || final < 0) {
+    return null;
+  }
+  return parcial * 10 + final;
 }
 
 /*
@@ -354,6 +458,13 @@ function montarRequisicao(questao, entradas) {
   if (divisao) {
     requisicao.subtracaoDigitada = entradas.subtracaoDigitada ?? null;
     requisicao.restoDigitado = entradas.restoDigitado ?? null;
+    if (ehDivisaoLonga(questao)) {
+      requisicao.quocienteParcialDigitado = entradas.quocienteParcialDigitado ?? null;
+      requisicao.subtracaoParcialDigitada = entradas.subtracaoParcialDigitada ?? null;
+      requisicao.restoParcialDigitado = entradas.restoParcialDigitado ?? null;
+      requisicao.quocienteFinalDigitado = entradas.quocienteFinalDigitado ?? null;
+      requisicao.subtracaoFinalDigitada = entradas.subtracaoFinalDigitada ?? null;
+    }
   }
 
   return requisicao;
@@ -1003,17 +1114,34 @@ function criarCampoDivisao(classe, rotulo, digitos) {
   return campo;
 }
 
-function configurarCampoDivisao(campo, nome, el) {
+function configurarCampoDivisao(
+  campo,
+  nome,
+  el,
+  ordem = ORDEM_CAMPOS_DIVISAO,
+  estado = null,
+) {
   campo.addEventListener('input', () => {
     campo.value = campo.value.replace(/\D/g, '').slice(0, Number(campo.maxLength));
     if (campo.value.length >= Number(campo.maxLength)) {
-      focarCampoDivisao(el, proximoCampoDivisao(nome));
+      focarCampoDivisao(el, proximoCampoDivisao(nome, ordem));
+    }
+  });
+
+  campo.addEventListener('focus', () => {
+    if (!estado || !estado.apoioDivisao || !ehDivisaoMedia(estado.questao)) {
+      return;
+    }
+    const etapa = etapaDoCampoDivisao(nome);
+    if (etapa && estado.apoioDivisao.etapa !== etapa) {
+      estado.apoioDivisao.etapa = etapa;
+      renderApoioDivisao(estado, el);
     }
   });
 
   campo.addEventListener('keydown', (evento) => {
     if (evento.key === 'Backspace' && campo.value === '') {
-      focarCampoDivisao(el, campoAnteriorDivisao(nome));
+      focarCampoDivisao(el, campoAnteriorDivisao(nome, ordem));
     }
     if (evento.key === 'Enter') {
       evento.preventDefault();
@@ -1023,6 +1151,11 @@ function configurarCampoDivisao(campo, nome, el) {
 }
 
 function renderDivisao(estado, el) {
+  if (ehDivisaoMedia(estado.questao)) {
+    renderDivisaoMedia(estado, el);
+    return;
+  }
+
   const questao = estado.questao;
   const digitosDividendo = Math.max(1, digitosDe(questao.numeroA).length);
   const quocienteEsperado = questao.quociente != null
@@ -1077,6 +1210,250 @@ function renderDivisao(estado, el) {
 
   divisao.append(dividendo, chave, divisor, linhaSubtracao, campoQuociente, linhaResto);
   el.conta.appendChild(divisao);
+}
+
+function renderDivisaoMedia(estado, el) {
+  const questao = estado.questao;
+  const digitosQuocienteParcial = Math.max(1, quantidadeDigitos(questao.quocienteParcial));
+  const digitosSubtracaoParcial = Math.max(1, quantidadeDigitos(questao.subtracaoParcial));
+  const digitosRestoParcial = Math.max(1, quantidadeDigitos(questao.restoParcial));
+  const digitosSubtracaoFinal = Math.max(1, quantidadeDigitos(questao.subtracaoFinal));
+  const digitosResto = Math.max(1, quantidadeDigitos(questao.resto));
+  const ordem = ORDEM_CAMPOS_DIVISAO_MEDIA;
+
+  estado.apoioDivisao = { etapa: 1, multiplicador: 0 };
+
+  el.conta.innerHTML = '';
+
+  const divisao = document.createElement('div');
+  divisao.className = 'divisao divisao-longa';
+
+  const dividendo = document.createElement('div');
+  dividendo.className = 'divisao-dividendo';
+  dividendo.textContent = String(questao.numeroA);
+  dividendo.setAttribute('aria-label', 'Dividendo ' + questao.numeroA);
+
+  const chave = document.createElement('div');
+  chave.className = 'divisao-chave';
+  chave.setAttribute('aria-hidden', 'true');
+
+  const divisor = document.createElement('div');
+  divisor.className = 'divisao-divisor';
+  divisor.textContent = String(questao.numeroB);
+  divisor.setAttribute('aria-label', 'Divisor ' + questao.numeroB);
+
+  const sinalParcial = document.createElement('span');
+  sinalParcial.className = 'divisao-sinal';
+  sinalParcial.textContent = '−';
+  sinalParcial.setAttribute('aria-hidden', 'true');
+
+  const campoSubtracaoParcial = criarCampoDivisao(
+    'divisao-subtracao-input divisao-subtracao-parcial',
+    'Subtração da primeira etapa',
+    digitosSubtracaoParcial,
+  );
+  const linhaSubtracaoParcial = document.createElement('div');
+  linhaSubtracaoParcial.className = 'divisao-subtracao divisao-subtracao-etapa-1';
+  linhaSubtracaoParcial.append(sinalParcial, campoSubtracaoParcial);
+
+  const campoQuocienteParcial = criarCampoDivisao(
+    'divisao-quociente divisao-quociente-parcial',
+    'Quociente da primeira etapa',
+    digitosQuocienteParcial,
+  );
+
+  const campoRestoParcial = criarCampoDivisao(
+    'divisao-resto-input divisao-resto-parcial-input',
+    'Resto da primeira etapa',
+    digitosRestoParcial,
+  );
+  const linhaRestoParcial = document.createElement('div');
+  linhaRestoParcial.className = 'divisao-linha-resto divisao-linha-resto-parcial';
+  linhaRestoParcial.appendChild(campoRestoParcial);
+
+  const abaixado = document.createElement('div');
+  abaixado.className = 'divisao-abaixado';
+  abaixado.setAttribute('aria-label', 'Número abaixado ' + questao.dividendoAbaixado);
+  const seta = document.createElement('span');
+  seta.className = 'divisao-abaixado-seta';
+  seta.textContent = '↓';
+  seta.setAttribute('aria-hidden', 'true');
+  const valorAbaixado = document.createElement('span');
+  valorAbaixado.textContent = String(questao.dividendoAbaixado);
+  abaixado.append(seta, valorAbaixado);
+
+  const campoQuocienteFinal = criarCampoDivisao(
+    'divisao-quociente-final',
+    'Quociente da segunda etapa',
+    1,
+  );
+
+  const sinalFinal = document.createElement('span');
+  sinalFinal.className = 'divisao-sinal';
+  sinalFinal.textContent = '−';
+  sinalFinal.setAttribute('aria-hidden', 'true');
+
+  const campoSubtracaoFinal = criarCampoDivisao(
+    'divisao-subtracao-input divisao-subtracao-final',
+    'Subtração da segunda etapa',
+    digitosSubtracaoFinal,
+  );
+  const linhaSubtracaoFinal = document.createElement('div');
+  linhaSubtracaoFinal.className = 'divisao-subtracao divisao-subtracao-etapa-2';
+  linhaSubtracaoFinal.append(sinalFinal, campoSubtracaoFinal);
+
+  const campoResto = criarCampoDivisao(
+    'divisao-resto-input divisao-resto-final-input',
+    'Resto final',
+    digitosResto,
+  );
+  const linhaRestoFinal = document.createElement('div');
+  linhaRestoFinal.className = 'divisao-linha-resto divisao-linha-resto-final';
+  linhaRestoFinal.appendChild(campoResto);
+
+  configurarCampoDivisao(campoQuocienteParcial, 'quocienteParcial', el, ordem, estado);
+  configurarCampoDivisao(campoSubtracaoParcial, 'subtracaoParcial', el, ordem, estado);
+  configurarCampoDivisao(campoRestoParcial, 'restoParcial', el, ordem, estado);
+  configurarCampoDivisao(campoQuocienteFinal, 'quocienteFinal', el, ordem, estado);
+  configurarCampoDivisao(campoSubtracaoFinal, 'subtracaoFinal', el, ordem, estado);
+  configurarCampoDivisao(campoResto, 'resto', el, ordem, estado);
+
+  divisao.append(
+    dividendo,
+    chave,
+    divisor,
+    linhaSubtracaoParcial,
+    campoQuocienteParcial,
+    linhaRestoParcial,
+    campoQuocienteFinal,
+    abaixado,
+    linhaSubtracaoFinal,
+    linhaRestoFinal,
+  );
+  el.conta.appendChild(divisao);
+  el.conta.appendChild(criarApoioDivisao(estado, el));
+  renderApoioDivisao(estado, el);
+}
+
+function criarApoioDivisao(estado, el) {
+  const painel = document.createElement('aside');
+  painel.className = 'apoio-divisao';
+  painel.setAttribute('aria-label', 'Tabela de múltiplos da divisão');
+
+  const cabecalho = document.createElement('div');
+  cabecalho.className = 'apoio-cabecalho';
+  const titulo = document.createElement('span');
+  titulo.className = 'apoio-titulo';
+  const alvo = document.createElement('span');
+  alvo.className = 'apoio-alvo';
+  cabecalho.append(titulo, alvo);
+
+  const etapas = document.createElement('div');
+  etapas.className = 'apoio-etapas';
+  etapas.setAttribute('role', 'group');
+  etapas.setAttribute('aria-label', 'Etapas da divisão');
+  [1, 2].forEach((numero) => {
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'apoio-etapa';
+    botao.dataset.etapa = String(numero);
+    botao.textContent = numero === 1 ? '1ª etapa' : '2ª etapa';
+    botao.addEventListener('click', () => {
+      if (!estado.apoioDivisao) {
+        return;
+      }
+      estado.apoioDivisao.etapa = numero;
+      renderApoioDivisao(estado, el);
+    });
+    etapas.appendChild(botao);
+  });
+
+  const calculo = document.createElement('div');
+  calculo.className = 'apoio-calculo';
+  const menos = document.createElement('button');
+  menos.type = 'button';
+  menos.className = 'apoio-menos';
+  menos.textContent = '−';
+  menos.setAttribute('aria-label', 'Diminuir multiplicador');
+  menos.addEventListener('click', () => {
+    if (!estado.apoioDivisao) {
+      return;
+    }
+    estado.apoioDivisao.multiplicador = ajustarMultiplicador(
+      estado.apoioDivisao.multiplicador,
+      -1,
+    );
+    renderApoioDivisao(estado, el);
+  });
+  const expressao = document.createElement('span');
+  expressao.className = 'apoio-expressao';
+  expressao.setAttribute('aria-live', 'polite');
+  const mais = document.createElement('button');
+  mais.type = 'button';
+  mais.className = 'apoio-mais';
+  mais.textContent = '+';
+  mais.setAttribute('aria-label', 'Aumentar multiplicador');
+  mais.addEventListener('click', () => {
+    if (!estado.apoioDivisao) {
+      return;
+    }
+    estado.apoioDivisao.multiplicador = ajustarMultiplicador(
+      estado.apoioDivisao.multiplicador,
+      1,
+    );
+    renderApoioDivisao(estado, el);
+  });
+  calculo.append(menos, expressao, mais);
+
+  const status = document.createElement('p');
+  status.className = 'apoio-status';
+  status.setAttribute('aria-live', 'polite');
+  const dica = document.createElement('p');
+  dica.className = 'apoio-dica';
+  dica.textContent = 'Procure o maior múltiplo que ainda cabe no alvo.';
+
+  painel.append(cabecalho, etapas, calculo, status, dica);
+  return painel;
+}
+
+function renderApoioDivisao(estado, el) {
+  if (!estado.questao || !estado.apoioDivisao) {
+    return;
+  }
+  const painel = el.conta.querySelector('.apoio-divisao');
+  if (!painel) {
+    return;
+  }
+
+  const etapa = estado.apoioDivisao.etapa === 2 ? 2 : 1;
+  const alvo = alvoApoioDivisao(estado.questao, etapa);
+  const avaliacao = avaliarMultiploDivisao(
+    estado.questao.numeroB,
+    estado.apoioDivisao.multiplicador,
+    alvo,
+  );
+
+  painel.querySelector('.apoio-titulo').textContent = 'Tabuada do ' + estado.questao.numeroB;
+  painel.querySelector('.apoio-alvo').textContent = 'Alvo: ' + alvo;
+  painel.querySelectorAll('.apoio-etapa').forEach((botao) => {
+    const ativo = Number(botao.dataset.etapa) === etapa;
+    botao.classList.toggle('ativo', ativo);
+    botao.setAttribute('aria-pressed', String(ativo));
+  });
+
+  painel.querySelector('.apoio-expressao').textContent = avaliacao.expressao;
+  const status = painel.querySelector('.apoio-status');
+  if (avaliacao.comparacao === 'igual') {
+    status.textContent = 'É exatamente o alvo!';
+  } else if (avaliacao.excedeu) {
+    status.textContent = 'Passou ' + (avaliacao.produto - alvo)
+      + ' do alvo. Diminua o multiplicador.';
+  } else {
+    status.textContent = 'Falta ' + (alvo - avaliacao.produto)
+      + ' para chegar ao alvo.';
+  }
+  status.classList.toggle('excedeu', avaliacao.excedeu);
+  painel.querySelector('.apoio-calculo').classList.toggle('excedeu', avaliacao.excedeu);
 }
 
 function atualizarEmprestimos(estado, el) {
@@ -1137,7 +1514,11 @@ function atualizarDica(estado, el) {
         + ' por ' + estado.questao.numeroB + ' vezes dá o mesmo resultado.';
     }
   } else if (estado.questao.operacao === 'DIVISAO') {
-    el.dica.textContent = 'Dica: procure quantas vezes o divisor cabe no dividendo. Escreva o quociente embaixo do divisor, multiplique e subtraia para encontrar o resto.';
+    if (estado.questao.dificuldade === 'MEDIO') {
+      el.dica.textContent = 'Dica: divida primeiro as dezenas, subtraia e abaixe o próximo número. Use a tabela de múltiplos ao lado para encontrar cada dígito do quociente.';
+    } else {
+      el.dica.textContent = 'Dica: procure quantas vezes o divisor cabe no dividendo. Escreva o quociente embaixo do divisor, multiplique e subtraia para encontrar o resto.';
+    }
   } else {
     el.dica.textContent = 'Dica: se o número de cima for menor, toque no número da esquerda para pedir emprestado. Ele diminui 1 e o vizinho ganha 10.';
   }
@@ -1174,31 +1555,87 @@ async function validarResposta(estado, el) {
   let requisicao;
 
   if (questao.operacao === 'DIVISAO') {
-    const quociente = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.quociente);
-    const subtracao = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.subtracao);
-    const resto = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.resto);
+    if (ehDivisaoLonga(questao)) {
+      const quocienteParcial = lerCampoInteiro(
+        el,
+        SELETORES_CAMPOS_DIVISAO.quocienteParcial,
+      );
+      const subtracaoParcial = lerCampoInteiro(
+        el,
+        SELETORES_CAMPOS_DIVISAO.subtracaoParcial,
+      );
+      const restoParcial = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.restoParcial);
+      const quocienteFinal = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.quocienteFinal);
+      const subtracaoFinal = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.subtracaoFinal);
+      const resto = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.resto);
 
-    if (quociente === null) {
-      mostrarAviso(el, 'Escreva o quociente antes de conferir. ✏️');
-      focarCampoDivisao(el, 'quociente');
-      return;
-    }
-    if (subtracao === null) {
-      mostrarAviso(el, 'Escreva a subtração intermediária antes de conferir. ✏️');
-      focarCampoDivisao(el, 'subtracao');
-      return;
-    }
-    if (resto === null) {
-      mostrarAviso(el, 'Escreva o resto antes de conferir. ✏️');
-      focarCampoDivisao(el, 'resto');
-      return;
-    }
+      if (quocienteParcial === null) {
+        mostrarAviso(el, 'Escreva o quociente da primeira etapa antes de conferir. ✏️');
+        focarCampoDivisao(el, 'quocienteParcial');
+        return;
+      }
+      if (subtracaoParcial === null) {
+        mostrarAviso(el, 'Escreva a subtração da primeira etapa antes de conferir. ✏️');
+        focarCampoDivisao(el, 'subtracaoParcial');
+        return;
+      }
+      if (restoParcial === null) {
+        mostrarAviso(el, 'Escreva o resto da primeira etapa antes de conferir. ✏️');
+        focarCampoDivisao(el, 'restoParcial');
+        return;
+      }
+      if (quocienteFinal === null) {
+        mostrarAviso(el, 'Escreva o quociente da segunda etapa antes de conferir. ✏️');
+        focarCampoDivisao(el, 'quocienteFinal');
+        return;
+      }
+      if (subtracaoFinal === null) {
+        mostrarAviso(el, 'Escreva a subtração da segunda etapa antes de conferir. ✏️');
+        focarCampoDivisao(el, 'subtracaoFinal');
+        return;
+      }
+      if (resto === null) {
+        mostrarAviso(el, 'Escreva o resto final antes de conferir. ✏️');
+        focarCampoDivisao(el, 'resto');
+        return;
+      }
 
-    requisicao = montarRequisicao(questao, {
-      resultadoDigitado: quociente,
-      subtracaoDigitada: subtracao,
-      restoDigitado: resto,
-    });
+      requisicao = montarRequisicao(questao, {
+        resultadoDigitado: comporQuocienteDivisaoMedia(quocienteParcial, quocienteFinal),
+        quocienteParcialDigitado: quocienteParcial,
+        subtracaoParcialDigitada: subtracaoParcial,
+        restoParcialDigitado: restoParcial,
+        quocienteFinalDigitado: quocienteFinal,
+        subtracaoFinalDigitada: subtracaoFinal,
+        restoDigitado: resto,
+      });
+    } else {
+      const quociente = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.quociente);
+      const subtracao = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.subtracao);
+      const resto = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.resto);
+
+      if (quociente === null) {
+        mostrarAviso(el, 'Escreva o quociente antes de conferir. ✏️');
+        focarCampoDivisao(el, 'quociente');
+        return;
+      }
+      if (subtracao === null) {
+        mostrarAviso(el, 'Escreva a subtração intermediária antes de conferir. ✏️');
+        focarCampoDivisao(el, 'subtracao');
+        return;
+      }
+      if (resto === null) {
+        mostrarAviso(el, 'Escreva o resto antes de conferir. ✏️');
+        focarCampoDivisao(el, 'resto');
+        return;
+      }
+
+      requisicao = montarRequisicao(questao, {
+        resultadoDigitado: quociente,
+        subtracaoDigitada: subtracao,
+        restoDigitado: resto,
+      });
+    }
   } else {
     const resultadoDigitado = comporResultado(lerResultados(el));
     if (resultadoDigitado === null) {
@@ -1505,6 +1942,14 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizarVaiUmMultiplicacao,
     lerVaiUmMultiplicacao,
     ordemFocoMultiplicacao,
+    ORDEM_CAMPOS_DIVISAO_MEDIA,
+    ehDivisaoLonga,
+    ehDivisaoMedia,
+    etapaDoCampoDivisao,
+    alvoApoioDivisao,
+    ajustarMultiplicador,
+    avaliarMultiploDivisao,
+    comporQuocienteDivisaoMedia,
     proximoCampoDivisao,
     campoAnteriorDivisao,
     calcularVaiUm,

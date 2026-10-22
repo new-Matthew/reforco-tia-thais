@@ -23,4 +23,11 @@ public class QuestaoDTO {
     private Integer quociente;
     private Integer subtracaoIntermediaria;
     private Integer resto;
+    private Integer dividendoParcial;
+    private Integer quocienteParcial;
+    private Integer subtracaoParcial;
+    private Integer restoParcial;
+    private Integer dividendoAbaixado;
+    private Integer quocienteFinal;
+    private Integer subtracaoFinal;
 }
