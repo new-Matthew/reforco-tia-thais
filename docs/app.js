@@ -1338,35 +1338,17 @@ function renderDivisaoMedia(estado, el) {
 function criarApoioDivisao(estado, el) {
   const painel = document.createElement('aside');
   painel.className = 'apoio-divisao';
-  painel.setAttribute('aria-label', 'Tabela de múltiplos da divisão');
+  painel.setAttribute('aria-label', 'Multiplicações do divisor');
 
-  const cabecalho = document.createElement('div');
-  cabecalho.className = 'apoio-cabecalho';
-  const titulo = document.createElement('span');
-  titulo.className = 'apoio-titulo';
-  const alvo = document.createElement('span');
-  alvo.className = 'apoio-alvo';
-  cabecalho.append(titulo, alvo);
-
-  const etapas = document.createElement('div');
-  etapas.className = 'apoio-etapas';
-  etapas.setAttribute('role', 'group');
-  etapas.setAttribute('aria-label', 'Etapas da divisão');
-  [1, 2].forEach((numero) => {
-    const botao = document.createElement('button');
-    botao.type = 'button';
-    botao.className = 'apoio-etapa';
-    botao.dataset.etapa = String(numero);
-    botao.textContent = numero === 1 ? '1ª etapa' : '2ª etapa';
-    botao.addEventListener('click', () => {
-      if (!estado.apoioDivisao) {
-        return;
-      }
-      estado.apoioDivisao.etapa = numero;
-      renderApoioDivisao(estado, el);
-    });
-    etapas.appendChild(botao);
-  });
+  const divisor = document.createElement('p');
+  divisor.className = 'apoio-divisor';
+  const rotuloDivisor = document.createElement('span');
+  rotuloDivisor.className = 'apoio-divisor-rotulo';
+  rotuloDivisor.textContent = 'Divisor';
+  const valorDivisor = document.createElement('strong');
+  valorDivisor.className = 'apoio-divisor-valor';
+  valorDivisor.textContent = String(estado.questao.numeroB);
+  divisor.append(rotuloDivisor, valorDivisor);
 
   const calculo = document.createElement('div');
   calculo.className = 'apoio-calculo';
@@ -1405,14 +1387,7 @@ function criarApoioDivisao(estado, el) {
   });
   calculo.append(menos, expressao, mais);
 
-  const status = document.createElement('p');
-  status.className = 'apoio-status';
-  status.setAttribute('aria-live', 'polite');
-  const dica = document.createElement('p');
-  dica.className = 'apoio-dica';
-  dica.textContent = 'Procure o maior múltiplo que ainda cabe no alvo.';
-
-  painel.append(cabecalho, etapas, calculo, status, dica);
+  painel.append(divisor, calculo);
   return painel;
 }
 
@@ -1433,26 +1408,8 @@ function renderApoioDivisao(estado, el) {
     alvo,
   );
 
-  painel.querySelector('.apoio-titulo').textContent = 'Tabuada do ' + estado.questao.numeroB;
-  painel.querySelector('.apoio-alvo').textContent = 'Alvo: ' + alvo;
-  painel.querySelectorAll('.apoio-etapa').forEach((botao) => {
-    const ativo = Number(botao.dataset.etapa) === etapa;
-    botao.classList.toggle('ativo', ativo);
-    botao.setAttribute('aria-pressed', String(ativo));
-  });
-
+  painel.querySelector('.apoio-divisor-valor').textContent = String(estado.questao.numeroB);
   painel.querySelector('.apoio-expressao').textContent = avaliacao.expressao;
-  const status = painel.querySelector('.apoio-status');
-  if (avaliacao.comparacao === 'igual') {
-    status.textContent = 'É exatamente o alvo!';
-  } else if (avaliacao.excedeu) {
-    status.textContent = 'Passou ' + (avaliacao.produto - alvo)
-      + ' do alvo. Diminua o multiplicador.';
-  } else {
-    status.textContent = 'Falta ' + (alvo - avaliacao.produto)
-      + ' para chegar ao alvo.';
-  }
-  status.classList.toggle('excedeu', avaliacao.excedeu);
   painel.querySelector('.apoio-calculo').classList.toggle('excedeu', avaliacao.excedeu);
 }
 
