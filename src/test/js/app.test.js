@@ -15,6 +15,8 @@ const {
   normalizarVaiUmMultiplicacao,
   lerVaiUmMultiplicacao,
   ordemFocoMultiplicacao,
+  ordemCalculoSoma,
+  ordemCasasFinaisSoma,
   ordemFocoSoma,
   proximaColunaResultadoADireita,
   proximoItemOrdem,
@@ -511,13 +513,43 @@ test('ordemFocoSoma começa na unidade e segue para a dezena sem transporte', ()
   ]);
 });
 
-test('ordemFocoSoma sobe para o vai um antes de descer para a dezena', () => {
+test('ordemFocoSoma sobe para o vai um e completa as casas finais da esquerda para a direita', () => {
   const passos = calcularVaiUm(98, 35);
 
   assert.deepEqual(ordemFocoSoma(2, passos), [
     { tipo: 'resultado', coluna: 0 },
     { tipo: 'vaiUm', coluna: 1 },
+    { tipo: 'resultado', coluna: 2 },
     { tipo: 'resultado', coluna: 1 },
+  ]);
+});
+
+test('ordemCalculoSoma percorre as colunas dos operandos com seus vai um', () => {
+  assert.deepEqual(ordemCalculoSoma(2, [1, 1, 0]), [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'vaiUm', coluna: 1 },
+  ]);
+  assert.deepEqual(ordemCalculoSoma(3, [1, 1, 0]), [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'vaiUm', coluna: 1 },
+    { tipo: 'resultado', coluna: 1 },
+    { tipo: 'vaiUm', coluna: 2 },
+  ]);
+});
+
+test('ordemCasasFinaisSoma preenche as últimas casas da esquerda para a direita', () => {
+  assert.deepEqual(ordemCasasFinaisSoma(2, [1, 1, 0]), [
+    { tipo: 'resultado', coluna: 2 },
+    { tipo: 'resultado', coluna: 1 },
+  ]);
+  assert.deepEqual(ordemCasasFinaisSoma(2, [0, 0]), [
+    { tipo: 'resultado', coluna: 1 },
+  ]);
+  assert.deepEqual(ordemCasasFinaisSoma(3, [1, 1, 1, 0]), [
+    { tipo: 'resultado', coluna: 3 },
+    { tipo: 'resultado', coluna: 2 },
+  ]);
+  assert.deepEqual(ordemCasasFinaisSoma(3, [1, 1, 0]), [
     { tipo: 'resultado', coluna: 2 },
   ]);
 });
@@ -534,7 +566,7 @@ test('ordemFocoSoma respeita a geometria dos dois vai uns no nível médio', () 
   ]);
 });
 
-test('ordemFocoSoma só visita a casa extra quando há transporte final', () => {
+test('ordemFocoSoma preenche a casa extra antes da última coluna quando há transporte final', () => {
   const comTransporteFinal = calcularVaiUm(999, 999);
   const semTransporteFinal = calcularVaiUm(342, 178);
 
@@ -543,8 +575,8 @@ test('ordemFocoSoma só visita a casa extra quando há transporte final', () => 
     { tipo: 'vaiUm', coluna: 1 },
     { tipo: 'resultado', coluna: 1 },
     { tipo: 'vaiUm', coluna: 2 },
-    { tipo: 'resultado', coluna: 2 },
     { tipo: 'resultado', coluna: 3 },
+    { tipo: 'resultado', coluna: 2 },
   ]);
   assert.deepEqual(ordemFocoSoma(3, semTransporteFinal), [
     { tipo: 'resultado', coluna: 0 },
@@ -585,17 +617,17 @@ test('proximoItemVazioOrdem pula casas já preenchidas', () => {
   assert.deepEqual(proximoItemVazioOrdem(ordem, unidade, []), vaiUm);
   assert.deepEqual(
     proximoItemVazioOrdem(ordem, unidade, ['vaiUm:1']),
-    { tipo: 'resultado', coluna: 1 },
+    { tipo: 'resultado', coluna: 2 },
   );
   assert.deepEqual(
-    proximoItemVazioOrdem(ordem, unidade, ['vaiUm:1', 'resultado:1']),
-    { tipo: 'resultado', coluna: 2 },
+    proximoItemVazioOrdem(ordem, unidade, ['vaiUm:1', 'resultado:2']),
+    { tipo: 'resultado', coluna: 1 },
   );
   assert.equal(
     proximoItemVazioOrdem(
       ordem,
       unidade,
-      ['vaiUm:1', 'resultado:1', 'resultado:2'],
+      ['vaiUm:1', 'resultado:2', 'resultado:1'],
     ),
     null,
   );
@@ -615,7 +647,7 @@ test('primeiroItemVazioOrdem retoma os passos que faltaram', () => {
   assert.equal(
     primeiroItemVazioOrdem(
       ordem,
-      ['resultado:0', 'vaiUm:1', 'resultado:1', 'resultado:2'],
+      ['resultado:0', 'vaiUm:1', 'resultado:2', 'resultado:1'],
     ),
     null,
   );
@@ -629,10 +661,10 @@ test('proximoItemOrdem e itemAnteriorOrdem percorrem o fluxo sem travar', () => 
   const centena = { tipo: 'resultado', coluna: 2 };
 
   assert.deepEqual(proximoItemOrdem(ordem, unidade), vaiUm);
-  assert.deepEqual(proximoItemOrdem(ordem, vaiUm), dezena);
-  assert.deepEqual(proximoItemOrdem(ordem, dezena), centena);
-  assert.equal(proximoItemOrdem(ordem, centena), null);
-  assert.deepEqual(itemAnteriorOrdem(ordem, dezena), vaiUm);
+  assert.deepEqual(proximoItemOrdem(ordem, vaiUm), centena);
+  assert.deepEqual(proximoItemOrdem(ordem, centena), dezena);
+  assert.equal(proximoItemOrdem(ordem, dezena), null);
+  assert.deepEqual(itemAnteriorOrdem(ordem, dezena), centena);
   assert.equal(itemAnteriorOrdem(ordem, unidade), null);
   assert.equal(proximoItemOrdem(ordem, { tipo: 'resultado', coluna: 9 }), null);
 });
