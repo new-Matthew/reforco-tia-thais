@@ -15,6 +15,8 @@ const {
   normalizarVaiUmMultiplicacao,
   lerVaiUmMultiplicacao,
   ordemFocoMultiplicacao,
+  proximoCampoDivisao,
+  campoAnteriorDivisao,
   calcularVaiUm,
   montarArrayVaiUm,
   montarArrayEmprestimos,
@@ -261,7 +263,7 @@ test('aplicarPreferencias lê operação e dificuldade da URL', () => {
 
 test('aplicarPreferencias ignora valores desconhecidos', () => {
   const estado = { operacao: 'SOMA', dificuldade: 'FACIL' };
-  aplicarPreferencias(estado, '?operacao=DIVISAO&dificuldade=IMPOSSIVEL');
+  aplicarPreferencias(estado, '?operacao=RADICIACAO&dificuldade=IMPOSSIVEL');
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
   aplicarPreferencias(estado, '');
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
@@ -560,4 +562,71 @@ test('aplicarPreferencias aceita multiplicação no nível médio', () => {
 
   assert.equal(estado.operacao, 'MULTIPLICACAO');
   assert.equal(estado.dificuldade, 'MEDIO');
+});
+
+test('aplicarPreferencias aceita divisão', () => {
+  const estado = aplicarPreferencias(
+    { operacao: 'SOMA', dificuldade: 'MEDIO' },
+    '?operacao=DIVISAO&dificuldade=FACIL',
+  );
+
+  assert.equal(estado.operacao, 'DIVISAO');
+  assert.equal(estado.dificuldade, 'FACIL');
+});
+
+test('proximoCampoDivisao segue quociente, subtração e resto', () => {
+  assert.equal(proximoCampoDivisao('quociente'), 'subtracao');
+  assert.equal(proximoCampoDivisao('subtracao'), 'resto');
+  assert.equal(proximoCampoDivisao('resto'), null);
+  assert.equal(proximoCampoDivisao('desconhecido'), null);
+});
+
+test('campoAnteriorDivisao volta do resto para o quociente', () => {
+  assert.equal(campoAnteriorDivisao('quociente'), null);
+  assert.equal(campoAnteriorDivisao('subtracao'), 'quociente');
+  assert.equal(campoAnteriorDivisao('resto'), 'subtracao');
+  assert.equal(campoAnteriorDivisao('desconhecido'), null);
+});
+
+test('montarRequisicao envia quociente, subtração e resto da divisão', () => {
+  const questao = {
+    id: 'id-div',
+    operacao: 'DIVISAO',
+    numeroA: 36,
+    numeroB: 4,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 9,
+    vaiUm: null,
+    emprestados: null,
+    vaiUmMultiplicacao: null,
+    subtracaoDigitada: 36,
+    restoDigitado: 0,
+  });
+
+  assert.deepEqual(requisicao, {
+    idQuestao: 'id-div',
+    operacao: 'DIVISAO',
+    numeroA: 36,
+    numeroB: 4,
+    resultadoDigitado: 9,
+    vaiUm: null,
+    emprestados: null,
+    vaiUmMultiplicacao: null,
+    subtracaoDigitada: 36,
+    restoDigitado: 0,
+  });
+});
+
+test('montarRequisicao não envia campos de divisão nas outras operações', () => {
+  const questao = { id: 'id-soma', operacao: 'SOMA', numeroA: 38, numeroB: 25 };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 63,
+    vaiUm: [1, 0],
+    emprestados: null,
+    vaiUmMultiplicacao: null,
+  });
+
+  assert.equal('subtracaoDigitada' in requisicao, false);
+  assert.equal('restoDigitado' in requisicao, false);
 });

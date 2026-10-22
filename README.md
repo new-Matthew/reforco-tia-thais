@@ -1,11 +1,12 @@
 # Reforço Escolar — Tia Thaís
 
-Jogo educativo de adição e subtração para crianças, com lousa interativa, correção automática, progressão de nível e contato comercial via WhatsApp.
+Jogo educativo de adição, subtração, multiplicação e divisão para crianças, com lousa interativa, correção automática, progressão de nível e contato comercial via WhatsApp.
 
 ## Funcionalidades
 
 - Contas de adição e subtração nos níveis fácil (2 dígitos) e médio (3 dígitos).
 - Multiplicação nos níveis fácil (1 dígito por 1 dígito) e médio (2 dígitos por 1 dígito), com preenchimento do "vai um".
+- Divisão em formato de chave no nível fácil (2 dígitos por 1 dígito, exata), com quociente, subtração intermediária e resto.
 - Preenchimento dos passos de "vai um" e empréstimo.
 - Correção automática das respostas pela API.
 - Placar, sequência de acertos e barra de progresso.

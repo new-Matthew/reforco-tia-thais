@@ -208,6 +208,124 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Gera divisões fáceis exatas com dividendo de dois dígitos e divisor de um dígito")
+    void geraDivisaoFacilExata() {
+        for (int i = 0; i < 200; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(Operacao.DIVISAO, Dificuldade.FACIL);
+
+            assertEquals(Operacao.DIVISAO, questao.getOperacao());
+            assertEquals(Dificuldade.FACIL, questao.getDificuldade());
+            assertTrue(questao.getNumeroA() >= 10 && questao.getNumeroA() <= 99);
+            assertTrue(questao.getNumeroB() >= 2 && questao.getNumeroB() <= 9);
+            assertEquals(0, questao.getNumeroA() % questao.getNumeroB());
+            assertEquals(questao.getNumeroA() / questao.getNumeroB(), questao.getQuociente());
+            assertEquals(questao.getNumeroA(), questao.getSubtracaoIntermediaria());
+            assertEquals(0, questao.getResto());
+            assertNull(questao.getVaiUm());
+            assertNull(questao.getResultadoParcial());
+            assertTrue(questao.getId() != null && !questao.getId().isBlank());
+        }
+    }
+
+    @Test
+    @DisplayName("Gera divisões médias exatas com dividendo de três dígitos")
+    void geraDivisaoMediaExata() {
+        for (int i = 0; i < 200; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(Operacao.DIVISAO, Dificuldade.MEDIO);
+
+            assertEquals(Operacao.DIVISAO, questao.getOperacao());
+            assertEquals(Dificuldade.MEDIO, questao.getDificuldade());
+            assertTrue(questao.getNumeroA() >= 100 && questao.getNumeroA() <= 999);
+            assertTrue(questao.getNumeroB() >= 2 && questao.getNumeroB() <= 9);
+            assertEquals(0, questao.getNumeroA() % questao.getNumeroB());
+            assertEquals(questao.getNumeroA() / questao.getNumeroB(), questao.getQuociente());
+            assertEquals(questao.getNumeroA(), questao.getSubtracaoIntermediaria());
+            assertEquals(0, questao.getResto());
+        }
+    }
+
+    @Test
+    @DisplayName("Valida divisão correta com quociente, subtração e resto corretos")
+    void validaDivisaoCorreta() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div", Operacao.DIVISAO, 36, 4, 9,
+                null, null, null, 36, 0);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(9, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Valida divisão não exata usando quociente inteiro, subtração e resto")
+    void validaDivisaoNaoExata() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-resto", Operacao.DIVISAO, 37, 4, 9,
+                null, null, null, 36, 1);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(9, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando o quociente está certo mas os passos da divisão estão errados")
+    void validaDivisaoComPassosErrados() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-passos", Operacao.DIVISAO, 36, 4, 9,
+                null, null, null, 24, 0);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(9, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("divisão"));
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando a divisão não envia a subtração ou o resto")
+    void validaDivisaoSemPassos() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-sem-passos", Operacao.DIVISAO, 36, 4, 9,
+                null, null, null, null, null);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Zera os pontos quando o quociente da divisão está errado")
+    void validaDivisaoErrada() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-errada", Operacao.DIVISAO, 36, 4, 8,
+                null, null, null, 36, 0);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(9, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("9"));
+    }
+
+    @Test
+    @DisplayName("Rejeita validação de divisão por zero")
+    void rejeitaDivisaoPorZero() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-zero", Operacao.DIVISAO, 36, 0, 9,
+                null, null, null, 0, 0);
+
+        assertThrows(IllegalArgumentException.class, () -> jogoService.validar(requisicao));
+    }
+
+    @Test
     @DisplayName("Rejeita geração sem operação ou sem dificuldade")
     void rejeitaParametrosNulosNaGeracao() {
         assertThrows(IllegalArgumentException.class,

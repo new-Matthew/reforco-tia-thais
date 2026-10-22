@@ -76,6 +76,43 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Retorna uma questão de divisão fácil no endpoint de próxima questão")
+    void retornaQuestaoDeDivisao() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "DIVISAO")
+                        .param("dificuldade", "FACIL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("DIVISAO"))
+                .andExpect(jsonPath("$.dificuldade").value("FACIL"))
+                .andExpect(jsonPath("$.quociente").isNumber())
+                .andExpect(jsonPath("$.subtracaoIntermediaria").isNumber())
+                .andExpect(jsonPath("$.resto").value(0));
+    }
+
+    @Test
+    @DisplayName("Valida os passos e o quociente da divisão")
+    void validaDivisao() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "DIVISAO",
+                  "numeroA": 36,
+                  "numeroB": 4,
+                  "resultadoDigitado": 9,
+                  "subtracaoDigitada": 36,
+                  "restoDigitado": 0
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(9));
+    }
+
+    @Test
     @DisplayName("Valida os passos e o resultado da multiplicação média")
     void validaMultiplicacaoMedia() throws Exception {
         String corpo = """

@@ -44,6 +44,10 @@ public class JogoService {
             return gerarMultiplicacao(operacao, dificuldade);
         }
 
+        if (operacao == Operacao.DIVISAO) {
+            return gerarDivisao(operacao, dificuldade);
+        }
+
         int minimo = dificuldade.getValorMinimo();
         int maximo = dificuldade.getValorMaximo();
 
@@ -75,6 +79,15 @@ public class JogoService {
                     ? 0
                     : requisicao.getVaiUmMultiplicacao();
             passosCorretos = carryInformado == carryEsperado;
+        } else if (operacao == Operacao.DIVISAO) {
+            if (numeroB == 0) {
+                throw new IllegalArgumentException("O divisor não pode ser zero.");
+            }
+            respostaCorreta = numeroA / numeroB;
+            int subtracaoEsperada = numeroB * respostaCorreta;
+            int restoEsperado = numeroA - subtracaoEsperada;
+            passosCorretos = Objects.equals(requisicao.getSubtracaoDigitada(), subtracaoEsperada)
+                    && Objects.equals(requisicao.getRestoDigitado(), restoEsperado);
         } else {
             boolean soma = operacao == Operacao.SOMA;
             respostaCorreta = soma ? numeroA + numeroB : numeroA - numeroB;
@@ -99,10 +112,12 @@ public class JogoService {
         }
 
         if (resultadoCorreto) {
+            String mensagem = operacao == Operacao.DIVISAO
+                    ? "O resultado está certo, mas confira os passos da divisão."
+                    : "O resultado está certo, mas confira os passos do " + descreverPasso(operacao);
             return new RespostaValidacaoDTO(
                     false,
-                    "O resultado está certo, mas confira os passos do "
-                            + descreverPasso(operacao),
+                    mensagem,
                     PONTOS_ACERTO_PARCIAL,
                     respostaCorreta);
         }
@@ -208,6 +223,27 @@ public class JogoService {
         return (numeroA % 10 * numeroB) / 10;
     }
 
+    private QuestaoDTO gerarDivisao(Operacao operacao, Dificuldade dificuldade) {
+        int quocienteMinimo = dificuldade == Dificuldade.FACIL ? 2 : 10;
+        int quocienteMaximo = dificuldade == Dificuldade.FACIL ? 9 : 99;
+        int dividendoMinimo = dificuldade.getValorMinimo();
+
+        for (int tentativa = 0; tentativa < TENTATIVAS_MAXIMAS; tentativa++) {
+            int divisor = sortear(2, 9);
+            int quociente = sortear(quocienteMinimo, quocienteMaximo);
+            int dividendo = divisor * quociente;
+
+            if (dividendo >= dividendoMinimo && dividendo <= dificuldade.getValorMaximo()) {
+                QuestaoDTO questao = novaQuestao(operacao, dificuldade, dividendo, divisor);
+                questao.setQuociente(quociente);
+                questao.setSubtracaoIntermediaria(dividendo);
+                questao.setResto(0);
+                return questao;
+            }
+        }
+        throw new IllegalStateException("Não foi possível gerar uma divisão exata.");
+    }
+
     private String descreverPasso(Operacao operacao) {
         if (operacao == Operacao.SOMA) {
             return "'vai um'.";
@@ -225,6 +261,9 @@ public class JogoService {
                 dificuldade,
                 numeroA,
                 numeroB,
+                null,
+                null,
+                null,
                 null,
                 null);
     }
