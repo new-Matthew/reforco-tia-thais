@@ -240,21 +240,151 @@ function ordemFocoMultiplicacao(colunas, temVaiUm) {
   return ordem;
 }
 
-function focarProximoMultiplicacao(el, ordem, atual) {
-  const posicao = ordem.findIndex(
-    (item) => item.tipo === atual.tipo && item.coluna === atual.coluna,
-  );
-  const proximo = posicao >= 0 ? ordem[posicao + 1] : null;
-  if (!proximo) {
-    return;
+/*
+- Ordem de preenchimento da adição como no papel: primeiro a unidade do
+- resultado; se aquela coluna gerar transporte, sobe para o "vai um" da coluna
+- à esquerda e só então desce para o resultado dessa coluna. A casa extra do
+- resultado (transporte que sai da coluna mais à esquerda) só entra no fluxo
+- quando realmente existe transporte final.
+ */
+function ordemFocoSoma(digitos, transportes) {
+  const quantidade = Math.max(0, Math.trunc(Number(digitos) || 0));
+  const passos = Array.from(transportes ?? [], normalizarPasso);
+  const ordem = [];
+
+  for (let coluna = 0; coluna < quantidade; coluna += 1) {
+    ordem.push({ tipo: 'resultado', coluna });
+    if (passos[coluna] === 1 && coluna + 1 <= quantidade - 1) {
+      ordem.push({ tipo: 'vaiUm', coluna: coluna + 1 });
+    }
   }
-  const seletor = proximo.tipo === 'vaiUm'
-    ? '.caixa-vai-um'
-    : '.resultado-input[data-coluna="' + proximo.coluna + '"]';
+
+  if (quantidade > 0 && passos[quantidade - 1] === 1) {
+    ordem.push({ tipo: 'resultado', coluna: quantidade });
+  }
+
+  return ordem;
+}
+
+/*
+- Quando a criança prefere digitar o resultado da esquerda para a direita, o
+- cursor deve caminhar para a casa vazia imediatamente à direita (coluna menor)
+- em vez de voltar ao fluxo do papel. Sem casa vazia à direita, o fluxo normal
+- continua valendo.
+ */
+function proximaColunaResultadoADireita(colunaAtual, preenchidas) {
+  const atual = Math.trunc(Number(colunaAtual) || 0);
+  for (let coluna = atual - 1; coluna >= 0; coluna -= 1) {
+    if (!preenchidas[coluna]) {
+      return coluna;
+    }
+  }
+  return null;
+}
+
+function mesmoAlvoFoco(item, atual) {
+  return Boolean(item && atual)
+    && item.tipo === atual.tipo
+    && item.coluna === atual.coluna;
+}
+
+function itemNaOrdemFoco(ordem, atual, passo) {
+  const posicao = ordem.findIndex((item) => mesmoAlvoFoco(item, atual));
+  if (posicao < 0) {
+    return null;
+  }
+  return ordem[posicao + passo] ?? null;
+}
+
+function proximoItemOrdem(ordem, atual) {
+  return itemNaOrdemFoco(ordem, atual, 1);
+}
+
+function itemAnteriorOrdem(ordem, atual) {
+  return itemNaOrdemFoco(ordem, atual, -1);
+}
+
+function chaveAlvoFoco(alvo) {
+  return alvo ? alvo.tipo + ':' + alvo.coluna : null;
+}
+
+/*
+- Avança para o próximo passo ainda vazio do fluxo. Isso evita que o cursor
+- volte para uma casa já preenchida quando a criança digitou o resultado da
+- esquerda para a direita e só faltam os passos do "vai um".
+ */
+function proximoItemVazioOrdem(ordem, atual, preenchidos) {
+  const posicao = ordem.findIndex((item) => mesmoAlvoFoco(item, atual));
+  if (posicao < 0) {
+    return null;
+  }
+  const ocupados = preenchidos instanceof Set
+    ? preenchidos
+    : new Set(preenchidos ?? []);
+
+  for (let indice = posicao + 1; indice < ordem.length; indice += 1) {
+    if (!ocupados.has(chaveAlvoFoco(ordem[indice]))) {
+      return ordem[indice];
+    }
+  }
+  return null;
+}
+
+function primeiroItemVazioOrdem(ordem, preenchidos) {
+  const ocupados = preenchidos instanceof Set
+    ? preenchidos
+    : new Set(preenchidos ?? []);
+
+  for (let indice = 0; indice < ordem.length; indice += 1) {
+    if (!ocupados.has(chaveAlvoFoco(ordem[indice]))) {
+      return ordem[indice];
+    }
+  }
+  return null;
+}
+
+function seletorAlvoFoco(alvo) {
+  if (!alvo) {
+    return null;
+  }
+  return alvo.tipo === 'vaiUm'
+    ? '.caixa-vai-um[data-coluna="' + alvo.coluna + '"]'
+    : '.resultado-input[data-coluna="' + alvo.coluna + '"]';
+}
+
+function preenchidosNaOrdem(el, ordem) {
+  const preenchidos = new Set();
+  ordem.forEach((item) => {
+    const campo = el.conta.querySelector(seletorAlvoFoco(item));
+    if (campo && String(campo.value).trim() !== '') {
+      preenchidos.add(chaveAlvoFoco(item));
+    }
+  });
+  return preenchidos;
+}
+
+function focarItemOrdem(el, alvo) {
+  const seletor = seletorAlvoFoco(alvo);
+  if (!seletor) {
+    return false;
+  }
   const campo = el.conta.querySelector(seletor);
   if (campo) {
     campo.focus();
+    return true;
   }
+  return false;
+}
+
+function focarNaOrdemFoco(el, ordem, atual, passo) {
+  const alvo = passo >= 0
+    ? proximoItemOrdem(ordem, atual)
+    : itemAnteriorOrdem(ordem, atual);
+  return focarItemOrdem(el, alvo);
+}
+
+function focarProximoMultiplicacao(el, ordem, atual) {
+  focarNaOrdemFoco(el, ordem, atual, 1);
 }
 
 function preencherAte(valores, quantidade) {
@@ -899,9 +1029,12 @@ function renderConta(estado, el) {
   const carryMultiplicacao = media
     ? Number(questao.vaiUm ?? calcularVaiUmMultiplicacao(questao.numeroA, questao.numeroB))
     : 0;
+  const transportesSoma = soma
+    ? calcularVaiUm(questao.numeroA, questao.numeroB)
+    : [];
   const ordemFoco = multiplicacao
     ? ordemFocoMultiplicacao(colunas, carryMultiplicacao > 0)
-    : [];
+    : (soma ? ordemFocoSoma(digitosA, transportesSoma) : []);
 
   el.conta.innerHTML = '';
   el.conta.style.setProperty('--colunas', String(colunas));
@@ -925,6 +1058,28 @@ function renderConta(estado, el) {
       caixa.style.gridRow = '1';
       caixa.addEventListener('input', () => {
         caixa.value = caixa.value.replace(/[^01]/g, '').slice(-1);
+        if (caixa.value !== '') {
+          const preenchidos = preenchidosNaOrdem(el, ordemFoco);
+          let alvo = proximoItemVazioOrdem(
+            ordemFoco, { tipo: 'vaiUm', coluna: indice }, preenchidos,
+          );
+          if (!alvo) {
+            alvo = primeiroItemVazioOrdem(ordemFoco, preenchidos);
+          }
+          if (!focarItemOrdem(el, alvo)) {
+            const resultadoAbaixo = el.conta.querySelector(
+              '.resultado-input[data-coluna="' + indice + '"]',
+            );
+            if (resultadoAbaixo && String(resultadoAbaixo.value).trim() === '') {
+              resultadoAbaixo.focus();
+            }
+          }
+        }
+      });
+      caixa.addEventListener('keydown', (evento) => {
+        if (evento.key === 'Backspace' && caixa.value === '') {
+          focarNaOrdemFoco(el, ordemFoco, { tipo: 'vaiUm', coluna: indice }, -1);
+        }
       });
       el.conta.appendChild(caixa);
     }
@@ -1054,7 +1209,35 @@ function renderConta(estado, el) {
     campo.addEventListener('input', () => {
       campo.value = campo.value.replace(/\D/g, '').slice(-1);
       if (campo.value !== '') {
-        if (multiplicacao) {
+        if (soma && indice > 0) {
+          const preenchidas = [];
+          for (let coluna = 0; coluna < colunas; coluna += 1) {
+            const outro = el.conta.querySelector(
+              '.resultado-input[data-coluna="' + coluna + '"]',
+            );
+            preenchidas.push(Boolean(outro && String(outro.value).trim() !== ''));
+          }
+          const colunaDireita = proximaColunaResultadoADireita(indice, preenchidas);
+          if (colunaDireita !== null) {
+            const destino = el.conta.querySelector(
+              '.resultado-input[data-coluna="' + colunaDireita + '"]',
+            );
+            if (destino) {
+              destino.focus();
+            }
+            return;
+          }
+        }
+        if (soma) {
+          const preenchidos = preenchidosNaOrdem(el, ordemFoco);
+          let alvo = proximoItemVazioOrdem(
+            ordemFoco, { tipo: 'resultado', coluna: indice }, preenchidos,
+          );
+          if (!alvo) {
+            alvo = primeiroItemVazioOrdem(ordemFoco, preenchidos);
+          }
+          focarItemOrdem(el, alvo);
+        } else if (multiplicacao) {
           focarProximoMultiplicacao(el, ordemFoco, { tipo: 'resultado', coluna: indice });
         } else {
           const proximo = el.conta.querySelector(
@@ -1068,12 +1251,36 @@ function renderConta(estado, el) {
     });
 
     campo.addEventListener('keydown', (evento) => {
-      if (evento.key === 'Backspace' && campo.value === '' && indice > 0) {
-        const anterior = el.conta.querySelector(
+      if (evento.key === 'Backspace' && campo.value === '') {
+        if (multiplicacao || soma) {
+          focarNaOrdemFoco(el, ordemFoco, { tipo: 'resultado', coluna: indice }, -1);
+          return;
+        }
+        if (indice > 0) {
+          const anterior = el.conta.querySelector(
+            '.resultado-input[data-coluna="' + (indice - 1) + '"]',
+          );
+          if (anterior) {
+            anterior.focus();
+          }
+        }
+      }
+      if (evento.key === 'ArrowLeft' && indice < colunas - 1) {
+        evento.preventDefault();
+        const proximaColuna = el.conta.querySelector(
+          '.resultado-input[data-coluna="' + (indice + 1) + '"]',
+        );
+        if (proximaColuna) {
+          proximaColuna.focus();
+        }
+      }
+      if (evento.key === 'ArrowRight' && indice > 0) {
+        evento.preventDefault();
+        const colunaAnterior = el.conta.querySelector(
           '.resultado-input[data-coluna="' + (indice - 1) + '"]',
         );
-        if (anterior) {
-          anterior.focus();
+        if (colunaAnterior) {
+          colunaAnterior.focus();
         }
       }
       if (evento.key === 'Enter') {
@@ -1959,6 +2166,13 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizarVaiUmMultiplicacao,
     lerVaiUmMultiplicacao,
     ordemFocoMultiplicacao,
+    ordemFocoSoma,
+    proximaColunaResultadoADireita,
+    proximoItemOrdem,
+    itemAnteriorOrdem,
+    chaveAlvoFoco,
+    proximoItemVazioOrdem,
+    primeiroItemVazioOrdem,
     ORDEM_CAMPOS_DIVISAO_MEDIA,
     ROTULOS_DIVISAO,
     ehDivisaoLonga,
