@@ -41,27 +41,52 @@
   }
 
   /*
-   * Ordem de preenchimento da adição como no papel: primeiro a unidade do
-   * resultado; se aquela coluna gerar transporte, sobe para o "vai um" da
-   * coluna à esquerda e só então desce para o resultado dessa coluna.
+   * A adição é preenchida em duas etapas distintas.
+   *
+   * 1) Cálculo, da direita para a esquerda: percorre as colunas dos operandos
+   *    (todas menos a última) preenchendo o resultado de cada uma e, quando a
+   *    coluna gera transporte, o "vai um" da coluna seguinte.
+   *
+   * 2) Casas finais do resultado, da esquerda para a direita: por último entra
+   *    a coluna mais à esquerda dos operandos e, se houver transporte final, a
+   *    casa extra que ele cria (centena/milhar), sempre da maior para a menor.
    */
-  function ordemFocoSoma(digitos, transportes) {
-    const quantidade = Math.max(0, Math.trunc(Number(digitos) || 0));
-    const passos = Array.from(transportes ?? [], normalizarPasso);
+  function ordemCalculoSoma(quantidade, passos) {
     const ordem = [];
 
-    for (let coluna = 0; coluna < quantidade; coluna += 1) {
+    for (let coluna = 0; coluna < quantidade - 1; coluna += 1) {
       ordem.push({ tipo: 'resultado', coluna });
-      if (passos[coluna] === 1 && coluna + 1 <= quantidade - 1) {
+      if (passos[coluna] === 1) {
         ordem.push({ tipo: 'vaiUm', coluna: coluna + 1 });
       }
     }
 
-    if (quantidade > 0 && passos[quantidade - 1] === 1) {
-      ordem.push({ tipo: 'resultado', coluna: quantidade });
-    }
-
     return ordem;
+  }
+
+  function ordemCasasFinaisSoma(quantidade, passos) {
+    const ultimaColunaOperando = quantidade - 1;
+    const colunas = [];
+
+    if (passos[ultimaColunaOperando] === 1) {
+      colunas.push(quantidade);
+    }
+    colunas.push(ultimaColunaOperando);
+
+    return colunas.map((coluna) => ({ tipo: 'resultado', coluna }));
+  }
+
+  function ordemFocoSoma(digitos, transportes) {
+    const quantidade = Math.max(0, Math.trunc(Number(digitos) || 0));
+    if (quantidade <= 0) {
+      return [];
+    }
+    const passos = Array.from(transportes ?? [], normalizarPasso);
+
+    return [
+      ...ordemCalculoSoma(quantidade, passos),
+      ...ordemCasasFinaisSoma(quantidade, passos),
+    ];
   }
 
   /*
@@ -272,6 +297,8 @@
   const exportacoes = {
     normalizarPasso,
     ordemFocoMultiplicacao,
+    ordemCalculoSoma,
+    ordemCasasFinaisSoma,
     ordemFocoSoma,
     proximaColunaResultadoADireita,
     proximoItemOrdem,

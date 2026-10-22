@@ -18,6 +18,8 @@ const LousaFoco = (typeof module !== 'undefined' && module.exports)
 const {
   normalizarPasso,
   ordemFocoMultiplicacao,
+  ordemCalculoSoma,
+  ordemCasasFinaisSoma,
   ordemFocoSoma,
   proximaColunaResultadoADireita,
   proximoItemOrdem,
@@ -2053,6 +2055,8 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizarVaiUmMultiplicacao,
     lerVaiUmMultiplicacao,
     ordemFocoMultiplicacao,
+    ordemCalculoSoma,
+    ordemCasasFinaisSoma,
     ordemFocoSoma,
     proximaColunaResultadoADireita,
     proximoItemOrdem,
