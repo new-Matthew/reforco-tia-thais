@@ -90,6 +90,27 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Retorna uma questão de divisão média longa no endpoint de próxima questão")
+    void retornaQuestaoDeDivisaoMedia() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "DIVISAO")
+                        .param("dificuldade", "MEDIO"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("DIVISAO"))
+                .andExpect(jsonPath("$.dificuldade").value("MEDIO"))
+                .andExpect(jsonPath("$.quociente").isNumber())
+                .andExpect(jsonPath("$.resto").isNumber())
+                .andExpect(jsonPath("$.dividendoParcial").isNumber())
+                .andExpect(jsonPath("$.quocienteParcial").isNumber())
+                .andExpect(jsonPath("$.subtracaoParcial").isNumber())
+                .andExpect(jsonPath("$.restoParcial").isNumber())
+                .andExpect(jsonPath("$.dividendoAbaixado").isNumber())
+                .andExpect(jsonPath("$.quocienteFinal").isNumber())
+                .andExpect(jsonPath("$.subtracaoFinal").isNumber())
+                .andExpect(jsonPath("$.subtracaoIntermediaria").doesNotExist());
+    }
+
+    @Test
     @DisplayName("Valida os passos e o quociente da divisão")
     void validaDivisao() throws Exception {
         String corpo = """
@@ -110,6 +131,33 @@ class JogoControllerTest {
                 .andExpect(jsonPath("$.correto").value(true))
                 .andExpect(jsonPath("$.pontosGanhos").value(10))
                 .andExpect(jsonPath("$.respostaCorreta").value(9));
+    }
+
+    @Test
+    @DisplayName("Valida as etapas e o quociente da divisão média longa")
+    void validaDivisaoMedia() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "DIVISAO",
+                  "numeroA": 793,
+                  "numeroB": 17,
+                  "resultadoDigitado": 46,
+                  "quocienteParcialDigitado": 4,
+                  "subtracaoParcialDigitada": 68,
+                  "restoParcialDigitado": 11,
+                  "quocienteFinalDigitado": 6,
+                  "subtracaoFinalDigitada": 102,
+                  "restoDigitado": 11
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(46));
     }
 
     @Test

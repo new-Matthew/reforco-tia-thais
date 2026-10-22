@@ -84,10 +84,30 @@ public class JogoService {
                 throw new IllegalArgumentException("O divisor não pode ser zero.");
             }
             respostaCorreta = numeroA / numeroB;
-            int subtracaoEsperada = numeroB * respostaCorreta;
-            int restoEsperado = numeroA - subtracaoEsperada;
-            passosCorretos = Objects.equals(requisicao.getSubtracaoDigitada(), subtracaoEsperada)
-                    && Objects.equals(requisicao.getRestoDigitado(), restoEsperado);
+            if (ehDivisaoLonga(numeroA, numeroB)) {
+                EtapasDivisao etapas = calcularEtapasDivisao(numeroA, numeroB);
+                passosCorretos = Objects.equals(
+                                requisicao.getQuocienteParcialDigitado(),
+                                etapas.quocienteParcial())
+                        && Objects.equals(
+                                requisicao.getSubtracaoParcialDigitada(),
+                                etapas.subtracaoParcial())
+                        && Objects.equals(
+                                requisicao.getRestoParcialDigitado(),
+                                etapas.restoParcial())
+                        && Objects.equals(
+                                requisicao.getQuocienteFinalDigitado(),
+                                etapas.quocienteFinal())
+                        && Objects.equals(
+                                requisicao.getSubtracaoFinalDigitada(),
+                                etapas.subtracaoFinal())
+                        && Objects.equals(requisicao.getRestoDigitado(), etapas.restoFinal());
+            } else {
+                int subtracaoEsperada = numeroB * respostaCorreta;
+                int restoEsperado = numeroA - subtracaoEsperada;
+                passosCorretos = Objects.equals(requisicao.getSubtracaoDigitada(), subtracaoEsperada)
+                        && Objects.equals(requisicao.getRestoDigitado(), restoEsperado);
+            }
         } else {
             boolean soma = operacao == Operacao.SOMA;
             respostaCorreta = soma ? numeroA + numeroB : numeroA - numeroB;
@@ -224,16 +244,17 @@ public class JogoService {
     }
 
     private QuestaoDTO gerarDivisao(Operacao operacao, Dificuldade dificuldade) {
-        int quocienteMinimo = dificuldade == Dificuldade.FACIL ? 2 : 10;
-        int quocienteMaximo = dificuldade == Dificuldade.FACIL ? 9 : 99;
-        int dividendoMinimo = dificuldade.getValorMinimo();
+        if (dificuldade == Dificuldade.MEDIO) {
+            return gerarDivisaoLonga(operacao, dificuldade);
+        }
 
         for (int tentativa = 0; tentativa < TENTATIVAS_MAXIMAS; tentativa++) {
             int divisor = sortear(2, 9);
-            int quociente = sortear(quocienteMinimo, quocienteMaximo);
+            int quociente = sortear(2, 9);
             int dividendo = divisor * quociente;
 
-            if (dividendo >= dividendoMinimo && dividendo <= dificuldade.getValorMaximo()) {
+            if (dividendo >= Dificuldade.FACIL.getValorMinimo()
+                    && dividendo <= Dificuldade.FACIL.getValorMaximo()) {
                 QuestaoDTO questao = novaQuestao(operacao, dificuldade, dividendo, divisor);
                 questao.setQuociente(quociente);
                 questao.setSubtracaoIntermediaria(dividendo);
@@ -242,6 +263,71 @@ public class JogoService {
             }
         }
         throw new IllegalStateException("Não foi possível gerar uma divisão exata.");
+    }
+
+    private QuestaoDTO gerarDivisaoLonga(Operacao operacao, Dificuldade dificuldade) {
+        for (int tentativa = 0; tentativa < TENTATIVAS_MAXIMAS; tentativa++) {
+            int dividendo = sortear(100, 999);
+            int divisor = sortear(10, dividendo / 10);
+            int quociente = dividendo / divisor;
+
+            if (quociente < 10 || quociente % 10 == 0) {
+                continue;
+            }
+
+            EtapasDivisao etapas = calcularEtapasDivisao(dividendo, divisor);
+            QuestaoDTO questao = novaQuestao(operacao, dificuldade, dividendo, divisor);
+            questao.setQuociente(quociente);
+            questao.setResto(etapas.restoFinal());
+            questao.setDividendoParcial(etapas.dividendoParcial());
+            questao.setQuocienteParcial(etapas.quocienteParcial());
+            questao.setSubtracaoParcial(etapas.subtracaoParcial());
+            questao.setRestoParcial(etapas.restoParcial());
+            questao.setDividendoAbaixado(etapas.dividendoAbaixado());
+            questao.setQuocienteFinal(etapas.quocienteFinal());
+            questao.setSubtracaoFinal(etapas.subtracaoFinal());
+            return questao;
+        }
+        throw new IllegalStateException("Não foi possível gerar uma divisão longa.");
+    }
+
+    private boolean ehDivisaoLonga(int dividendo, int divisor) {
+        return dividendo >= 100
+                && dividendo <= 999
+                && divisor >= 10
+                && divisor <= 99
+                && dividendo / divisor >= 10;
+    }
+
+    private EtapasDivisao calcularEtapasDivisao(int dividendo, int divisor) {
+        int dividendoParcial = dividendo / 10;
+        int quocienteParcial = dividendoParcial / divisor;
+        int subtracaoParcial = divisor * quocienteParcial;
+        int restoParcial = dividendoParcial - subtracaoParcial;
+        int dividendoAbaixado = restoParcial * 10 + (dividendo % 10);
+        int quocienteFinal = dividendoAbaixado / divisor;
+        int subtracaoFinal = divisor * quocienteFinal;
+        int restoFinal = dividendoAbaixado - subtracaoFinal;
+        return new EtapasDivisao(
+                dividendoParcial,
+                quocienteParcial,
+                subtracaoParcial,
+                restoParcial,
+                dividendoAbaixado,
+                quocienteFinal,
+                subtracaoFinal,
+                restoFinal);
+    }
+
+    private record EtapasDivisao(
+            int dividendoParcial,
+            int quocienteParcial,
+            int subtracaoParcial,
+            int restoParcial,
+            int dividendoAbaixado,
+            int quocienteFinal,
+            int subtracaoFinal,
+            int restoFinal) {
     }
 
     private String descreverPasso(Operacao operacao) {
@@ -261,6 +347,13 @@ public class JogoService {
                 dificuldade,
                 numeroA,
                 numeroB,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,

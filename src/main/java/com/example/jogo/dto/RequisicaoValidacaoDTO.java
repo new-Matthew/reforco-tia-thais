@@ -22,6 +22,11 @@ public class RequisicaoValidacaoDTO {
     private Integer vaiUmMultiplicacao;
     private Integer subtracaoDigitada;
     private Integer restoDigitado;
+    private Integer quocienteParcialDigitado;
+    private Integer subtracaoParcialDigitada;
+    private Integer restoParcialDigitado;
+    private Integer quocienteFinalDigitado;
+    private Integer subtracaoFinalDigitada;
 
     public RequisicaoValidacaoDTO(
             String idQuestao,
@@ -34,5 +39,20 @@ public class RequisicaoValidacaoDTO {
             Integer vaiUmMultiplicacao) {
         this(idQuestao, operacao, numeroA, numeroB, resultadoDigitado, vaiUm, emprestados,
                 vaiUmMultiplicacao, null, null);
+    }
+
+    public RequisicaoValidacaoDTO(
+            String idQuestao,
+            Operacao operacao,
+            Integer numeroA,
+            Integer numeroB,
+            Integer resultadoDigitado,
+            List<Integer> vaiUm,
+            List<Integer> emprestados,
+            Integer vaiUmMultiplicacao,
+            Integer subtracaoDigitada,
+            Integer restoDigitado) {
+        this(idQuestao, operacao, numeroA, numeroB, resultadoDigitado, vaiUm, emprestados,
+                vaiUmMultiplicacao, subtracaoDigitada, restoDigitado, null, null, null, null, null);
     }
 }

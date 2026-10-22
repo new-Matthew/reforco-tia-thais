@@ -228,20 +228,112 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Gera divisões médias exatas com dividendo de três dígitos")
-    void geraDivisaoMediaExata() {
+    @DisplayName("Gera divisões médias longas com dividendo de três dígitos e divisor de dois dígitos")
+    void geraDivisaoMediaLonga() {
         for (int i = 0; i < 200; i++) {
             QuestaoDTO questao = jogoService.gerarQuestao(Operacao.DIVISAO, Dificuldade.MEDIO);
 
             assertEquals(Operacao.DIVISAO, questao.getOperacao());
             assertEquals(Dificuldade.MEDIO, questao.getDificuldade());
             assertTrue(questao.getNumeroA() >= 100 && questao.getNumeroA() <= 999);
-            assertTrue(questao.getNumeroB() >= 2 && questao.getNumeroB() <= 9);
-            assertEquals(0, questao.getNumeroA() % questao.getNumeroB());
-            assertEquals(questao.getNumeroA() / questao.getNumeroB(), questao.getQuociente());
-            assertEquals(questao.getNumeroA(), questao.getSubtracaoIntermediaria());
-            assertEquals(0, questao.getResto());
+            assertTrue(questao.getNumeroB() >= 10 && questao.getNumeroB() <= 99);
+
+            int dividendoParcial = questao.getNumeroA() / 10;
+            int quocienteParcial = dividendoParcial / questao.getNumeroB();
+            int subtracaoParcial = quocienteParcial * questao.getNumeroB();
+            int restoParcial = dividendoParcial - subtracaoParcial;
+            int dividendoAbaixado = restoParcial * 10 + questao.getNumeroA() % 10;
+            int quocienteFinal = dividendoAbaixado / questao.getNumeroB();
+            int subtracaoFinal = quocienteFinal * questao.getNumeroB();
+            int restoFinal = dividendoAbaixado - subtracaoFinal;
+            int quociente = questao.getNumeroA() / questao.getNumeroB();
+
+            assertEquals(quociente, questao.getQuociente());
+            assertTrue(quociente >= 10 && quociente <= 99);
+            assertEquals(dividendoParcial, questao.getDividendoParcial());
+            assertEquals(quocienteParcial, questao.getQuocienteParcial());
+            assertEquals(subtracaoParcial, questao.getSubtracaoParcial());
+            assertEquals(restoParcial, questao.getRestoParcial());
+            assertEquals(dividendoAbaixado, questao.getDividendoAbaixado());
+            assertEquals(quocienteFinal, questao.getQuocienteFinal());
+            assertEquals(subtracaoFinal, questao.getSubtracaoFinal());
+            assertEquals(restoFinal, questao.getResto());
+            assertEquals(quocienteParcial * 10 + quocienteFinal, quociente);
+            assertTrue(quocienteFinal >= 1 && quocienteFinal <= 9);
+            assertNull(questao.getSubtracaoIntermediaria());
         }
+    }
+
+    @Test
+    @DisplayName("Valida divisão média longa com todas as etapas corretas")
+    void validaDivisaoMediaCorreta() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-media", Operacao.DIVISAO, 793, 17, 46,
+                null, null, null, null, 11);
+        requisicao.setQuocienteParcialDigitado(4);
+        requisicao.setSubtracaoParcialDigitada(68);
+        requisicao.setRestoParcialDigitado(11);
+        requisicao.setQuocienteFinalDigitado(6);
+        requisicao.setSubtracaoFinalDigitada(102);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(46, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando uma etapa da divisão média está errada")
+    void validaDivisaoMediaComEtapaErrada() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-media-etapa", Operacao.DIVISAO, 793, 17, 46,
+                null, null, null, null, 11);
+        requisicao.setQuocienteParcialDigitado(4);
+        requisicao.setSubtracaoParcialDigitada(68);
+        requisicao.setRestoParcialDigitado(11);
+        requisicao.setQuocienteFinalDigitado(5);
+        requisicao.setSubtracaoFinalDigitada(102);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(46, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("divisão"));
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando a divisão média não envia as etapas")
+    void validaDivisaoMediaSemEtapas() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-media-sem-etapas", Operacao.DIVISAO, 793, 17, 46,
+                null, null, null, null, 11);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Zera os pontos quando o quociente da divisão média está errado")
+    void validaDivisaoMediaErrada() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-media-errada", Operacao.DIVISAO, 793, 17, 45,
+                null, null, null, null, 11);
+        requisicao.setQuocienteParcialDigitado(4);
+        requisicao.setSubtracaoParcialDigitada(68);
+        requisicao.setRestoParcialDigitado(11);
+        requisicao.setQuocienteFinalDigitado(6);
+        requisicao.setSubtracaoFinalDigitada(102);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(46, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("46"));
     }
 
     @Test

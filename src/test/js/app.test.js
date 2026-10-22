@@ -15,6 +15,14 @@ const {
   normalizarVaiUmMultiplicacao,
   lerVaiUmMultiplicacao,
   ordemFocoMultiplicacao,
+  ORDEM_CAMPOS_DIVISAO_MEDIA,
+  ehDivisaoLonga,
+  ehDivisaoMedia,
+  etapaDoCampoDivisao,
+  alvoApoioDivisao,
+  ajustarMultiplicador,
+  avaliarMultiploDivisao,
+  comporQuocienteDivisaoMedia,
   proximoCampoDivisao,
   campoAnteriorDivisao,
   calcularVaiUm,
@@ -629,4 +637,167 @@ test('montarRequisicao não envia campos de divisão nas outras operações', ()
 
   assert.equal('subtracaoDigitada' in requisicao, false);
   assert.equal('restoDigitado' in requisicao, false);
+});
+
+test('a ordem da divisão média percorre as duas etapas antes do resto final', () => {
+  assert.deepEqual(ORDEM_CAMPOS_DIVISAO_MEDIA, [
+    'quocienteParcial',
+    'subtracaoParcial',
+    'restoParcial',
+    'quocienteFinal',
+    'subtracaoFinal',
+    'resto',
+  ]);
+  assert.equal(
+    proximoCampoDivisao('quocienteParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'subtracaoParcial',
+  );
+  assert.equal(
+    proximoCampoDivisao('restoParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'quocienteFinal',
+  );
+  assert.equal(
+    proximoCampoDivisao('resto', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    null,
+  );
+  assert.equal(
+    campoAnteriorDivisao('quocienteFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'restoParcial',
+  );
+  assert.equal(
+    campoAnteriorDivisao('quocienteParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    null,
+  );
+});
+
+test('etapaDoCampoDivisao associa cada campo à sua etapa', () => {
+  assert.equal(etapaDoCampoDivisao('quocienteParcial'), 1);
+  assert.equal(etapaDoCampoDivisao('subtracaoParcial'), 1);
+  assert.equal(etapaDoCampoDivisao('restoParcial'), 1);
+  assert.equal(etapaDoCampoDivisao('quocienteFinal'), 2);
+  assert.equal(etapaDoCampoDivisao('subtracaoFinal'), 2);
+  assert.equal(etapaDoCampoDivisao('resto'), 2);
+  assert.equal(etapaDoCampoDivisao('quociente'), null);
+});
+
+test('alvoApoioDivisao usa os alvos de cada etapa da divisão média', () => {
+  const questao = { dividendoParcial: 79, dividendoAbaixado: 113 };
+
+  assert.equal(alvoApoioDivisao(questao, 1), 79);
+  assert.equal(alvoApoioDivisao(questao, 2), 113);
+  assert.equal(alvoApoioDivisao(null, 1), 0);
+  assert.equal(alvoApoioDivisao({}, 2), 0);
+});
+
+test('ajustarMultiplicador soma o passo e respeita os limites de 0 a 9', () => {
+  assert.equal(ajustarMultiplicador(4, 1), 5);
+  assert.equal(ajustarMultiplicador(4, -1), 3);
+  assert.equal(ajustarMultiplicador(9, 1), 9);
+  assert.equal(ajustarMultiplicador(0, -1), 0);
+  assert.equal(ajustarMultiplicador('4', '2'), 6);
+  assert.equal(ajustarMultiplicador(5, 10, 1, 7), 7);
+});
+
+test('avaliarMultiploDivisao indica quando o produto fica abaixo do alvo', () => {
+  const avaliacao = avaliarMultiploDivisao(17, 4, 79);
+
+  assert.equal(avaliacao.produto, 68);
+  assert.equal(avaliacao.comparacao, 'abaixo');
+  assert.equal(avaliacao.excedeu, false);
+  assert.equal(avaliacao.expressao, '17 × 4 = 68');
+  assert.match(avaliacao.texto, /falta 11/);
+});
+
+test('avaliarMultiploDivisao marca em vermelho quando o produto passa do alvo', () => {
+  const avaliacao = avaliarMultiploDivisao(17, 5, 79);
+
+  assert.equal(avaliacao.produto, 85);
+  assert.equal(avaliacao.comparacao, 'acima');
+  assert.equal(avaliacao.excedeu, true);
+  assert.equal(avaliacao.expressao, '17 × 5 = 85');
+  assert.match(avaliacao.texto, /passou de 79/);
+});
+
+test('avaliarMultiploDivisao reconhece quando o produto é exatamente o alvo', () => {
+  const avaliacao = avaliarMultiploDivisao(17, 0, 0);
+
+  assert.equal(avaliacao.produto, 0);
+  assert.equal(avaliacao.comparacao, 'igual');
+  assert.equal(avaliacao.excedeu, false);
+  assert.match(avaliacao.texto, /é o alvo/);
+});
+
+test('comporQuocienteDivisaoMedia junta os dois dígitos do quociente', () => {
+  assert.equal(comporQuocienteDivisaoMedia(4, 6), 46);
+  assert.equal(comporQuocienteDivisaoMedia(1, 0), 10);
+  assert.equal(comporQuocienteDivisaoMedia(null, 6), null);
+  assert.equal(comporQuocienteDivisaoMedia(4, null), null);
+  assert.equal(comporQuocienteDivisaoMedia(4.5, 6), null);
+});
+
+test('ehDivisaoLonga identifica divisões de três dígitos por dois dígitos', () => {
+  assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 793, numeroB: 17 }), true);
+  assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 36, numeroB: 4 }), false);
+  assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 105, numeroB: 99 }), false);
+  assert.equal(ehDivisaoLonga({ operacao: 'SOMA', numeroA: 793, numeroB: 17 }), false);
+  assert.equal(ehDivisaoLonga(null), false);
+});
+
+test('ehDivisaoMedia exige a operação de divisão no nível médio', () => {
+  assert.equal(ehDivisaoMedia({ operacao: 'DIVISAO', dificuldade: 'MEDIO' }), true);
+  assert.equal(ehDivisaoMedia({ operacao: 'DIVISAO', dificuldade: 'FACIL' }), false);
+  assert.equal(ehDivisaoMedia({ operacao: 'SOMA', dificuldade: 'MEDIO' }), false);
+  assert.equal(ehDivisaoMedia(null), false);
+});
+
+test('montarRequisicao envia todas as etapas da divisão média', () => {
+  const questao = {
+    id: 'id-div-media',
+    operacao: 'DIVISAO',
+    dificuldade: 'MEDIO',
+    numeroA: 793,
+    numeroB: 17,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 46,
+    quocienteParcialDigitado: 4,
+    subtracaoParcialDigitada: 68,
+    restoParcialDigitado: 11,
+    quocienteFinalDigitado: 6,
+    subtracaoFinalDigitada: 102,
+    restoDigitado: 11,
+  });
+
+  assert.deepEqual(requisicao, {
+    idQuestao: 'id-div-media',
+    operacao: 'DIVISAO',
+    numeroA: 793,
+    numeroB: 17,
+    resultadoDigitado: 46,
+    vaiUm: null,
+    emprestados: null,
+    vaiUmMultiplicacao: null,
+    subtracaoDigitada: null,
+    restoDigitado: 11,
+    quocienteParcialDigitado: 4,
+    subtracaoParcialDigitada: 68,
+    restoParcialDigitado: 11,
+    quocienteFinalDigitado: 6,
+    subtracaoFinalDigitada: 102,
+  });
+});
+
+test('montarRequisicao não envia etapas médias na divisão fácil', () => {
+  const questao = { id: 'id-div-facil', operacao: 'DIVISAO', numeroA: 36, numeroB: 4 };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 9,
+    subtracaoDigitada: 36,
+    restoDigitado: 0,
+  });
+
+  assert.equal('quocienteParcialDigitado' in requisicao, false);
+  assert.equal('subtracaoParcialDigitada' in requisicao, false);
+  assert.equal('restoParcialDigitado' in requisicao, false);
+  assert.equal('quocienteFinalDigitado' in requisicao, false);
+  assert.equal('subtracaoFinalDigitada' in requisicao, false);
 });
