@@ -26,6 +26,12 @@ const LIMITE_AVISO_SERVIDOR = 2000;
 const META_NIVEL = 5;
 const NIVEIS_DIFICULDADE = ['FACIL', 'MEDIO'];
 const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio' };
+const ORDEM_CAMPOS_DIVISAO = ['quociente', 'subtracao', 'resto'];
+const SELETORES_CAMPOS_DIVISAO = {
+  quociente: '.divisao-quociente',
+  subtracao: '.divisao-subtracao-input',
+  resto: '.divisao-resto-input',
+};
 
 /* ------------------------------------------------------------------------- */
 /* Funções puras (testáveis sem DOM)                                          */
@@ -235,6 +241,16 @@ function preencherAte(valores, quantidade) {
   return passos;
 }
 
+function proximoCampoDivisao(campo) {
+  const indice = ORDEM_CAMPOS_DIVISAO.indexOf(campo);
+  return indice >= 0 ? ORDEM_CAMPOS_DIVISAO[indice + 1] ?? null : null;
+}
+
+function campoAnteriorDivisao(campo) {
+  const indice = ORDEM_CAMPOS_DIVISAO.indexOf(campo);
+  return indice > 0 ? ORDEM_CAMPOS_DIVISAO[indice - 1] : null;
+}
+
 /*
 - Calcula os transportes coluna a coluna, da direita para a esquerda, do mesmo
 - jeito que o backend faz. Usado para completar o último "vai um" quando a
@@ -321,7 +337,8 @@ function montarRequisicao(questao, entradas) {
   const soma = questao.operacao === 'SOMA';
   const subtracao = questao.operacao === 'SUBTRACAO';
   const multiplicacao = questao.operacao === 'MULTIPLICACAO';
-  return {
+  const divisao = questao.operacao === 'DIVISAO';
+  const requisicao = {
     idQuestao: questao.id,
     operacao: questao.operacao,
     numeroA: questao.numeroA,
@@ -333,6 +350,13 @@ function montarRequisicao(questao, entradas) {
       ? (entradas.vaiUmMultiplicacao ?? null)
       : null,
   };
+
+  if (divisao) {
+    requisicao.subtracaoDigitada = entradas.subtracaoDigitada ?? null;
+    requisicao.restoDigitado = entradas.restoDigitado ?? null;
+  }
+
+  return requisicao;
 }
 
 function podeIniciarQuestao(estado) {
@@ -575,7 +599,8 @@ function aplicarPreferencias(estado, busca) {
   const operacao = parametros.get('operacao');
   const dificuldade = parametros.get('dificuldade');
 
-  if (operacao === 'SOMA' || operacao === 'SUBTRACAO' || operacao === 'MULTIPLICACAO') {
+  if (operacao === 'SOMA' || operacao === 'SUBTRACAO' || operacao === 'MULTIPLICACAO'
+    || operacao === 'DIVISAO') {
     estado.operacao = operacao;
   }
   if (dificuldade === 'FACIL' || dificuldade === 'MEDIO') {
@@ -739,6 +764,12 @@ function esconderPlaceholder(el) {
 
 function renderConta(estado, el) {
   const questao = estado.questao;
+  const divisao = questao.operacao === 'DIVISAO';
+  el.conta.classList.toggle('conta-divisao', divisao);
+  if (divisao) {
+    renderDivisao(estado, el);
+    return;
+  }
   const soma = questao.operacao === 'SOMA';
   const subtracao = questao.operacao === 'SUBTRACAO';
   const multiplicacao = questao.operacao === 'MULTIPLICACAO';
@@ -941,6 +972,113 @@ function renderConta(estado, el) {
   }
 }
 
+function quantidadeDigitos(valor) {
+  return String(Math.abs(Math.trunc(Number(valor) || 0))).length;
+}
+
+function focarCampoDivisao(el, campo) {
+  const seletor = SELETORES_CAMPOS_DIVISAO[campo];
+  if (!seletor) {
+    return;
+  }
+  const input = el.conta.querySelector(seletor);
+  if (!input) {
+    return;
+  }
+  input.focus();
+  if (typeof input.scrollIntoView === 'function') {
+    input.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
+}
+
+function criarCampoDivisao(classe, rotulo, digitos) {
+  const campo = document.createElement('input');
+  campo.type = 'text';
+  campo.className = 'divisao-input ' + classe;
+  campo.maxLength = digitos;
+  campo.inputMode = 'numeric';
+  campo.autocomplete = 'off';
+  campo.setAttribute('aria-label', rotulo);
+  campo.style.setProperty('--digitos-campo', String(digitos));
+  return campo;
+}
+
+function configurarCampoDivisao(campo, nome, el) {
+  campo.addEventListener('input', () => {
+    campo.value = campo.value.replace(/\D/g, '').slice(0, Number(campo.maxLength));
+    if (campo.value.length >= Number(campo.maxLength)) {
+      focarCampoDivisao(el, proximoCampoDivisao(nome));
+    }
+  });
+
+  campo.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Backspace' && campo.value === '') {
+      focarCampoDivisao(el, campoAnteriorDivisao(nome));
+    }
+    if (evento.key === 'Enter') {
+      evento.preventDefault();
+      el.btnValidar.click();
+    }
+  });
+}
+
+function renderDivisao(estado, el) {
+  const questao = estado.questao;
+  const digitosDividendo = Math.max(1, digitosDe(questao.numeroA).length);
+  const quocienteEsperado = questao.quociente != null
+    ? questao.quociente
+    : Math.floor(questao.numeroA / questao.numeroB);
+  const restoEsperado = questao.resto != null ? questao.resto : 0;
+  const digitosQuociente = Math.max(1, quantidadeDigitos(quocienteEsperado));
+  const digitosResto = Math.max(1, quantidadeDigitos(restoEsperado));
+
+  el.conta.innerHTML = '';
+
+  const divisao = document.createElement('div');
+  divisao.className = 'divisao';
+
+  const dividendo = document.createElement('div');
+  dividendo.className = 'divisao-dividendo';
+  dividendo.textContent = String(questao.numeroA);
+  dividendo.setAttribute('aria-label', 'Dividendo ' + questao.numeroA);
+
+  const chave = document.createElement('div');
+  chave.className = 'divisao-chave';
+  chave.setAttribute('aria-hidden', 'true');
+
+  const divisor = document.createElement('div');
+  divisor.className = 'divisao-divisor';
+  divisor.textContent = String(questao.numeroB);
+  divisor.setAttribute('aria-label', 'Divisor ' + questao.numeroB);
+
+  const linhaSubtracao = document.createElement('div');
+  linhaSubtracao.className = 'divisao-subtracao';
+  const sinal = document.createElement('span');
+  sinal.className = 'divisao-sinal';
+  sinal.textContent = '−';
+  sinal.setAttribute('aria-hidden', 'true');
+
+  const campoSubtracao = criarCampoDivisao(
+    'divisao-subtracao-input',
+    'Subtração intermediária',
+    digitosDividendo,
+  );
+  linhaSubtracao.append(sinal, campoSubtracao);
+
+  const campoQuociente = criarCampoDivisao('divisao-quociente', 'Quociente', digitosQuociente);
+  const campoResto = criarCampoDivisao('divisao-resto-input', 'Resto', digitosResto);
+  const linhaResto = document.createElement('div');
+  linhaResto.className = 'divisao-resto';
+  linhaResto.appendChild(campoResto);
+
+  configurarCampoDivisao(campoQuociente, 'quociente', el);
+  configurarCampoDivisao(campoSubtracao, 'subtracao', el);
+  configurarCampoDivisao(campoResto, 'resto', el);
+
+  divisao.append(dividendo, chave, divisor, linhaSubtracao, campoQuociente, linhaResto);
+  el.conta.appendChild(divisao);
+}
+
 function atualizarEmprestimos(estado, el) {
   const questao = estado.questao;
   if (!questao) {
@@ -998,6 +1136,8 @@ function atualizarDica(estado, el) {
         + '. Pense em grupos iguais: somar ' + estado.questao.numeroA
         + ' por ' + estado.questao.numeroB + ' vezes dá o mesmo resultado.';
     }
+  } else if (estado.questao.operacao === 'DIVISAO') {
+    el.dica.textContent = 'Dica: procure quantas vezes o divisor cabe no dividendo. Escreva o quociente embaixo do divisor, multiplique e subtraia para encontrar o resto.';
   } else {
     el.dica.textContent = 'Dica: se o número de cima for menor, toque no número da esquerda para pedir emprestado. Ele diminui 1 e o vizinho ganha 10.';
   }
@@ -1015,41 +1155,81 @@ function lerResultados(el) {
     .map((campo) => campo.value);
 }
 
+function lerCampoInteiro(el, seletor) {
+  const campo = el.conta.querySelector(seletor);
+  const texto = String(campo?.value ?? '').trim();
+  if (texto === '') {
+    return null;
+  }
+  const numero = Number(texto);
+  return Number.isInteger(numero) ? numero : null;
+}
+
 async function validarResposta(estado, el) {
   if (!podeValidarResposta(estado)) {
     return;
   }
 
   const questao = estado.questao;
-  const resultadoDigitado = comporResultado(lerResultados(el));
-  if (resultadoDigitado === null) {
-    mostrarAviso(el, 'Escreva o resultado nas caixas antes de conferir. ✏️');
-    const unidades = el.conta.querySelector('.resultado-input[data-coluna="0"]');
-    if (unidades) {
-      unidades.focus();
-    }
-    return;
-  }
+  let requisicao;
 
-  const soma = questao.operacao === 'SOMA';
-  const subtracao = questao.operacao === 'SUBTRACAO';
-  const multiplicacao = questao.operacao === 'MULTIPLICACAO';
-  const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
-  const caixasVaiUm = lerVaiUm(el);
-  const requisicao = montarRequisicao(questao, {
-    resultadoDigitado,
-    vaiUm: soma
-      ? montarArrayVaiUm(
-        caixasVaiUm,
-        digitos,
-        calcularVaiUm(questao.numeroA, questao.numeroB),
-      )
-      : null,
-    emprestados: subtracao ? montarArrayEmprestimos(estado.emprestimos, digitos) : null,
-    vaiUmMultiplicacao: multiplicacao
-      ? lerVaiUmMultiplicacao(caixasVaiUm)
-      : null,
-  });
+  if (questao.operacao === 'DIVISAO') {
+    const quociente = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.quociente);
+    const subtracao = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.subtracao);
+    const resto = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.resto);
+
+    if (quociente === null) {
+      mostrarAviso(el, 'Escreva o quociente antes de conferir. ✏️');
+      focarCampoDivisao(el, 'quociente');
+      return;
+    }
+    if (subtracao === null) {
+      mostrarAviso(el, 'Escreva a subtração intermediária antes de conferir. ✏️');
+      focarCampoDivisao(el, 'subtracao');
+      return;
+    }
+    if (resto === null) {
+      mostrarAviso(el, 'Escreva o resto antes de conferir. ✏️');
+      focarCampoDivisao(el, 'resto');
+      return;
+    }
+
+    requisicao = montarRequisicao(questao, {
+      resultadoDigitado: quociente,
+      subtracaoDigitada: subtracao,
+      restoDigitado: resto,
+    });
+  } else {
+    const resultadoDigitado = comporResultado(lerResultados(el));
+    if (resultadoDigitado === null) {
+      mostrarAviso(el, 'Escreva o resultado nas caixas antes de conferir. ✏️');
+      const unidades = el.conta.querySelector('.resultado-input[data-coluna="0"]');
+      if (unidades) {
+        unidades.focus();
+      }
+      return;
+    }
+
+    const soma = questao.operacao === 'SOMA';
+    const subtracao = questao.operacao === 'SUBTRACAO';
+    const multiplicacao = questao.operacao === 'MULTIPLICACAO';
+    const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
+    const caixasVaiUm = lerVaiUm(el);
+    requisicao = montarRequisicao(questao, {
+      resultadoDigitado,
+      vaiUm: soma
+        ? montarArrayVaiUm(
+          caixasVaiUm,
+          digitos,
+          calcularVaiUm(questao.numeroA, questao.numeroB),
+        )
+        : null,
+      emprestados: subtracao ? montarArrayEmprestimos(estado.emprestimos, digitos) : null,
+      vaiUmMultiplicacao: multiplicacao
+        ? lerVaiUmMultiplicacao(caixasVaiUm)
+        : null,
+    });
+  }
 
   estado.validando = true;
   atualizarControles(estado, el);
@@ -1325,6 +1505,8 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizarVaiUmMultiplicacao,
     lerVaiUmMultiplicacao,
     ordemFocoMultiplicacao,
+    proximoCampoDivisao,
+    campoAnteriorDivisao,
     calcularVaiUm,
     montarArrayVaiUm,
     montarArrayEmprestimos,

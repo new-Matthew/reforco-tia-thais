@@ -20,4 +20,7 @@ public class QuestaoDTO {
     private int numeroB;
     private Integer vaiUm;
     private Integer resultadoParcial;
+    private Integer quociente;
+    private Integer subtracaoIntermediaria;
+    private Integer resto;
 }

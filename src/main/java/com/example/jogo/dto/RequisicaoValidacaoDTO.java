@@ -20,4 +20,19 @@ public class RequisicaoValidacaoDTO {
     private List<Integer> vaiUm;
     private List<Integer> emprestados;
     private Integer vaiUmMultiplicacao;
+    private Integer subtracaoDigitada;
+    private Integer restoDigitado;
+
+    public RequisicaoValidacaoDTO(
+            String idQuestao,
+            Operacao operacao,
+            Integer numeroA,
+            Integer numeroB,
+            Integer resultadoDigitado,
+            List<Integer> vaiUm,
+            List<Integer> emprestados,
+            Integer vaiUmMultiplicacao) {
+        this(idQuestao, operacao, numeroA, numeroB, resultadoDigitado, vaiUm, emprestados,
+                vaiUmMultiplicacao, null, null);
+    }
 }

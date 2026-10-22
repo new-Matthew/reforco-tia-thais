@@ -371,7 +371,8 @@ h1 {
 .btn:focus-visible,
 .celula-digito:focus-visible,
 .resultado-input:focus-visible,
-.caixa-vai-um:focus-visible {
+.caixa-vai-um:focus-visible,
+.divisao-input:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 3px;
 }
@@ -650,6 +651,104 @@ h1 {
 }
 
 .resultado-input:focus {
+  border-color: var(--azul);
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(17, 138, 178, 0.18),
+    inset 0 -3px 0 rgba(36, 59, 83, 0.08);
+}
+
+/* --------------------------- Divisão em chave --------------------------- */
+
+.conta.conta-divisao {
+  display: flex;
+  justify-content: center;
+  padding: 40px 34px;
+}
+
+.divisao {
+  display: grid;
+  grid-template-columns: auto 4px auto;
+  grid-template-areas:
+    "dividendo chave divisor"
+    "subtracao chave quociente"
+    "resto . .";
+  align-items: center;
+  justify-items: center;
+  gap: 10px 18px;
+}
+
+.divisao-dividendo,
+.divisao-divisor {
+  color: var(--tinta);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(2rem, 5vw, 2.9rem);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.divisao-dividendo {
+  grid-area: dividendo;
+}
+
+.divisao-divisor {
+  grid-area: divisor;
+}
+
+.divisao-chave {
+  grid-area: chave;
+  align-self: stretch;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--tinta);
+}
+
+.divisao-subtracao {
+  grid-area: subtracao;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.divisao-sinal {
+  color: var(--coral);
+  font-family: 'Fredoka', sans-serif;
+  font-size: clamp(1.6rem, 3.6vw, 2.2rem);
+  font-weight: 700;
+}
+
+.divisao-quociente {
+  grid-area: quociente;
+  border-top-width: 4px;
+  border-top-color: var(--tinta);
+}
+
+.divisao-resto {
+  grid-area: resto;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 4px solid var(--tinta);
+}
+
+.divisao-input {
+  width: calc(var(--digitos-campo, 1) * 1.5ch + 22px);
+  max-width: 100%;
+  height: 56px;
+  border: 3px solid #c5d8ef;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--tinta);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.5rem, 3.4vw, 1.95rem);
+  font-weight: 600;
+  text-align: center;
+  caret-color: var(--azul);
+  box-shadow: inset 0 -3px 0 rgba(36, 59, 83, 0.08);
+}
+
+.divisao-input:focus {
   border-color: var(--azul);
   outline: none;
   box-shadow:
@@ -1039,6 +1138,18 @@ h1 {
 @media (max-width: 420px) {
   .conta {
     grid-template-columns: minmax(28px, auto) repeat(var(--colunas, 3), minmax(36px, 1fr));
+  }
+
+  .conta.conta-divisao {
+    padding: 30px 16px;
+  }
+
+  .divisao {
+    gap: 8px 12px;
+  }
+
+  .divisao-input {
+    height: 50px;
   }
 
   .resultado-input {
