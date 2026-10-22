@@ -33,11 +33,11 @@ const ORDEM_CAMPOS_DIVISAO_MEDIA = [
   'restoParcial',
   'quocienteFinal',
   'subtracaoFinal',
-  'resto',
+  'restoFinal',
 ];
 const CAMPOS_ETAPA_DIVISAO = {
   1: ['quocienteParcial', 'subtracaoParcial', 'restoParcial'],
-  2: ['quocienteFinal', 'subtracaoFinal', 'resto'],
+  2: ['quocienteFinal', 'subtracaoFinal', 'restoFinal'],
 };
 const SELETORES_CAMPOS_DIVISAO = {
   quociente: '.divisao-quociente',
@@ -48,6 +48,7 @@ const SELETORES_CAMPOS_DIVISAO = {
   restoParcial: '.divisao-resto-parcial-input',
   quocienteFinal: '.divisao-quociente-final',
   subtracaoFinal: '.divisao-subtracao-final',
+  restoFinal: '.divisao-resto-final-input',
 };
 
 /* ------------------------------------------------------------------------- */
@@ -1092,7 +1093,8 @@ function focarCampoDivisao(el, campo) {
   if (!seletor) {
     return;
   }
-  const input = el.conta.querySelector(seletor);
+  const input = el.conta.querySelector('[data-campo="' + campo + '"]')
+    ?? el.conta.querySelector(seletor);
   if (!input) {
     return;
   }
@@ -1121,6 +1123,7 @@ function configurarCampoDivisao(
   ordem = ORDEM_CAMPOS_DIVISAO,
   estado = null,
 ) {
+  campo.dataset.campo = nome;
   campo.addEventListener('input', () => {
     campo.value = campo.value.replace(/\D/g, '').slice(0, Number(campo.maxLength));
     if (campo.value.length >= Number(campo.maxLength)) {
@@ -1316,7 +1319,7 @@ function renderDivisaoMedia(estado, el) {
   configurarCampoDivisao(campoRestoParcial, 'restoParcial', el, ordem, estado);
   configurarCampoDivisao(campoQuocienteFinal, 'quocienteFinal', el, ordem, estado);
   configurarCampoDivisao(campoSubtracaoFinal, 'subtracaoFinal', el, ordem, estado);
-  configurarCampoDivisao(campoResto, 'resto', el, ordem, estado);
+  configurarCampoDivisao(campoResto, 'restoFinal', el, ordem, estado);
 
   divisao.append(
     dividendo,
@@ -1524,7 +1527,7 @@ async function validarResposta(estado, el) {
       const restoParcial = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.restoParcial);
       const quocienteFinal = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.quocienteFinal);
       const subtracaoFinal = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.subtracaoFinal);
-      const resto = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.resto);
+      const resto = lerCampoInteiro(el, SELETORES_CAMPOS_DIVISAO.restoFinal);
 
       if (quocienteParcial === null) {
         mostrarAviso(el, 'Escreva o quociente da primeira etapa antes de conferir. ✏️');
@@ -1553,7 +1556,7 @@ async function validarResposta(estado, el) {
       }
       if (resto === null) {
         mostrarAviso(el, 'Escreva o resto final antes de conferir. ✏️');
-        focarCampoDivisao(el, 'resto');
+        focarCampoDivisao(el, 'restoFinal');
         return;
       }
 

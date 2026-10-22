@@ -646,7 +646,7 @@ test('a ordem da divisão média percorre as duas etapas antes do resto final', 
     'restoParcial',
     'quocienteFinal',
     'subtracaoFinal',
-    'resto',
+    'restoFinal',
   ]);
   assert.equal(
     proximoCampoDivisao('quocienteParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
@@ -657,12 +657,20 @@ test('a ordem da divisão média percorre as duas etapas antes do resto final', 
     'quocienteFinal',
   );
   assert.equal(
-    proximoCampoDivisao('resto', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    proximoCampoDivisao('subtracaoFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'restoFinal',
+  );
+  assert.equal(
+    proximoCampoDivisao('restoFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
     null,
   );
   assert.equal(
     campoAnteriorDivisao('quocienteFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
     'restoParcial',
+  );
+  assert.equal(
+    campoAnteriorDivisao('restoFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'subtracaoFinal',
   );
   assert.equal(
     campoAnteriorDivisao('quocienteParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
@@ -676,7 +684,7 @@ test('etapaDoCampoDivisao associa cada campo à sua etapa', () => {
   assert.equal(etapaDoCampoDivisao('restoParcial'), 1);
   assert.equal(etapaDoCampoDivisao('quocienteFinal'), 2);
   assert.equal(etapaDoCampoDivisao('subtracaoFinal'), 2);
-  assert.equal(etapaDoCampoDivisao('resto'), 2);
+  assert.equal(etapaDoCampoDivisao('restoFinal'), 2);
   assert.equal(etapaDoCampoDivisao('quociente'), null);
 });
 
