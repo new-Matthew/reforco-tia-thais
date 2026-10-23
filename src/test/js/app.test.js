@@ -19,7 +19,7 @@ const {
   ordemCasasFinaisSoma,
   ordemFocoSoma,
   proximaColunaResultadoADireita,
-  primeiraColunaVaziaADireita,
+  configurarEntradaResultado,
   proximoItemOrdem,
   itemAnteriorOrdem,
   chaveAlvoFoco,
@@ -542,13 +542,60 @@ test('multiplicacaoPrecisaCentena considera a dezena somada ao transporte', () =
   assert.equal(multiplicacaoPrecisaCentena(12, 3, 0), false);
 });
 
-test('primeiraColunaVaziaADireita encontra a unidade antes da dezena', () => {
-  assert.equal(primeiraColunaVaziaADireita([false, true], 1), 0);
-  assert.equal(primeiraColunaVaziaADireita([true, false], 1), null);
-  assert.equal(primeiraColunaVaziaADireita([false, false], 2), 0);
-  assert.equal(primeiraColunaVaziaADireita([true, true, false], 2), null);
-  assert.equal(primeiraColunaVaziaADireita([], 1), 0);
-  assert.equal(primeiraColunaVaziaADireita(null, 1), 0);
+test('multiplicação fácil mantém o dígito na casa escolhida nas duas direções', () => {
+  const criarCampoComEventos = (valor = '') => ({
+    value: valor,
+    focado: false,
+    ouvintes: {},
+    focus() {
+      this.focado = true;
+    },
+    addEventListener(tipo, ouvinte) {
+      this.ouvintes[tipo] = ouvinte;
+    },
+  });
+
+  const montarConta = () => {
+    const unidade = criarCampoComEventos('');
+    const dezena = criarCampoComEventos('');
+    const el = {
+      conta: contaFalsa({
+        '.resultado-input[data-coluna="0"]': unidade,
+        '.resultado-input[data-coluna="1"]': dezena,
+      }),
+    };
+    const contexto = {
+      el,
+      ordemFoco: ordemFocoMultiplicacao(2, false),
+      colunas: 2,
+      soma: false,
+      multiplicacao: true,
+      multiplicacaoFlexivel: true,
+    };
+    configurarEntradaResultado(unidade, 0, contexto);
+    configurarEntradaResultado(dezena, 1, contexto);
+    const digitar = (campo, valor) => {
+      campo.value = valor;
+      campo.ouvintes.input();
+    };
+    return { unidade, dezena, digitar };
+  };
+
+  let conta = montarConta();
+  conta.digitar(conta.dezena, '2');
+  assert.equal(conta.dezena.value, '2');
+  assert.equal(conta.unidade.value, '');
+  assert.equal(conta.unidade.focado, true);
+  conta.digitar(conta.unidade, '4');
+  assert.equal(comporResultado([conta.unidade.value, conta.dezena.value]), 24);
+
+  conta = montarConta();
+  conta.digitar(conta.unidade, '4');
+  assert.equal(conta.unidade.value, '4');
+  assert.equal(conta.dezena.value, '');
+  assert.equal(conta.dezena.focado, true);
+  conta.digitar(conta.dezena, '2');
+  assert.equal(comporResultado([conta.unidade.value, conta.dezena.value]), 24);
 });
 
 test('proximoFocoMultiplicacao flexível alterna as casas vazias no nível fácil', () => {
