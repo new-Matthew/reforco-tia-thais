@@ -1235,6 +1235,22 @@ function resultadosPreenchidos(el, colunas) {
   return preenchidas;
 }
 
+/*
+ * Na multiplicação fácil o resultado é escrito da direita para a esquerda:
+ * a unidade precisa ser preenchida antes da dezena. Se a criança começar pela
+ * dezena, o dígito é levado para a primeira casa vazia à direita.
+ */
+function primeiraColunaVaziaADireita(preenchidas, colunaAtual) {
+  const atual = Math.max(0, Math.trunc(Number(colunaAtual) || 0));
+  const ocupadas = Array.isArray(preenchidas) ? preenchidas : [];
+  for (let coluna = 0; coluna < atual; coluna += 1) {
+    if (!ocupadas[coluna]) {
+      return coluna;
+    }
+  }
+  return null;
+}
+
 function configurarEntradaResultado(campo, indice, contexto) {
   const {
     el,
@@ -1249,6 +1265,22 @@ function configurarEntradaResultado(campo, indice, contexto) {
     campo.value = campo.value.replace(/\D/g, '').slice(-1);
     if (campo.value === '') {
       return;
+    }
+
+    let coluna = indice;
+    if (multiplicacao && multiplicacaoFlexivel && indice > 0) {
+      const destino = primeiraColunaVaziaADireita(
+        resultadosPreenchidos(el, colunas),
+        indice,
+      );
+      const campoDestino = destino === null
+        ? null
+        : el.conta.querySelector('.resultado-input[data-coluna="' + destino + '"]');
+      if (campoDestino && String(campoDestino.value).trim() === '') {
+        campoDestino.value = campo.value;
+        campo.value = '';
+        coluna = destino;
+      }
     }
 
     if (soma && indice > 0) {
@@ -1275,7 +1307,7 @@ function configurarEntradaResultado(campo, indice, contexto) {
       focarProximoMultiplicacao(
         el,
         ordemFoco,
-        { tipo: 'resultado', coluna: indice },
+        { tipo: 'resultado', coluna },
         { flexivel: multiplicacaoFlexivel },
       );
     } else {
@@ -2752,6 +2784,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ordemCasasFinaisSoma,
     ordemFocoSoma,
     proximaColunaResultadoADireita,
+    primeiraColunaVaziaADireita,
     proximoItemOrdem,
     itemAnteriorOrdem,
     chaveAlvoFoco,

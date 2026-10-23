@@ -19,6 +19,7 @@ const {
   ordemCasasFinaisSoma,
   ordemFocoSoma,
   proximaColunaResultadoADireita,
+  primeiraColunaVaziaADireita,
   proximoItemOrdem,
   itemAnteriorOrdem,
   chaveAlvoFoco,
@@ -539,6 +540,15 @@ test('multiplicacaoPrecisaCentena considera a dezena somada ao transporte', () =
   assert.equal(resultadoDezenaMultiplicacao(14, 3, 1), 4);
   assert.equal(multiplicacaoPrecisaCentena(14, 3, 1), false);
   assert.equal(multiplicacaoPrecisaCentena(12, 3, 0), false);
+});
+
+test('primeiraColunaVaziaADireita encontra a unidade antes da dezena', () => {
+  assert.equal(primeiraColunaVaziaADireita([false, true], 1), 0);
+  assert.equal(primeiraColunaVaziaADireita([true, false], 1), null);
+  assert.equal(primeiraColunaVaziaADireita([false, false], 2), 0);
+  assert.equal(primeiraColunaVaziaADireita([true, true, false], 2), null);
+  assert.equal(primeiraColunaVaziaADireita([], 1), 0);
+  assert.equal(primeiraColunaVaziaADireita(null, 1), 0);
 });
 
 test('proximoFocoMultiplicacao flexível alterna as casas vazias no nível fácil', () => {
