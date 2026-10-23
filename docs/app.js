@@ -35,6 +35,7 @@ const {
   focarResultadoPorColuna,
   focarVaiUmPorColuna,
   tratarTeclaResultado,
+  tratarTeclaFluxoFoco,
   tratarTeclaVaiUm,
   tratarTeclaDivisao,
 } = LousaFoco;
@@ -47,7 +48,7 @@ const API_BASE = (typeof window !== 'undefined' && window.LOUSADA_API)
       ? 'https://reforco-tia-thais.onrender.com/api/jogo'
       : '/api/jogo');
 
-const DIGITOS_POR_DIFICULDADE = { FACIL: 2, MEDIO: 3 };
+const DIGITOS_POR_DIFICULDADE = { FACIL: 2, MEDIO: 3, DIFICIL: 4 };
 const ROTULOS_COLUNA = ['unidades', 'dezenas', 'centenas', 'milhares'];
 const CHAVE_PLACAR = 'reforco-tia-thais-placar';
 const CHAVE_PLACAR_LEGADA = 'lousa-matematica-placar';
@@ -56,7 +57,8 @@ const LIMITE_NOME_JOGADOR = 30;
 const LIMITE_AVISO_SERVIDOR = 2000;
 const META_NIVEL = 5;
 const NIVEIS_DIFICULDADE = ['FACIL', 'MEDIO'];
-const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio' };
+const NIVEIS_DIFICULDADE_MULTIPLICACAO = ['FACIL', 'MEDIO', 'DIFICIL'];
+const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio', DIFICIL: 'Difícil' };
 const ORDEM_CAMPOS_DIVISAO = ['quociente', 'subtracao', 'resto'];
 const ORDEM_CAMPOS_DIVISAO_MEDIA = [
   'quocienteParcial',
@@ -99,7 +101,8 @@ function digitosDe(numero) {
 
 function quantidadeColunas(dificuldade, operacao) {
   if (operacao === 'MULTIPLICACAO') {
-    return dificuldade === 'FACIL' ? 2 : 3;
+    return digitosDosOperandos(dificuldade, operacao)
+      + digitosDoMultiplicador(dificuldade, operacao);
   }
   const digitos = DIGITOS_POR_DIFICULDADE[dificuldade];
   if (!digitos) {
@@ -110,7 +113,10 @@ function quantidadeColunas(dificuldade, operacao) {
 
 function digitosDosOperandos(dificuldade, operacao) {
   if (operacao === 'MULTIPLICACAO') {
-    return dificuldade === 'FACIL' ? 1 : 2;
+    if (dificuldade === 'FACIL') {
+      return 1;
+    }
+    return dificuldade === 'DIFICIL' ? 3 : 2;
   }
   const digitos = DIGITOS_POR_DIFICULDADE[dificuldade];
   if (!digitos) {
@@ -121,7 +127,7 @@ function digitosDosOperandos(dificuldade, operacao) {
 
 function digitosDoMultiplicador(dificuldade, operacao) {
   if (operacao === 'MULTIPLICACAO') {
-    return 1;
+    return dificuldade === 'DIFICIL' ? 2 : 1;
   }
   return digitosDosOperandos(dificuldade, operacao);
 }
@@ -147,6 +153,205 @@ function multiplicacaoPrecisaCentena(numeroA, numeroB, carry = 0) {
   return resultadoDezenaMultiplicacao(numeroA, numeroB, carry) >= 10;
 }
 
+const LINHAS_MULTIPLICACAO_DIFICIL = {
+  operandoA: 1,
+  operandoB: 2,
+  linhaParcial: 3,
+  carryUnidade: 4,
+  resultadoUnidade: 5,
+  carryDezena: 6,
+  resultadoDezena: 7,
+  linhaFinal: 8,
+  carrySoma: 9,
+  resultadoSoma: 10,
+};
+
+function ehMultiplicacaoDificil(questao) {
+  return Boolean(questao)
+    && questao.operacao === 'MULTIPLICACAO'
+    && questao.dificuldade === 'DIFICIL';
+}
+
+/*
+ * Executa a multiplicação de um número por um algarismo e devolve os dígitos
+ * do produto (da unidade para a esquerda) e os transportes de cada coluna.
+ * O transporte da última coluna vira o dígito mais à esquerda do produto.
+ */
+function calcularParcialMultiplicacaoDificil(numero, multiplicador) {
+  const digitos = digitosDe(numero);
+  const algarismo = Math.max(0, Math.trunc(Number(multiplicador) || 0));
+  const resultado = [];
+  const carries = {};
+  let carry = 0;
+
+  digitos.forEach((digito, indice) => {
+    const total = digito * algarismo + carry;
+    resultado.push(total % 10);
+    carry = Math.floor(total / 10);
+    if (indice < digitos.length - 1 && carry > 0) {
+      carries[indice + 1] = carry;
+    }
+  });
+
+  if (carry > 0) {
+    resultado.push(carry);
+  }
+
+  return { digitos: resultado, carries, carryFinal: carry };
+}
+
+/*
+ * Soma as duas parcelas alinhadas coluna a coluna. O array `carries` guarda o
+ * transporte que sobe para a coluna seguinte, sempre 0 ou 1 na adição.
+ */
+function somarParcelasMultiplicacaoDificil(parcelaA, parcelaB, colunas) {
+  const quantidade = Math.max(1, Math.trunc(Number(colunas) || 1));
+  const digitos = [];
+  const carries = {};
+  let carry = 0;
+
+  for (let coluna = 0; coluna < quantidade; coluna += 1) {
+    const a = Math.floor(parcelaA / (10 ** coluna)) % 10;
+    const b = Math.floor(parcelaB / (10 ** coluna)) % 10;
+    const total = a + b + carry;
+    digitos.push(total % 10);
+    carry = total >= 10 ? 1 : 0;
+    if (coluna < quantidade - 1 && carry > 0) {
+      carries[coluna + 1] = carry;
+    }
+  }
+
+  if (carry > 0) {
+    digitos.push(carry);
+  }
+
+  return { digitos, carries };
+}
+
+function alvoMultiplicacaoDificil(tipo, linha, coluna) {
+  return { tipo, linha, coluna };
+}
+
+/*
+ * Árvore de foco da multiplicação difícil, na ordem exata da lousa:
+ *   1. unidade do multiplicador: produto, transporte, próxima coluna...
+ *   2. dezena do multiplicador, uma casa deslocada para a esquerda;
+ *   3. soma final das parcelas, da direita para a esquerda.
+ */
+function ordemFocoMultiplicacaoDificil(numeroA, numeroB) {
+  const a = Math.abs(Math.trunc(Number(numeroA) || 0));
+  const b = Math.abs(Math.trunc(Number(numeroB) || 0));
+  const digitosA = digitosDe(a);
+  const unidade = b % 10;
+  const dezena = Math.floor(b / 10) % 10;
+  const ordem = [];
+
+  let carry = 0;
+  for (let coluna = 0; coluna < digitosA.length; coluna += 1) {
+    const total = digitosA[coluna] * unidade + carry;
+    carry = Math.floor(total / 10);
+    const ultima = coluna === digitosA.length - 1;
+    if (ultima) {
+      if (carry > 0) {
+        ordem.push(alvoMultiplicacaoDificil(
+          'resultado', 'resultadoUnidade', coluna + 1,
+        ));
+      }
+      ordem.push(alvoMultiplicacaoDificil('resultado', 'resultadoUnidade', coluna));
+    } else {
+      ordem.push(alvoMultiplicacaoDificil('resultado', 'resultadoUnidade', coluna));
+      if (carry > 0) {
+        ordem.push(alvoMultiplicacaoDificil('vaiUm', 'carryUnidade', coluna + 1));
+      }
+    }
+  }
+
+  carry = 0;
+  for (let coluna = 0; coluna < digitosA.length; coluna += 1) {
+    const total = digitosA[coluna] * dezena + carry;
+    carry = Math.floor(total / 10);
+    const destino = coluna + 1;
+    const ultima = coluna === digitosA.length - 1;
+    if (ultima) {
+      if (carry > 0) {
+        ordem.push(alvoMultiplicacaoDificil(
+          'resultado', 'resultadoDezena', destino + 1,
+        ));
+      }
+      ordem.push(alvoMultiplicacaoDificil('resultado', 'resultadoDezena', destino));
+    } else {
+      ordem.push(alvoMultiplicacaoDificil('resultado', 'resultadoDezena', destino));
+      if (carry > 0) {
+        ordem.push(alvoMultiplicacaoDificil('vaiUm', 'carryDezena', destino + 1));
+      }
+    }
+  }
+
+  const colunasOperandos = Math.max(
+    quantidadeDigitos(a * unidade),
+    quantidadeDigitos(a * dezena * 10),
+  );
+  const colunas = Math.max(colunasOperandos, quantidadeDigitos(a * b));
+  const soma = somarParcelasMultiplicacaoDificil(a * unidade, a * dezena * 10, colunas);
+  const passosSoma = Array.from(
+    { length: colunasOperandos },
+    (_, coluna) => (soma.carries[coluna + 1] ? 1 : 0),
+  );
+  ordemFocoSoma(colunasOperandos, passosSoma).forEach((alvo) => {
+    ordem.push(alvoMultiplicacaoDificil(
+      alvo.tipo,
+      alvo.tipo === 'vaiUm' ? 'carrySoma' : 'resultadoSoma',
+      alvo.coluna,
+    ));
+  });
+
+  return ordem;
+}
+
+function montarModeloMultiplicacaoDificil(numeroA, numeroB) {
+  const a = Math.abs(Math.trunc(Number(numeroA) || 0));
+  const b = Math.abs(Math.trunc(Number(numeroB) || 0));
+  const unidade = b % 10;
+  const dezena = Math.floor(b / 10) % 10;
+  const parcialUnidade = calcularParcialMultiplicacaoDificil(a, unidade);
+  const parcialDezenaBase = calcularParcialMultiplicacaoDificil(a, dezena);
+  const digitosDezena = [null, ...parcialDezenaBase.digitos];
+  const carriesDezena = {};
+  Object.entries(parcialDezenaBase.carries).forEach(([coluna, valor]) => {
+    carriesDezena[Number(coluna) + 1] = valor;
+  });
+  const resultado = a * b;
+  const colunasOperandos = Math.max(
+    quantidadeDigitos(a * unidade),
+    quantidadeDigitos(a * dezena * 10),
+  );
+  const colunas = Math.max(colunasOperandos, quantidadeDigitos(resultado));
+  const soma = somarParcelasMultiplicacaoDificil(
+    a * unidade,
+    a * dezena * 10,
+    colunas,
+  );
+
+  return {
+    numeroA: a,
+    numeroB: b,
+    colunas,
+    linhas: LINHAS_MULTIPLICACAO_DIFICIL,
+    digitosA: digitosDe(a),
+    digitosB: digitosDe(b),
+    produtoUnidade: a * unidade,
+    produtoDezena: a * dezena * 10,
+    resultado,
+    digitosUnidade: parcialUnidade.digitos,
+    carriesUnidade: parcialUnidade.carries,
+    digitosDezena,
+    carriesDezena,
+    digitosSoma: soma.digitos,
+    carriesSoma: soma.carries,
+    ordemFoco: ordemFocoMultiplicacaoDificil(a, b),
+  };
+}
+
 /*
 - Só existem caixinhas de "vai um" entre as colunas dos operandos: uma acima
 - das dezenas (2 dígitos) ou duas, acima das dezenas e das centenas (3 dígitos).
@@ -160,12 +365,24 @@ function quantidadeCaixasVaiUm(dificuldade) {
   return digitos - 1;
 }
 
-function proximaDificuldade(dificuldade) {
-  const indice = NIVEIS_DIFICULDADE.indexOf(dificuldade);
+function niveisDificuldade(operacao) {
+  return operacao === 'MULTIPLICACAO'
+    ? NIVEIS_DIFICULDADE_MULTIPLICACAO
+    : NIVEIS_DIFICULDADE;
+}
+
+function proximaDificuldade(dificuldade, operacao = 'SOMA') {
+  const niveis = niveisDificuldade(operacao);
+  const indice = niveis.indexOf(dificuldade);
   if (indice === -1) {
     throw new Error('Dificuldade inválida: ' + dificuldade);
   }
-  return NIVEIS_DIFICULDADE[indice + 1] ?? null;
+  return niveis[indice + 1] ?? null;
+}
+
+function dificuldadePermitida(dificuldade, operacao) {
+  const niveis = niveisDificuldade(operacao);
+  return niveis.includes(dificuldade) ? dificuldade : niveis[niveis.length - 1];
 }
 
 function calcularProgresso(sequencia, meta = META_NIVEL) {
@@ -181,7 +398,13 @@ function calcularProgresso(sequencia, meta = META_NIVEL) {
 - barra; erros e acertos parciais zeram. Ao completar a meta, o nível sobe
 - automaticamente (ou a rodada recomeça no nível máximo).
  */
-function resolverProgresso(sequenciaAtual, dificuldadeAtual, correto, meta = META_NIVEL) {
+function resolverProgresso(
+  sequenciaAtual,
+  dificuldadeAtual,
+  correto,
+  meta = META_NIVEL,
+  operacao = 'SOMA',
+) {
   const resultadoBase = {
     sequencia: 0,
     progresso: 0,
@@ -203,7 +426,7 @@ function resolverProgresso(sequenciaAtual, dificuldadeAtual, correto, meta = MET
     };
   }
 
-  const proxima = proximaDificuldade(dificuldadeAtual);
+  const proxima = proximaDificuldade(dificuldadeAtual, operacao);
   return {
     sequencia: 0,
     progresso: 1,
@@ -780,7 +1003,7 @@ function iniciarInterface() {
 
   aplicarPreferencias(estado, typeof window !== 'undefined' ? window.location.search : '');
   atualizarSegmentado(el.seletorOperacao, estado.operacao);
-  atualizarSegmentado(el.seletorDificuldade, estado.dificuldade);
+  atualizarNiveisDificuldade(estado, el);
   carregarPlacar(estado, el);
   configurarNomeJogador(estado, el);
 
@@ -791,6 +1014,7 @@ function iniciarInterface() {
     }
     estado.operacao = botao.dataset.operacao;
     atualizarSegmentado(el.seletorOperacao, estado.operacao);
+    atualizarNiveisDificuldade(estado, el);
     carregarQuestao(estado, el);
   });
 
@@ -843,10 +1067,20 @@ function aplicarPreferencias(estado, busca) {
     || operacao === 'DIVISAO') {
     estado.operacao = operacao;
   }
-  if (dificuldade === 'FACIL' || dificuldade === 'MEDIO') {
+  if (dificuldade === 'FACIL' || dificuldade === 'MEDIO'
+    || (dificuldade === 'DIFICIL' && estado.operacao === 'MULTIPLICACAO')) {
     estado.dificuldade = dificuldade;
   }
   return estado;
+}
+
+function atualizarNiveisDificuldade(estado, el) {
+  const niveis = niveisDificuldade(estado.operacao);
+  estado.dificuldade = dificuldadePermitida(estado.dificuldade, estado.operacao);
+  el.seletorDificuldade.querySelectorAll('[data-dificuldade]').forEach((botao) => {
+    botao.hidden = !niveis.includes(botao.dataset.dificuldade);
+  });
+  atualizarSegmentado(el.seletorDificuldade, estado.dificuldade);
 }
 
 function atualizarSegmentado(container, valor) {
@@ -1005,9 +1239,15 @@ function esconderPlaceholder(el) {
 function renderConta(estado, el) {
   const questao = estado.questao;
   const divisao = questao.operacao === 'DIVISAO';
+  const multiplicacaoDificil = ehMultiplicacaoDificil(questao);
   el.conta.classList.toggle('conta-divisao', divisao);
+  el.conta.classList.toggle('conta-multiplicacao-dificil', multiplicacaoDificil);
   if (divisao) {
     renderDivisao(estado, el);
+    return;
+  }
+  if (multiplicacaoDificil) {
+    renderMultiplicacaoDificil(estado, el);
     return;
   }
 
@@ -1099,6 +1339,230 @@ function renderConta(estado, el) {
 
   if (subtracao) {
     atualizarEmprestimos(estado, el);
+  }
+}
+
+function colunaGradeMultiplicacao(coluna, colunas) {
+  return colunas + 1 - coluna;
+}
+
+function criarLinhaMultiplicacaoDificil(linha, colunas) {
+  const elemento = document.createElement('div');
+  elemento.className = 'linha linha-multiplicacao-dificil';
+  elemento.style.gridColumn = '2 / ' + (colunas + 2);
+  elemento.style.gridRow = String(linha);
+  return elemento;
+}
+
+function criarCelulaEstaticaMultiplicacaoDificil(coluna, digito, linha, colunas) {
+  const celula = document.createElement('div');
+  celula.className = 'celula-digito celula-multiplicacao-dificil';
+  celula.dataset.coluna = String(coluna);
+  celula.style.gridColumn = String(colunaGradeMultiplicacao(coluna, colunas));
+  celula.style.gridRow = String(linha);
+  celula.textContent = String(digito);
+  return celula;
+}
+
+function criarZeroFantasmaMultiplicacaoDificil(coluna, linha, colunas) {
+  const zero = document.createElement('span');
+  zero.className = 'zero-fantasma-multiplicacao';
+  zero.textContent = '0';
+  zero.setAttribute('aria-hidden', 'true');
+  zero.style.gridColumn = String(colunaGradeMultiplicacao(coluna, colunas));
+  zero.style.gridRow = String(linha);
+  return zero;
+}
+
+function configurarCampoMultiplicacaoDificil(campo, alvo, contexto) {
+  const { el, ordemFoco } = contexto;
+
+  campo.addEventListener('input', () => {
+    campo.value = campo.value.replace(/\D/g, '').slice(-1);
+    if (campo.value === '') {
+      return;
+    }
+    focarProximoMultiplicacao(el, ordemFoco, alvo, { flexivel: false });
+  });
+
+  campo.addEventListener('keydown', (evento) => {
+    tratarTeclaFluxoFoco(evento, {
+      el,
+      ordemFoco,
+      alvo,
+      campo,
+      aoConfirmar: () => el.btnValidar.click(),
+    });
+  });
+}
+
+function criarCampoResultadoMultiplicacaoDificil(
+  coluna,
+  linha,
+  nomeLinha,
+  contexto,
+) {
+  const { modelo, el } = contexto;
+  const campo = document.createElement('input');
+  campo.type = 'text';
+  campo.className = 'resultado-input resultado-input-dificil';
+  campo.dataset.coluna = String(coluna);
+  campo.dataset.linha = nomeLinha;
+  campo.maxLength = 1;
+  campo.inputMode = 'numeric';
+  campo.autocomplete = 'off';
+  campo.setAttribute(
+    'aria-label',
+    'Resultado da multiplicação na coluna das '
+      + (ROTULOS_COLUNA[coluna] ?? 'milhares'),
+  );
+  campo.style.gridColumn = String(colunaGradeMultiplicacao(coluna, modelo.colunas));
+  campo.style.gridRow = String(linha);
+
+  configurarCampoMultiplicacaoDificil(
+    campo,
+    { tipo: 'resultado', linha: nomeLinha, coluna },
+    contexto,
+  );
+  return campo;
+}
+
+function criarCaixaTransporteMultiplicacaoDificil(coluna, linha, nomeLinha, contexto) {
+  const { modelo, el } = contexto;
+  const caixa = document.createElement('input');
+  caixa.type = 'text';
+  caixa.className = 'caixa-vai-um caixa-vai-um-dificil';
+  caixa.dataset.coluna = String(coluna);
+  caixa.dataset.linha = nomeLinha;
+  caixa.maxLength = 1;
+  caixa.inputMode = 'numeric';
+  caixa.autocomplete = 'off';
+  caixa.placeholder = '·';
+  caixa.setAttribute(
+    'aria-label',
+    'Vai um para a coluna das ' + (ROTULOS_COLUNA[coluna] ?? 'milhares'),
+  );
+  caixa.style.gridColumn = String(colunaGradeMultiplicacao(coluna, modelo.colunas));
+  caixa.style.gridRow = String(linha);
+
+  configurarCampoMultiplicacaoDificil(
+    caixa,
+    { tipo: 'vaiUm', linha: nomeLinha, coluna },
+    contexto,
+  );
+  return caixa;
+}
+
+function renderMultiplicacaoDificil(estado, el) {
+  const modelo = montarModeloMultiplicacaoDificil(
+    estado.questao.numeroA,
+    estado.questao.numeroB,
+  );
+  const linhas = modelo.linhas;
+  const contexto = {
+    el,
+    modelo,
+    ordemFoco: modelo.ordemFoco,
+  };
+  estado.multiplicacaoDificil = modelo;
+
+  el.conta.innerHTML = '';
+  el.conta.style.setProperty('--colunas', String(modelo.colunas));
+
+  const sinal = document.createElement('span');
+  sinal.className = 'sinal';
+  sinal.textContent = '×';
+  sinal.style.gridColumn = '1';
+  sinal.style.gridRow = String(linhas.operandoB);
+  el.conta.appendChild(sinal);
+
+  modelo.digitosA.forEach((digito, coluna) => {
+    el.conta.appendChild(criarCelulaEstaticaMultiplicacaoDificil(
+      coluna,
+      digito,
+      linhas.operandoA,
+      modelo.colunas,
+    ));
+  });
+  modelo.digitosB.forEach((digito, coluna) => {
+    el.conta.appendChild(criarCelulaEstaticaMultiplicacaoDificil(
+      coluna,
+      digito,
+      linhas.operandoB,
+      modelo.colunas,
+    ));
+  });
+
+  el.conta.appendChild(criarLinhaMultiplicacaoDificil(linhas.linhaParcial, modelo.colunas));
+
+  Object.entries(modelo.carriesUnidade).forEach(([coluna]) => {
+    el.conta.appendChild(criarCaixaTransporteMultiplicacaoDificil(
+      Number(coluna),
+      linhas.carryUnidade,
+      'carryUnidade',
+      contexto,
+    ));
+  });
+  modelo.digitosUnidade.forEach((_, coluna) => {
+    el.conta.appendChild(criarCampoResultadoMultiplicacaoDificil(
+      coluna,
+      linhas.resultadoUnidade,
+      'resultadoUnidade',
+      contexto,
+    ));
+  });
+
+  Object.entries(modelo.carriesDezena).forEach(([coluna]) => {
+    el.conta.appendChild(criarCaixaTransporteMultiplicacaoDificil(
+      Number(coluna),
+      linhas.carryDezena,
+      'carryDezena',
+      contexto,
+    ));
+  });
+  el.conta.appendChild(criarZeroFantasmaMultiplicacaoDificil(
+    0,
+    linhas.resultadoDezena,
+    modelo.colunas,
+  ));
+  modelo.digitosDezena.forEach((_, coluna) => {
+    if (coluna === 0) {
+      return;
+    }
+    el.conta.appendChild(criarCampoResultadoMultiplicacaoDificil(
+      coluna,
+      linhas.resultadoDezena,
+      'resultadoDezena',
+      contexto,
+    ));
+  });
+
+  el.conta.appendChild(criarLinhaMultiplicacaoDificil(linhas.linhaFinal, modelo.colunas));
+
+  Object.entries(modelo.carriesSoma).forEach(([coluna]) => {
+    el.conta.appendChild(criarCaixaTransporteMultiplicacaoDificil(
+      Number(coluna),
+      linhas.carrySoma,
+      'carrySoma',
+      contexto,
+    ));
+  });
+  modelo.digitosSoma.forEach((_, coluna) => {
+    el.conta.appendChild(criarCampoResultadoMultiplicacaoDificil(
+      coluna,
+      linhas.resultadoSoma,
+      'resultadoSoma',
+      contexto,
+    ));
+  });
+
+  const primeiro = modelo.ordemFoco[0];
+  if (primeiro) {
+    setTimeout(() => {
+      if (!el.conta.contains(document.activeElement)) {
+        focarItemOrdem(el, primeiro);
+      }
+    }, 0);
   }
 }
 
@@ -2329,7 +2793,9 @@ function atualizarDica(estado, el) {
   if (estado.questao.operacao === 'SOMA') {
     el.dica.textContent = 'Some os números que estão um embaixo do outro, da direita para a esquerda: se passar de 9, deixe o último número embaixo e suba o 1.';
   } else if (estado.questao.operacao === 'MULTIPLICACAO') {
-    if (estado.questao.dificuldade === 'MEDIO') {
+    if (estado.questao.dificuldade === 'DIFICIL') {
+      el.dica.textContent = 'Multiplique primeiro pela unidade do número de baixo, depois pela dezena (deslocando uma casa). No fim, some as duas parcelas da direita para a esquerda.';
+    } else if (estado.questao.dificuldade === 'MEDIO') {
       el.dica.textContent = 'Multiplique o número de baixo pelo de cima (da direita para a esquerda): se passar de 9, deixe a unidade embaixo e suba o outro número para somar no vizinho';
     } else {
       el.dica.textContent = 'Dica: multiplique ' + estado.questao.numeroA + ' × ' + estado.questao.numeroB
@@ -2355,6 +2821,14 @@ function lerVaiUm(el) {
 
 function lerResultados(el) {
   return Array.from(el.conta.querySelectorAll('.resultado-input'))
+    .sort((a, b) => Number(a.dataset.coluna) - Number(b.dataset.coluna))
+    .map((campo) => campo.value);
+}
+
+function lerResultadosLinha(el, linha) {
+  return Array.from(el.conta.querySelectorAll(
+    '.resultado-input[data-linha="' + linha + '"]',
+  ))
     .sort((a, b) => Number(a.dataset.coluna) - Number(b.dataset.coluna))
     .map((campo) => campo.value);
 }
@@ -2460,10 +2934,25 @@ async function validarResposta(estado, el) {
       });
     }
   } else {
-    const resultadoDigitado = comporResultado(lerResultados(el));
+    const multiplicacao = questao.operacao === 'MULTIPLICACAO';
+    const multiplicacaoDificil = ehMultiplicacaoDificil(questao);
+    const resultadoDigitado = comporResultado(
+      multiplicacaoDificil
+        ? lerResultadosLinha(el, 'resultadoSoma')
+        : lerResultados(el),
+    );
     if (resultadoDigitado === null) {
-      mostrarAviso(el, 'Escreva o resultado nas caixas antes de conferir. ✏️');
-      const unidades = el.conta.querySelector('.resultado-input[data-coluna="0"]');
+      mostrarAviso(
+        el,
+        multiplicacaoDificil
+          ? 'Complete a soma final antes de conferir. ✏️'
+          : 'Escreva o resultado nas caixas antes de conferir. ✏️',
+      );
+      const unidades = el.conta.querySelector(
+        multiplicacaoDificil
+          ? '.resultado-input[data-linha="resultadoSoma"][data-coluna="0"]'
+          : '.resultado-input[data-coluna="0"]',
+      );
       if (unidades) {
         unidades.focus();
       }
@@ -2472,7 +2961,6 @@ async function validarResposta(estado, el) {
 
     const soma = questao.operacao === 'SOMA';
     const subtracao = questao.operacao === 'SUBTRACAO';
-    const multiplicacao = questao.operacao === 'MULTIPLICACAO';
     const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
     const caixasVaiUm = lerVaiUm(el);
     requisicao = montarRequisicao(questao, {
@@ -2485,7 +2973,7 @@ async function validarResposta(estado, el) {
         )
         : null,
       emprestados: subtracao ? montarArrayEmprestimos(estado.emprestimos, digitos) : null,
-      vaiUmMultiplicacao: multiplicacao
+      vaiUmMultiplicacao: multiplicacao && !multiplicacaoDificil
         ? lerVaiUmMultiplicacao(caixasVaiUm)
         : null,
     });
@@ -2558,7 +3046,13 @@ function salvarPlacar(estado) {
 }
 
 function atualizarPlacar(estado, el, dados) {
-  const resolucao = resolverProgresso(estado.sequencia, estado.dificuldade, dados.correto);
+  const resolucao = resolverProgresso(
+    estado.sequencia,
+    estado.dificuldade,
+    dados.correto,
+    META_NIVEL,
+    estado.questao?.operacao,
+  );
 
   estado.pontos += dados.pontosGanhos;
   estado.sequencia = resolucao.sequencia;
@@ -2566,7 +3060,7 @@ function atualizarPlacar(estado, el, dados) {
 
   if (resolucao.dificuldade !== estado.dificuldade) {
     estado.dificuldade = resolucao.dificuldade;
-    atualizarSegmentado(el.seletorDificuldade, estado.dificuldade);
+    atualizarNiveisDificuldade(estado, el);
   }
 
   salvarPlacar(estado);
@@ -2758,7 +3252,15 @@ if (typeof module !== 'undefined' && module.exports) {
     calcularVaiUmMultiplicacao,
     resultadoDezenaMultiplicacao,
     multiplicacaoPrecisaCentena,
+    ehMultiplicacaoDificil,
+    calcularParcialMultiplicacaoDificil,
+    somarParcelasMultiplicacaoDificil,
+    ordemFocoMultiplicacaoDificil,
+    montarModeloMultiplicacaoDificil,
+    LINHAS_MULTIPLICACAO_DIFICIL,
     quantidadeCaixasVaiUm,
+    niveisDificuldade,
+    dificuldadePermitida,
     proximaDificuldade,
     calcularProgresso,
     resolverProgresso,
@@ -2783,6 +3285,7 @@ if (typeof module !== 'undefined' && module.exports) {
     focarResultadoPorColuna,
     focarVaiUmPorColuna,
     tratarTeclaResultado,
+    tratarTeclaFluxoFoco,
     tratarTeclaVaiUm,
     tratarTeclaDivisao,
     ORDEM_CAMPOS_DIVISAO_MEDIA,

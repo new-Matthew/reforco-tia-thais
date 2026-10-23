@@ -76,6 +76,28 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Retorna uma multiplicação difícil no endpoint de próxima questão")
+    void retornaQuestaoDeMultiplicacaoDificil() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "MULTIPLICACAO")
+                        .param("dificuldade", "DIFICIL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("MULTIPLICACAO"))
+                .andExpect(jsonPath("$.dificuldade").value("DIFICIL"));
+    }
+
+    @Test
+    @DisplayName("Rejeita o nível difícil em outras operações no endpoint de próxima questão")
+    void rejeitaDificuldadeDificilForaDaMultiplicacao() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "SOMA")
+                        .param("dificuldade", "DIFICIL"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erro").value(
+                        "O nível difícil está disponível apenas para a multiplicação."));
+    }
+
+    @Test
     @DisplayName("Retorna uma questão de divisão fácil no endpoint de próxima questão")
     void retornaQuestaoDeDivisao() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")

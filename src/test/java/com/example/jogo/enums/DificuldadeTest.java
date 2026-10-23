@@ -16,6 +16,14 @@ class DificuldadeTest {
     }
 
     @Test
+    @DisplayName("Define os limites de quatro dígitos para a dificuldade difícil")
+    void defineLimitesDaDificuldadeDificil() {
+        assertEquals(4, Dificuldade.DIFICIL.getQuantidadeDeDigitos());
+        assertEquals(1000, Dificuldade.DIFICIL.getValorMinimo());
+        assertEquals(9999, Dificuldade.DIFICIL.getValorMaximo());
+    }
+
+    @Test
     @DisplayName("Define os limites de três dígitos para a dificuldade média")
     void defineLimitesDaDificuldadeMedia() {
         assertEquals(3, Dificuldade.MEDIO.getQuantidadeDeDigitos());

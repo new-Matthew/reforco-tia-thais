@@ -27,6 +27,9 @@ public class JogoService {
     private static final int MAIOR_FATOR_UMA_CASA = 9;
     private static final int MENOR_FATOR_DUAS_CASAS = 10;
     private static final int MAIOR_FATOR_DUAS_CASAS = 99;
+    private static final int MENOR_MULTIPLICANDO_TRES_CASAS = 100;
+    private static final int MAIOR_MULTIPLICANDO_TRES_CASAS = 999;
+    private static final int MENOR_DIGITO_MULTIPLICADOR_DIFICIL = 2;
 
     private static final int DIVISOR_MINIMO_FACIL = 2;
     private static final int DIVISOR_MAXIMO_FACIL = 9;
@@ -50,6 +53,10 @@ public class JogoService {
         }
         if (dificuldade == null) {
             throw new IllegalArgumentException("A dificuldade é obrigatória.");
+        }
+        if (dificuldade == Dificuldade.DIFICIL && operacao != Operacao.MULTIPLICACAO) {
+            throw new IllegalArgumentException(
+                    "O nível difícil está disponível apenas para a multiplicação.");
         }
 
         return switch (operacao) {
@@ -140,6 +147,9 @@ public class JogoService {
     private AvaliacaoPassos avaliarMultiplicacao(RequisicaoValidacaoDTO requisicao) {
         int numeroA = requisicao.getNumeroA();
         int numeroB = requisicao.getNumeroB();
+        if (numeroA >= MENOR_MULTIPLICANDO_TRES_CASAS && numeroB >= MENOR_FATOR_DUAS_CASAS) {
+            return new AvaliacaoPassos(numeroA * numeroB, true);
+        }
         int carryEsperado = numeroA >= MENOR_FATOR_DUAS_CASAS
                 ? calcularVaiUmMultiplicacao(numeroA, numeroB)
                 : 0;
@@ -280,7 +290,9 @@ public class JogoService {
 
     private QuestaoDTO gerarMultiplicacao(Operacao operacao, Dificuldade dificuldade) {
         int numeroA = sortearMultiplicando(dificuldade);
-        int numeroB = sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA);
+        int numeroB = dificuldade == Dificuldade.DIFICIL
+                ? sortearMultiplicadorDuasCasas()
+                : sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA);
 
         QuestaoDTO questao = novaQuestao(operacao, dificuldade, numeroA, numeroB);
         if (dificuldade == Dificuldade.MEDIO) {
@@ -290,9 +302,17 @@ public class JogoService {
     }
 
     private int sortearMultiplicando(Dificuldade dificuldade) {
-        return dificuldade == Dificuldade.FACIL
-                ? sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA)
-                : sortear(MENOR_FATOR_DUAS_CASAS, MAIOR_FATOR_DUAS_CASAS);
+        return switch (dificuldade) {
+            case FACIL -> sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA);
+            case MEDIO -> sortear(MENOR_FATOR_DUAS_CASAS, MAIOR_FATOR_DUAS_CASAS);
+            case DIFICIL -> sortear(MENOR_MULTIPLICANDO_TRES_CASAS, MAIOR_MULTIPLICANDO_TRES_CASAS);
+        };
+    }
+
+    private int sortearMultiplicadorDuasCasas() {
+        int dezena = sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA);
+        int unidade = sortear(MENOR_DIGITO_MULTIPLICADOR_DIFICIL, MAIOR_FATOR_UMA_CASA);
+        return dezena * 10 + unidade;
     }
 
     private void aplicarPassosMultiplicacao(QuestaoDTO questao) {

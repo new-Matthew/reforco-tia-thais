@@ -8,6 +8,8 @@ const {
   quantidadeColunas,
   quantidadeCaixasVaiUm,
   proximaDificuldade,
+  niveisDificuldade,
+  dificuldadePermitida,
   calcularProgresso,
   resolverProgresso,
   normalizarPasso,
@@ -70,6 +72,13 @@ const {
   calcularVaiUmMultiplicacao,
   resultadoDezenaMultiplicacao,
   multiplicacaoPrecisaCentena,
+  ehMultiplicacaoDificil,
+  calcularParcialMultiplicacaoDificil,
+  somarParcelasMultiplicacaoDificil,
+  ordemFocoMultiplicacaoDificil,
+  montarModeloMultiplicacaoDificil,
+  LINHAS_MULTIPLICACAO_DIFICIL,
+  tratarTeclaFluxoFoco,
 } = require('../../main/resources/static/app.js');
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1521,4 +1530,229 @@ test('tratarTeclaDivisao volta no Backspace vazio e confirma no Enter', () => {
   campo.value = '3';
   assert.equal(tratarTeclaDivisao({ key: 'Backspace' }, opcoes), false);
   assert.equal(anteriores, 1);
+});
+
+test('o nível difícil fica disponível apenas para a multiplicação', () => {
+  assert.deepEqual(niveisDificuldade('MULTIPLICACAO'), ['FACIL', 'MEDIO', 'DIFICIL']);
+  assert.deepEqual(niveisDificuldade('SOMA'), ['FACIL', 'MEDIO']);
+  assert.equal(dificuldadePermitida('DIFICIL', 'SOMA'), 'MEDIO');
+  assert.equal(dificuldadePermitida('DIFICIL', 'MULTIPLICACAO'), 'DIFICIL');
+  assert.equal(proximaDificuldade('MEDIO', 'MULTIPLICACAO'), 'DIFICIL');
+  assert.equal(proximaDificuldade('DIFICIL', 'MULTIPLICACAO'), null);
+  assert.equal(proximaDificuldade('MEDIO', 'DIVISAO'), null);
+});
+
+test('resolverProgresso sobe para o difícil somente na multiplicação', () => {
+  const multiplicacao = resolverProgresso(4, 'MEDIO', true, 5, 'MULTIPLICACAO');
+  assert.equal(multiplicacao.dificuldade, 'DIFICIL');
+  assert.equal(multiplicacao.subiuNivel, true);
+
+  const soma = resolverProgresso(4, 'MEDIO', true, 5, 'SOMA');
+  assert.equal(soma.dificuldade, 'MEDIO');
+  assert.equal(soma.nivelMaximo, true);
+});
+
+test('multiplicação difícil usa três dígitos no multiplicando e dois no multiplicador', () => {
+  assert.equal(quantidadeColunas('DIFICIL', 'MULTIPLICACAO'), 5);
+  assert.equal(digitosDosOperandos('DIFICIL', 'MULTIPLICACAO'), 3);
+  assert.equal(digitosDoMultiplicador('DIFICIL', 'MULTIPLICACAO'), 2);
+  assert.equal(digitosDoMultiplicador('MEDIO', 'MULTIPLICACAO'), 1);
+});
+
+test('calcularParcialMultiplicacaoDificil separa produto e transporte da unidade', () => {
+  const parcial = calcularParcialMultiplicacaoDificil(327, 5);
+
+  assert.deepEqual(parcial.digitos, [5, 3, 6, 1]);
+  assert.deepEqual(parcial.carries, { 1: 3, 2: 1 });
+  assert.equal(parcial.carryFinal, 1);
+});
+
+test('somarParcelasMultiplicacaoDificil reproduz a soma final coluna a coluna', () => {
+  const soma = somarParcelasMultiplicacaoDificil(1635, 3270, 4);
+
+  assert.deepEqual(soma.digitos, [5, 0, 9, 4]);
+  assert.deepEqual(soma.carries, { 2: 1 });
+});
+
+test('montarModeloMultiplicacaoDificil monta as duas linhas e a soma de 327 × 15', () => {
+  const modelo = montarModeloMultiplicacaoDificil(327, 15);
+
+  assert.equal(modelo.colunas, 4);
+  assert.deepEqual(modelo.digitosA, [7, 2, 3]);
+  assert.deepEqual(modelo.digitosB, [5, 1]);
+  assert.deepEqual(modelo.digitosUnidade, [5, 3, 6, 1]);
+  assert.deepEqual(modelo.carriesUnidade, { 1: 3, 2: 1 });
+  assert.deepEqual(modelo.digitosDezena, [null, 7, 2, 3]);
+  assert.deepEqual(modelo.carriesDezena, {});
+  assert.deepEqual(modelo.digitosSoma, [5, 0, 9, 4]);
+  assert.deepEqual(modelo.carriesSoma, { 2: 1 });
+  assert.equal(modelo.produtoUnidade, 1635);
+  assert.equal(modelo.produtoDezena, 3270);
+  assert.equal(modelo.resultado, 4905);
+  assert.equal(ehMultiplicacaoDificil({ operacao: 'MULTIPLICACAO', dificuldade: 'DIFICIL' }), true);
+  assert.equal(ehMultiplicacaoDificil({ operacao: 'MULTIPLICACAO', dificuldade: 'MEDIO' }), false);
+});
+
+test('ordemFocoMultiplicacaoDificil percorre as duas parciais e a soma de 327 × 15', () => {
+  assert.deepEqual(ordemFocoMultiplicacaoDificil(327, 15), [
+    { tipo: 'resultado', linha: 'resultadoUnidade', coluna: 0 },
+    { tipo: 'vaiUm', linha: 'carryUnidade', coluna: 1 },
+    { tipo: 'resultado', linha: 'resultadoUnidade', coluna: 1 },
+    { tipo: 'vaiUm', linha: 'carryUnidade', coluna: 2 },
+    { tipo: 'resultado', linha: 'resultadoUnidade', coluna: 3 },
+    { tipo: 'resultado', linha: 'resultadoUnidade', coluna: 2 },
+    { tipo: 'resultado', linha: 'resultadoDezena', coluna: 1 },
+    { tipo: 'resultado', linha: 'resultadoDezena', coluna: 2 },
+    { tipo: 'resultado', linha: 'resultadoDezena', coluna: 3 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 0 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 1 },
+    { tipo: 'vaiUm', linha: 'carrySoma', coluna: 2 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 2 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 3 },
+  ]);
+});
+
+test('ordemFocoMultiplicacaoDificil inclui os transportes da dezena em 327 × 95', () => {
+  const ordem = ordemFocoMultiplicacaoDificil(327, 95);
+  const dezena = ordem.filter((alvo) => alvo.linha === 'resultadoDezena');
+  const carriesDezena = ordem.filter((alvo) => alvo.linha === 'carryDezena');
+
+  assert.deepEqual(dezena, [
+    { tipo: 'resultado', linha: 'resultadoDezena', coluna: 1 },
+    { tipo: 'resultado', linha: 'resultadoDezena', coluna: 2 },
+    { tipo: 'resultado', linha: 'resultadoDezena', coluna: 4 },
+    { tipo: 'resultado', linha: 'resultadoDezena', coluna: 3 },
+  ]);
+  assert.deepEqual(carriesDezena, [
+    { tipo: 'vaiUm', linha: 'carryDezena', coluna: 2 },
+    { tipo: 'vaiUm', linha: 'carryDezena', coluna: 3 },
+  ]);
+  assert.deepEqual(ordem.filter((alvo) => alvo.linha === 'resultadoSoma'), [
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 0 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 1 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 2 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 3 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 4 },
+  ]);
+});
+
+test('foco da multiplicação difícil percorre unidade, transportes, dezena e soma', () => {
+  const modelo = montarModeloMultiplicacaoDificil(327, 15);
+  const seletores = new Map();
+  const campos = new Map();
+
+  modelo.ordemFoco.forEach((alvo) => {
+    const seletor = (alvo.tipo === 'vaiUm'
+      ? '.caixa-vai-um'
+      : '.resultado-input')
+      + '[data-coluna="' + alvo.coluna + '"]'
+      + '[data-linha="' + alvo.linha + '"]';
+    seletores.set(alvo.linha + ':' + alvo.tipo + ':' + alvo.coluna, seletor);
+    campos.set(seletor, campoFalso(''));
+  });
+
+  const el = {
+    conta: {
+      querySelector(seletor) {
+        return campos.get(seletor) ?? null;
+      },
+    },
+  };
+
+  const seletorDoAlvo = (alvo) => seletores.get(
+    alvo.linha + ':' + alvo.tipo + ':' + alvo.coluna,
+  );
+
+  modelo.ordemFoco.forEach((alvo, indice) => {
+    const campoAtual = campos.get(seletorDoAlvo(alvo));
+    campoAtual.value = '1';
+    campos.forEach((campo) => { campo.focado = false; });
+
+    const avancou = focarProximoMultiplicacao(
+      el,
+      modelo.ordemFoco,
+      alvo,
+      { flexivel: false },
+    );
+    const proximo = modelo.ordemFoco[indice + 1];
+    if (!proximo) {
+      assert.equal(avancou, false);
+      return;
+    }
+    assert.equal(avancou, true);
+    assert.equal(campos.get(seletorDoAlvo(proximo)).focado, true);
+  });
+});
+
+test('tratarTeclaFluxoFoco volta pela ordem e confirma no Enter', () => {
+  const campo = campoFalso('');
+  let confirmou = false;
+  const alvo = { tipo: 'resultado', linha: 'resultadoSoma', coluna: 2 };
+  const anterior = campoFalso('');
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="1"][data-linha="resultadoSoma"]': anterior,
+    }),
+  };
+  const ordem = [
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 1 },
+    alvo,
+  ];
+
+  const voltou = tratarTeclaFluxoFoco(
+    { key: 'Backspace' },
+    { el, ordemFoco: ordem, alvo, campo },
+  );
+  assert.equal(voltou, true);
+  assert.equal(anterior.focado, true);
+
+  const confirmouNoEnter = tratarTeclaFluxoFoco(
+    { key: 'Enter', preventDefault() {} },
+    { el, ordemFoco: ordem, alvo, campo, aoConfirmar: () => { confirmou = true; } },
+  );
+  assert.equal(confirmouNoEnter, true);
+  assert.equal(confirmou, true);
+});
+
+test('soma final da multiplicação difícil prioriza a nova casa mais à esquerda', () => {
+  const ordem = ordemFocoMultiplicacaoDificil(999, 19)
+    .filter((alvo) => alvo.linha === 'resultadoSoma' || alvo.linha === 'carrySoma');
+
+  assert.deepEqual(ordem, [
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 0 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 1 },
+    { tipo: 'vaiUm', linha: 'carrySoma', coluna: 2 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 2 },
+    { tipo: 'vaiUm', linha: 'carrySoma', coluna: 3 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 4 },
+    { tipo: 'resultado', linha: 'resultadoSoma', coluna: 3 },
+  ]);
+});
+
+test('multiplicação difícil sem transporte pula direto para a coluna seguinte', () => {
+  const ordem = ordemFocoMultiplicacaoDificil(111, 12);
+
+  assert.deepEqual(ordem.filter((alvo) => alvo.linha === 'resultadoUnidade'), [
+    { tipo: 'resultado', linha: 'resultadoUnidade', coluna: 0 },
+    { tipo: 'resultado', linha: 'resultadoUnidade', coluna: 1 },
+    { tipo: 'resultado', linha: 'resultadoUnidade', coluna: 2 },
+  ]);
+  assert.equal(ordem.some((alvo) => alvo.linha === 'carryUnidade'), false);
+});
+
+test('aplicarPreferencias aceita o nível difícil apenas na multiplicação', () => {
+  assert.deepEqual(
+    aplicarPreferencias(
+      { operacao: 'SOMA', dificuldade: 'FACIL' },
+      '?operacao=MULTIPLICACAO&dificuldade=DIFICIL',
+    ),
+    { operacao: 'MULTIPLICACAO', dificuldade: 'DIFICIL' },
+  );
+  assert.deepEqual(
+    aplicarPreferencias(
+      { operacao: 'SOMA', dificuldade: 'FACIL' },
+      '?operacao=SOMA&dificuldade=DIFICIL',
+    ),
+    { operacao: 'SOMA', dificuldade: 'FACIL' },
+  );
 });

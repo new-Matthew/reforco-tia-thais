@@ -130,7 +130,8 @@
   function mesmoAlvoFoco(item, atual) {
     return Boolean(item && atual)
       && item.tipo === atual.tipo
-      && item.coluna === atual.coluna;
+      && item.coluna === atual.coluna
+      && (item.linha ?? null) === (atual.linha ?? null);
   }
 
   function itemNaOrdemFoco(ordem, atual, passo) {
@@ -150,7 +151,11 @@
   }
 
   function chaveAlvoFoco(alvo) {
-    return alvo ? alvo.tipo + ':' + alvo.coluna : null;
+    if (!alvo) {
+      return null;
+    }
+    const linha = alvo.linha != null ? alvo.linha + ':' : '';
+    return alvo.tipo + ':' + linha + alvo.coluna;
   }
 
   /*
@@ -191,9 +196,12 @@
     if (!alvo) {
       return null;
     }
-    return alvo.tipo === 'vaiUm'
-      ? '.caixa-vai-um[data-coluna="' + alvo.coluna + '"]'
-      : '.resultado-input[data-coluna="' + alvo.coluna + '"]';
+    const base = alvo.tipo === 'vaiUm' ? '.caixa-vai-um' : '.resultado-input';
+    let seletor = base + '[data-coluna="' + alvo.coluna + '"]';
+    if (alvo.linha != null) {
+      seletor += '[data-linha="' + alvo.linha + '"]';
+    }
+    return seletor;
   }
 
   function preenchidosNaOrdem(el, ordem) {
@@ -304,6 +312,30 @@
     return false;
   }
 
+  /*
+   * Teclado dos fluxos com várias linhas (multiplicação difícil). O retorno
+   * da coluna é feito pela própria ordem lógica, que inclui as caixinhas de
+   * transporte e a transição entre as fases.
+   */
+  function tratarTeclaFluxoFoco(evento, opcoes) {
+    const { el, ordemFoco, alvo, campo, aoConfirmar } = opcoes;
+
+    if (evento.key === 'Backspace' && campo && campo.value === '') {
+      focarNaOrdemFoco(el, ordemFoco, alvo, -1);
+      return true;
+    }
+
+    if (evento.key === 'Enter') {
+      evento.preventDefault();
+      if (aoConfirmar) {
+        aoConfirmar();
+      }
+      return true;
+    }
+
+    return false;
+  }
+
   function tratarTeclaVaiUm(evento, opcoes) {
     const { el, ordemFoco, indice, caixa } = opcoes;
     if (evento.key === 'Backspace' && caixa && caixa.value === '') {
@@ -359,6 +391,7 @@
     focarResultadoPorColuna,
     focarVaiUmPorColuna,
     tratarTeclaResultado,
+    tratarTeclaFluxoFoco,
     tratarTeclaVaiUm,
     tratarTeclaDivisao,
   };

@@ -2,7 +2,8 @@ package com.example.jogo.enums;
 
 public enum Dificuldade {
     FACIL(2),
-    MEDIO(3);
+    MEDIO(3),
+    DIFICIL(4);
 
     private final int quantidadeDeDigitos;
 

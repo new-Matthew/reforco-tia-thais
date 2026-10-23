@@ -120,6 +120,60 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Gera multiplicações difíceis com três dígitos por dois")
+    void geraMultiplicacaoDificilComTresDigitosPorDois() {
+        for (int i = 0; i < 200; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(
+                    Operacao.MULTIPLICACAO, Dificuldade.DIFICIL);
+
+            assertEquals(Operacao.MULTIPLICACAO, questao.getOperacao());
+            assertEquals(Dificuldade.DIFICIL, questao.getDificuldade());
+            assertTrue(questao.getNumeroA() >= 100 && questao.getNumeroA() <= 999);
+            assertTrue(questao.getNumeroB() >= 12 && questao.getNumeroB() <= 99);
+            assertTrue(questao.getNumeroB() % 10 >= 2);
+            assertTrue(questao.getNumeroB() / 10 >= 1);
+            assertTrue(questao.getId() != null && !questao.getId().isBlank());
+        }
+    }
+
+    @Test
+    @DisplayName("Rejeita o nível difícil fora da multiplicação")
+    void rejeitaNivelDificilForaDaMultiplicacao() {
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.gerarQuestao(Operacao.SOMA, Dificuldade.DIFICIL));
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.gerarQuestao(Operacao.SUBTRACAO, Dificuldade.DIFICIL));
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.gerarQuestao(Operacao.DIVISAO, Dificuldade.DIFICIL));
+    }
+
+    @Test
+    @DisplayName("Valida o resultado final da multiplicação difícil")
+    void validaMultiplicacaoDificil() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-dificil", Operacao.MULTIPLICACAO, 327, 15, 4905, null, null, 3);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(4905, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Zera os pontos quando o resultado da multiplicação difícil está errado")
+    void validaMultiplicacaoDificilErrada() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-dificil-errada", Operacao.MULTIPLICACAO, 327, 15, 4904, null, null, 3);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(4905, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+    }
+
+    @Test
     @DisplayName("Calcula o vai um da multiplicação a partir das unidades")
     void calculaVaiUmDaMultiplicacao() {
         assertEquals(1, jogoService.calcularVaiUmMultiplicacao(35, 3));
