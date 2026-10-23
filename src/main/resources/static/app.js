@@ -438,6 +438,33 @@ function preencherResultadoDivisaoDireita(valorAtual, entrada, digitos) {
   return (digitosNovos + anterior).slice(-limite);
 }
 
+/*
+ * Normaliza o que o navegador entrega no evento `input`. O valor bruto pode
+ * já vir com o novo dígito à direita (ex.: 8 + 1 = 81); aqui ele é remontado
+ * pela unidade, resultando em 18. Exclusões mantêm o valor restante.
+ */
+function normalizarEntradaResultadoDivisao(
+  valorAnterior,
+  valorBruto,
+  entrada,
+  tipoEntrada,
+  digitos,
+) {
+  const limite = Math.max(1, Math.trunc(Number(digitos) || 1));
+  const anterior = String(valorAnterior ?? '').replace(/\D/g, '').slice(-limite);
+  const bruto = String(valorBruto ?? '').replace(/\D/g, '').slice(0, limite);
+  const insercao = String(tipoEntrada ?? '').startsWith('insert');
+  if (!insercao && bruto.length <= anterior.length) {
+    return bruto;
+  }
+  const digitado = String(entrada ?? '').replace(/\D/g, '');
+  return preencherResultadoDivisaoDireita(
+    anterior,
+    digitado || bruto.slice(anterior.length),
+    limite,
+  );
+}
+
 function comporQuocienteDivisaoMedia(quocienteParcial, quocienteFinal) {
   if (quocienteParcial === null || quocienteParcial === undefined
     || quocienteFinal === null || quocienteFinal === undefined) {
@@ -1825,6 +1852,7 @@ function limparCorDivisao(campo) {
 function bloquearCampoDivisao(campo) {
   campo.disabled = true;
   campo.value = '';
+  campo.dataset.valorAnterior = '';
   campo.classList.add('campo-bloqueado');
   limparCorDivisao(campo);
 }
@@ -1863,27 +1891,18 @@ function configurarQuocienteDivisaoMedia(campo, etapa, estado, el) {
 
 function configurarResultadoDivisaoMedia(campo, etapa, estado, el) {
   campo.dataset.campo = etapa === 2 ? 'restoFinal' : 'restoParcial';
-  campo.addEventListener('beforeinput', (evento) => {
-    if (!evento.inputType || !evento.inputType.startsWith('insert')) {
-      return;
-    }
-    const entrada = evento.data
-      ?? evento.dataTransfer?.getData('text')
-      ?? '';
-    if (!/\d/.test(entrada)) {
-      return;
-    }
-    evento.preventDefault();
-    campo.value = preencherResultadoDivisaoDireita(
+  campo.dataset.valorAnterior = '';
+  campo.addEventListener('input', (evento) => {
+    const valor = normalizarEntradaResultadoDivisao(
+      campo.dataset.valorAnterior ?? '',
       campo.value,
-      entrada,
+      evento.data,
+      evento.inputType,
       Number(campo.maxLength),
     );
+    campo.value = valor;
+    campo.dataset.valorAnterior = valor;
     campo.setSelectionRange(campo.value.length, campo.value.length);
-    atualizarResultadoDivisaoMedia(estado, el, etapa, campo);
-  });
-  campo.addEventListener('input', () => {
-    campo.value = campo.value.replace(/\D/g, '').slice(0, Number(campo.maxLength));
     atualizarResultadoDivisaoMedia(estado, el, etapa, campo);
   });
   campo.addEventListener('keydown', (evento) => {
@@ -2779,6 +2798,7 @@ if (typeof module !== 'undefined' && module.exports) {
     proximoNumeroAbaixado,
     descreverApoioDivisao,
     preencherResultadoDivisaoDireita,
+    normalizarEntradaResultadoDivisao,
     subtracaoDivisaoConfere,
     comporQuocienteDivisaoMedia,
     proximoCampoDivisao,

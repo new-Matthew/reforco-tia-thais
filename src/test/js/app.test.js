@@ -46,6 +46,7 @@ const {
   proximoNumeroAbaixado,
   descreverApoioDivisao,
   preencherResultadoDivisaoDireita,
+  normalizarEntradaResultadoDivisao,
   subtracaoDivisaoConfere,
   comporQuocienteDivisaoMedia,
   proximoCampoDivisao,
@@ -1241,6 +1242,15 @@ test('preencherResultadoDivisaoDireita completa a unidade antes da dezena', () =
   assert.equal(preencherResultadoDivisaoDireita('8', '12', 2), '12');
   assert.equal(preencherResultadoDivisaoDireita('7', 'x', 2), '7');
   assert.equal(preencherResultadoDivisaoDireita(null, '4', 1), '4');
+});
+
+test('normalizarEntradaResultadoDivisao remonta dígitos digitados pela unidade', () => {
+  assert.equal(normalizarEntradaResultadoDivisao('', '8', '8', 'insertText', 2), '8');
+  assert.equal(normalizarEntradaResultadoDivisao('8', '81', '1', 'insertText', 2), '18');
+  assert.equal(normalizarEntradaResultadoDivisao('', '18', '18', 'insertFromPaste', 2), '18');
+  assert.equal(normalizarEntradaResultadoDivisao('', '11', undefined, '', 2), '11');
+  assert.equal(normalizarEntradaResultadoDivisao('18', '1', null, 'deleteContentBackward', 2), '1');
+  assert.equal(normalizarEntradaResultadoDivisao('18', '81', '2', 'insertText', 2), '18');
 });
 
 test('subtracaoDivisaoConfere valida o resultado digitado em cada etapa', () => {
