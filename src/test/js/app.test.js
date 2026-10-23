@@ -1593,6 +1593,18 @@ test('montarModeloMultiplicacaoDificil monta as duas linhas e a soma de 327 × 1
   assert.equal(ehMultiplicacaoDificil({ operacao: 'MULTIPLICACAO', dificuldade: 'MEDIO' }), false);
 });
 
+test('linhas da multiplicação difícil mantêm os carries no topo e a soma sobre a primeira parcial', () => {
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.carryUnidade < LINHAS_MULTIPLICACAO_DIFICIL.carryDezena);
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.carryDezena < LINHAS_MULTIPLICACAO_DIFICIL.operandoA);
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.operandoA < LINHAS_MULTIPLICACAO_DIFICIL.operandoB);
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.operandoB < LINHAS_MULTIPLICACAO_DIFICIL.linhaParcial);
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.linhaParcial < LINHAS_MULTIPLICACAO_DIFICIL.carrySoma);
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.carrySoma < LINHAS_MULTIPLICACAO_DIFICIL.resultadoUnidade);
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.resultadoUnidade < LINHAS_MULTIPLICACAO_DIFICIL.resultadoDezena);
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.resultadoDezena < LINHAS_MULTIPLICACAO_DIFICIL.linhaFinal);
+  assert.ok(LINHAS_MULTIPLICACAO_DIFICIL.linhaFinal < LINHAS_MULTIPLICACAO_DIFICIL.resultadoSoma);
+});
+
 test('ordemFocoMultiplicacaoDificil percorre as duas parciais e a soma de 327 × 15', () => {
   assert.deepEqual(ordemFocoMultiplicacaoDificil(327, 15), [
     { tipo: 'resultado', linha: 'resultadoUnidade', coluna: 0 },
@@ -1614,8 +1626,11 @@ test('ordemFocoMultiplicacaoDificil percorre as duas parciais e a soma de 327 ×
 
 test('ordemFocoMultiplicacaoDificil inclui os transportes da dezena em 327 × 95', () => {
   const ordem = ordemFocoMultiplicacaoDificil(327, 95);
+  const modelo = montarModeloMultiplicacaoDificil(327, 95);
   const dezena = ordem.filter((alvo) => alvo.linha === 'resultadoDezena');
   const carriesDezena = ordem.filter((alvo) => alvo.linha === 'carryDezena');
+
+  assert.deepEqual(modelo.carriesDezena, { 1: 6, 2: 2 });
 
   assert.deepEqual(dezena, [
     { tipo: 'resultado', linha: 'resultadoDezena', coluna: 1 },
@@ -1624,8 +1639,8 @@ test('ordemFocoMultiplicacaoDificil inclui os transportes da dezena em 327 × 95
     { tipo: 'resultado', linha: 'resultadoDezena', coluna: 3 },
   ]);
   assert.deepEqual(carriesDezena, [
+    { tipo: 'vaiUm', linha: 'carryDezena', coluna: 1 },
     { tipo: 'vaiUm', linha: 'carryDezena', coluna: 2 },
-    { tipo: 'vaiUm', linha: 'carryDezena', coluna: 3 },
   ]);
   assert.deepEqual(ordem.filter((alvo) => alvo.linha === 'resultadoSoma'), [
     { tipo: 'resultado', linha: 'resultadoSoma', coluna: 0 },

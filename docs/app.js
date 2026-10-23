@@ -154,15 +154,15 @@ function multiplicacaoPrecisaCentena(numeroA, numeroB, carry = 0) {
 }
 
 const LINHAS_MULTIPLICACAO_DIFICIL = {
-  operandoA: 1,
-  operandoB: 2,
-  linhaParcial: 3,
-  carryUnidade: 4,
-  resultadoUnidade: 5,
-  carryDezena: 6,
-  resultadoDezena: 7,
-  linhaFinal: 8,
-  carrySoma: 9,
+  carryUnidade: 1,
+  carryDezena: 2,
+  operandoA: 3,
+  operandoB: 4,
+  linhaParcial: 5,
+  carrySoma: 6,
+  resultadoUnidade: 7,
+  resultadoDezena: 8,
+  linhaFinal: 9,
   resultadoSoma: 10,
 };
 
@@ -282,7 +282,7 @@ function ordemFocoMultiplicacaoDificil(numeroA, numeroB) {
     } else {
       ordem.push(alvoMultiplicacaoDificil('resultado', 'resultadoDezena', destino));
       if (carry > 0) {
-        ordem.push(alvoMultiplicacaoDificil('vaiUm', 'carryDezena', destino + 1));
+        ordem.push(alvoMultiplicacaoDificil('vaiUm', 'carryDezena', destino));
       }
     }
   }
@@ -316,10 +316,7 @@ function montarModeloMultiplicacaoDificil(numeroA, numeroB) {
   const parcialUnidade = calcularParcialMultiplicacaoDificil(a, unidade);
   const parcialDezenaBase = calcularParcialMultiplicacaoDificil(a, dezena);
   const digitosDezena = [null, ...parcialDezenaBase.digitos];
-  const carriesDezena = {};
-  Object.entries(parcialDezenaBase.carries).forEach(([coluna, valor]) => {
-    carriesDezena[Number(coluna) + 1] = valor;
-  });
+  const carriesDezena = { ...parcialDezenaBase.carries };
   const resultado = a * b;
   const colunasOperandos = Math.max(
     quantidadeDigitos(a * unidade),
@@ -1453,6 +1450,13 @@ function criarCaixaTransporteMultiplicacaoDificil(coluna, linha, nomeLinha, cont
   return caixa;
 }
 
+function seletorCampoMultiplicacaoDificil(alvo) {
+  const base = alvo.tipo === 'vaiUm' ? '.caixa-vai-um' : '.resultado-input';
+  return base
+    + '[data-coluna="' + alvo.coluna + '"]'
+    + '[data-linha="' + alvo.linha + '"]';
+}
+
 function renderMultiplicacaoDificil(estado, el) {
   const modelo = montarModeloMultiplicacaoDificil(
     estado.questao.numeroA,
@@ -1468,6 +1472,23 @@ function renderMultiplicacaoDificil(estado, el) {
 
   el.conta.innerHTML = '';
   el.conta.style.setProperty('--colunas', String(modelo.colunas));
+
+  Object.entries(modelo.carriesUnidade).forEach(([coluna]) => {
+    el.conta.appendChild(criarCaixaTransporteMultiplicacaoDificil(
+      Number(coluna),
+      linhas.carryUnidade,
+      'carryUnidade',
+      contexto,
+    ));
+  });
+  Object.entries(modelo.carriesDezena).forEach(([coluna]) => {
+    el.conta.appendChild(criarCaixaTransporteMultiplicacaoDificil(
+      Number(coluna),
+      linhas.carryDezena,
+      'carryDezena',
+      contexto,
+    ));
+  });
 
   const sinal = document.createElement('span');
   sinal.className = 'sinal';
@@ -1495,11 +1516,11 @@ function renderMultiplicacaoDificil(estado, el) {
 
   el.conta.appendChild(criarLinhaMultiplicacaoDificil(linhas.linhaParcial, modelo.colunas));
 
-  Object.entries(modelo.carriesUnidade).forEach(([coluna]) => {
+  Object.entries(modelo.carriesSoma).forEach(([coluna]) => {
     el.conta.appendChild(criarCaixaTransporteMultiplicacaoDificil(
       Number(coluna),
-      linhas.carryUnidade,
-      'carryUnidade',
+      linhas.carrySoma,
+      'carrySoma',
       contexto,
     ));
   });
@@ -1512,14 +1533,6 @@ function renderMultiplicacaoDificil(estado, el) {
     ));
   });
 
-  Object.entries(modelo.carriesDezena).forEach(([coluna]) => {
-    el.conta.appendChild(criarCaixaTransporteMultiplicacaoDificil(
-      Number(coluna),
-      linhas.carryDezena,
-      'carryDezena',
-      contexto,
-    ));
-  });
   el.conta.appendChild(criarZeroFantasmaMultiplicacaoDificil(
     0,
     linhas.resultadoDezena,
@@ -1539,14 +1552,6 @@ function renderMultiplicacaoDificil(estado, el) {
 
   el.conta.appendChild(criarLinhaMultiplicacaoDificil(linhas.linhaFinal, modelo.colunas));
 
-  Object.entries(modelo.carriesSoma).forEach(([coluna]) => {
-    el.conta.appendChild(criarCaixaTransporteMultiplicacaoDificil(
-      Number(coluna),
-      linhas.carrySoma,
-      'carrySoma',
-      contexto,
-    ));
-  });
   modelo.digitosSoma.forEach((_, coluna) => {
     el.conta.appendChild(criarCampoResultadoMultiplicacaoDificil(
       coluna,
@@ -1554,6 +1559,13 @@ function renderMultiplicacaoDificil(estado, el) {
       'resultadoSoma',
       contexto,
     ));
+  });
+
+  modelo.ordemFoco.forEach((alvo, indice) => {
+    const campo = el.conta.querySelector(seletorCampoMultiplicacaoDificil(alvo));
+    if (campo) {
+      campo.tabIndex = indice + 1;
+    }
   });
 
   const primeiro = modelo.ordemFoco[0];
