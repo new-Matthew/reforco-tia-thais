@@ -30,6 +30,7 @@ const {
   preenchidosNaOrdem,
   focarItemOrdem,
   focarNaOrdemFoco,
+  proximoFocoMultiplicacao,
   focarProximoMultiplicacao,
   focarResultadoPorColuna,
   focarVaiUmPorColuna,
@@ -131,6 +132,21 @@ function calcularVaiUmMultiplicacao(numeroA, numeroB) {
   const a = Math.abs(Math.trunc(Number(numeroA) || 0));
   const b = Math.abs(Math.trunc(Number(numeroB) || 0));
   return Math.floor(((a % 10) * b) / 10);
+}
+
+/*
+- Resultado da coluna das dezenas já somado ao transporte das unidades.
+- É ele que decide se a centena precisa ser preenchida antes da dezena.
+ */
+function resultadoDezenaMultiplicacao(numeroA, numeroB, carry = 0) {
+  const a = Math.abs(Math.trunc(Number(numeroA) || 0));
+  const b = Math.abs(Math.trunc(Number(numeroB) || 0));
+  const transporte = Math.max(0, Math.trunc(Number(carry) || 0));
+  return Math.floor(a / 10) * b + transporte;
+}
+
+function multiplicacaoPrecisaCentena(numeroA, numeroB, carry = 0) {
+  return resultadoDezenaMultiplicacao(numeroA, numeroB, carry) >= 10;
 }
 
 /*
@@ -876,11 +892,21 @@ function renderConta(estado, el) {
   const carryMultiplicacao = media
     ? Number(questao.vaiUm ?? calcularVaiUmMultiplicacao(questao.numeroA, questao.numeroB))
     : 0;
+  const centenaMultiplicacao = media
+    && multiplicacaoPrecisaCentena(
+      questao.numeroA,
+      questao.numeroB,
+      carryMultiplicacao,
+    );
   const transportesSoma = soma
     ? calcularVaiUm(questao.numeroA, questao.numeroB)
     : [];
   const ordemFoco = multiplicacao
-    ? ordemFocoMultiplicacao(colunas, carryMultiplicacao > 0)
+    ? ordemFocoMultiplicacao(
+      colunas,
+      carryMultiplicacao > 0,
+      centenaMultiplicacao,
+    )
     : (soma ? ordemFocoSoma(digitosA, transportesSoma) : []);
 
   el.conta.innerHTML = '';
@@ -927,7 +953,14 @@ function renderConta(estado, el) {
   linha.style.gridRow = '4';
   el.conta.appendChild(linha);
 
-  const contexto = { el, ordemFoco, colunas, soma, multiplicacao };
+  const contexto = {
+    el,
+    ordemFoco,
+    colunas,
+    soma,
+    multiplicacao,
+    multiplicacaoFlexivel: multiplicacao && colunas === 2,
+  };
   for (let indice = 0; indice < colunas; indice += 1) {
     el.conta.appendChild(
       criarCampoResultado(indice, colunaDaGrade(indice), contexto),
@@ -1100,7 +1133,14 @@ function resultadosPreenchidos(el, colunas) {
 }
 
 function configurarEntradaResultado(campo, indice, contexto) {
-  const { el, ordemFoco, colunas, soma, multiplicacao } = contexto;
+  const {
+    el,
+    ordemFoco,
+    colunas,
+    soma,
+    multiplicacao,
+    multiplicacaoFlexivel,
+  } = contexto;
 
   campo.addEventListener('input', () => {
     campo.value = campo.value.replace(/\D/g, '').slice(-1);
@@ -1129,7 +1169,12 @@ function configurarEntradaResultado(campo, indice, contexto) {
       }
       focarItemOrdem(el, alvo);
     } else if (multiplicacao) {
-      focarProximoMultiplicacao(el, ordemFoco, { tipo: 'resultado', coluna: indice });
+      focarProximoMultiplicacao(
+        el,
+        ordemFoco,
+        { tipo: 'resultado', coluna: indice },
+        { flexivel: multiplicacaoFlexivel },
+      );
     } else {
       focarResultadoPorColuna(el, indice + 1);
     }
@@ -2046,6 +2091,8 @@ if (typeof module !== 'undefined' && module.exports) {
     digitosDosOperandos,
     digitosDoMultiplicador,
     calcularVaiUmMultiplicacao,
+    resultadoDezenaMultiplicacao,
+    multiplicacaoPrecisaCentena,
     quantidadeCaixasVaiUm,
     proximaDificuldade,
     calcularProgresso,
@@ -2065,6 +2112,8 @@ if (typeof module !== 'undefined' && module.exports) {
     proximoItemVazioOrdem,
     primeiroItemVazioOrdem,
     preenchidosNaOrdem,
+    proximoFocoMultiplicacao,
+    focarProximoMultiplicacao,
     focarResultadoPorColuna,
     focarVaiUmPorColuna,
     tratarTeclaResultado,
