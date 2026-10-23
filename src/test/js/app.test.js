@@ -40,6 +40,11 @@ const {
   alvoApoioDivisao,
   ajustarMultiplicador,
   avaliarMultiploDivisao,
+  normalizarDigitoQuociente,
+  avaliarEtapaDivisaoMedia,
+  proximoNumeroAbaixado,
+  descreverApoioDivisao,
+  subtracaoDivisaoConfere,
   comporQuocienteDivisaoMedia,
   proximoCampoDivisao,
   campoAnteriorDivisao,
@@ -1001,29 +1006,23 @@ test('os rótulos da divisão nomeiam os termos matemáticos da lousa', () => {
   });
 });
 
-test('a ordem da divisão média preenche o quociente horizontal antes das etapas', () => {
+test('a ordem guiada da divisão média segue quociente, subtração e descida', () => {
   assert.deepEqual(ORDEM_CAMPOS_DIVISAO_MEDIA, [
     'quocienteParcial',
-    'quocienteFinal',
-    'subtracaoParcial',
     'restoParcial',
-    'subtracaoFinal',
+    'quocienteFinal',
     'restoFinal',
   ]);
   assert.equal(
     proximoCampoDivisao('quocienteParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'restoParcial',
+  );
+  assert.equal(
+    proximoCampoDivisao('restoParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
     'quocienteFinal',
   );
   assert.equal(
     proximoCampoDivisao('quocienteFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
-    'subtracaoParcial',
-  );
-  assert.equal(
-    proximoCampoDivisao('restoParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
-    'subtracaoFinal',
-  );
-  assert.equal(
-    proximoCampoDivisao('subtracaoFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
     'restoFinal',
   );
   assert.equal(
@@ -1031,16 +1030,16 @@ test('a ordem da divisão média preenche o quociente horizontal antes das etapa
     null,
   );
   assert.equal(
-    campoAnteriorDivisao('quocienteFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    campoAnteriorDivisao('restoParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
     'quocienteParcial',
   );
   assert.equal(
-    campoAnteriorDivisao('subtracaoParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
-    'quocienteFinal',
+    campoAnteriorDivisao('quocienteFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
+    'restoParcial',
   );
   assert.equal(
     campoAnteriorDivisao('restoFinal', ORDEM_CAMPOS_DIVISAO_MEDIA),
-    'subtracaoFinal',
+    'quocienteFinal',
   );
   assert.equal(
     campoAnteriorDivisao('quocienteParcial', ORDEM_CAMPOS_DIVISAO_MEDIA),
@@ -1103,6 +1102,85 @@ test('avaliarMultiploDivisao reconhece quando o produto é exatamente o alvo', (
   assert.equal(avaliacao.comparacao, 'igual');
   assert.equal(avaliacao.excedeu, false);
   assert.match(avaliacao.texto, /é o alvo/);
+});
+
+test('normalizarDigitoQuociente aceita apenas um dígito de 0 a 9', () => {
+  assert.equal(normalizarDigitoQuociente('4'), 4);
+  assert.equal(normalizarDigitoQuociente(0), 0);
+  assert.equal(normalizarDigitoQuociente('9'), 9);
+  assert.equal(normalizarDigitoQuociente(''), null);
+  assert.equal(normalizarDigitoQuociente('10'), null);
+  assert.equal(normalizarDigitoQuociente('x'), null);
+  assert.equal(normalizarDigitoQuociente(null), null);
+});
+
+test('avaliarEtapaDivisaoMedia preenche o produto e valida contra o alvo', () => {
+  const valido = avaliarEtapaDivisaoMedia(17, 4, 79);
+  assert.equal(valido.digito, 4);
+  assert.equal(valido.produto, 68);
+  assert.equal(valido.alvo, 79);
+  assert.equal(valido.resto, 11);
+  assert.equal(valido.status, 'valido');
+  assert.equal(valido.valido, true);
+  assert.equal(valido.excedeu, false);
+
+  const invalido = avaliarEtapaDivisaoMedia(17, 5, 79);
+  assert.equal(invalido.produto, 85);
+  assert.equal(invalido.resto, null);
+  assert.equal(invalido.status, 'invalido');
+  assert.equal(invalido.valido, false);
+  assert.equal(invalido.excedeu, true);
+
+  const neutro = avaliarEtapaDivisaoMedia(17, '', 79);
+  assert.equal(neutro.produto, null);
+  assert.equal(neutro.resto, null);
+  assert.equal(neutro.status, 'neutro');
+  assert.equal(neutro.valido, false);
+});
+
+test('avaliarEtapaDivisaoMedia considera o alvo após descer o próximo dígito', () => {
+  const avaliacao = avaliarEtapaDivisaoMedia(17, 6, 113);
+
+  assert.equal(avaliacao.produto, 102);
+  assert.equal(avaliacao.resto, 11);
+  assert.equal(avaliacao.status, 'valido');
+});
+
+test('descreverApoioDivisao sincroniza expressão e cores com o quociente', () => {
+  const valido = descreverApoioDivisao(17, '4', 79);
+  assert.equal(valido.expressao, '17 × 4 = 68');
+  assert.equal(valido.correto, true);
+  assert.equal(valido.excedeu, false);
+
+  const excedeu = descreverApoioDivisao(17, '5', 79);
+  assert.equal(excedeu.expressao, '17 × 5 = 85');
+  assert.equal(excedeu.correto, false);
+  assert.equal(excedeu.excedeu, true);
+
+  const neutro = descreverApoioDivisao(17, '', 79);
+  assert.equal(neutro.expressao, '17 × · = ·');
+  assert.equal(neutro.correto, false);
+  assert.equal(neutro.excedeu, false);
+
+  const segundaEtapa = descreverApoioDivisao(17, '6', 113, 2);
+  assert.equal(segundaEtapa.etapa, 2);
+  assert.equal(segundaEtapa.expressao, '17 × 6 = 102');
+  assert.equal(segundaEtapa.correto, true);
+});
+
+test('proximoNumeroAbaixado anexa o dígito do dividendo ao resto', () => {
+  assert.equal(proximoNumeroAbaixado(11, 3), 113);
+  assert.equal(proximoNumeroAbaixado(7, 3), 73);
+  assert.equal(proximoNumeroAbaixado(0, 3), 3);
+});
+
+test('subtracaoDivisaoConfere valida o resultado digitado em cada etapa', () => {
+  assert.equal(subtracaoDivisaoConfere('11', 79, 68), true);
+  assert.equal(subtracaoDivisaoConfere(11, 79, 68), true);
+  assert.equal(subtracaoDivisaoConfere('12', 79, 68), false);
+  assert.equal(subtracaoDivisaoConfere('', 79, 68), false);
+  assert.equal(subtracaoDivisaoConfere('28', 79, 51), true);
+  assert.equal(subtracaoDivisaoConfere('5', 73, 68), true);
 });
 
 test('comporQuocienteDivisaoMedia junta os dois dígitos do quociente', () => {
