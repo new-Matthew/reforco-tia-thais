@@ -44,6 +44,7 @@ const {
   avaliarEtapaDivisaoMedia,
   proximoNumeroAbaixado,
   descreverApoioDivisao,
+  preencherResultadoDivisaoDireita,
   subtracaoDivisaoConfere,
   comporQuocienteDivisaoMedia,
   proximoCampoDivisao,
@@ -1172,6 +1173,17 @@ test('proximoNumeroAbaixado anexa o dígito do dividendo ao resto', () => {
   assert.equal(proximoNumeroAbaixado(11, 3), 113);
   assert.equal(proximoNumeroAbaixado(7, 3), 73);
   assert.equal(proximoNumeroAbaixado(0, 3), 3);
+});
+
+test('preencherResultadoDivisaoDireita completa a unidade antes da dezena', () => {
+  assert.equal(preencherResultadoDivisaoDireita('', '8', 2), '8');
+  assert.equal(preencherResultadoDivisaoDireita('8', '1', 2), '18');
+  assert.equal(preencherResultadoDivisaoDireita('', '0', 2), '0');
+  assert.equal(preencherResultadoDivisaoDireita('0', '1', 2), '10');
+  assert.equal(preencherResultadoDivisaoDireita('18', '5', 2), '18');
+  assert.equal(preencherResultadoDivisaoDireita('8', '12', 2), '12');
+  assert.equal(preencherResultadoDivisaoDireita('7', 'x', 2), '7');
+  assert.equal(preencherResultadoDivisaoDireita(null, '4', 1), '4');
 });
 
 test('subtracaoDivisaoConfere valida o resultado digitado em cada etapa', () => {
