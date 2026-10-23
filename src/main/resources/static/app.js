@@ -417,6 +417,27 @@ function subtracaoDivisaoConfere(valor, alvo, produto) {
   ));
 }
 
+/*
+ * Preenche o resultado da subtração da direita para a esquerda: a primeira
+ * tecla ocupa a unidade e as seguintes empurram o valor para a esquerda.
+ * Assim, digitar 8 e depois 1 forma 18, como na lousa.
+ */
+function preencherResultadoDivisaoDireita(valorAtual, entrada, digitos) {
+  const limite = Math.max(1, Math.trunc(Number(digitos) || 1));
+  const anterior = String(valorAtual ?? '').replace(/\D/g, '').slice(-limite);
+  const digitosNovos = String(entrada ?? '').replace(/\D/g, '');
+  if (!digitosNovos) {
+    return anterior;
+  }
+  if (digitosNovos.length >= limite) {
+    return digitosNovos.slice(-limite);
+  }
+  if (anterior.length >= limite) {
+    return anterior;
+  }
+  return (digitosNovos + anterior).slice(-limite);
+}
+
 function comporQuocienteDivisaoMedia(quocienteParcial, quocienteFinal) {
   if (quocienteParcial === null || quocienteParcial === undefined
     || quocienteFinal === null || quocienteFinal === undefined) {
@@ -1842,6 +1863,25 @@ function configurarQuocienteDivisaoMedia(campo, etapa, estado, el) {
 
 function configurarResultadoDivisaoMedia(campo, etapa, estado, el) {
   campo.dataset.campo = etapa === 2 ? 'restoFinal' : 'restoParcial';
+  campo.addEventListener('beforeinput', (evento) => {
+    if (!evento.inputType || !evento.inputType.startsWith('insert')) {
+      return;
+    }
+    const entrada = evento.data
+      ?? evento.dataTransfer?.getData('text')
+      ?? '';
+    if (!/\d/.test(entrada)) {
+      return;
+    }
+    evento.preventDefault();
+    campo.value = preencherResultadoDivisaoDireita(
+      campo.value,
+      entrada,
+      Number(campo.maxLength),
+    );
+    campo.setSelectionRange(campo.value.length, campo.value.length);
+    atualizarResultadoDivisaoMedia(estado, el, etapa, campo);
+  });
   campo.addEventListener('input', () => {
     campo.value = campo.value.replace(/\D/g, '').slice(0, Number(campo.maxLength));
     atualizarResultadoDivisaoMedia(estado, el, etapa, campo);
@@ -2737,6 +2777,7 @@ if (typeof module !== 'undefined' && module.exports) {
     avaliarEtapaDivisaoMedia,
     proximoNumeroAbaixado,
     descreverApoioDivisao,
+    preencherResultadoDivisaoDireita,
     subtracaoDivisaoConfere,
     comporQuocienteDivisaoMedia,
     proximoCampoDivisao,
