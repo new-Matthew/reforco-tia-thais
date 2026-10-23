@@ -25,6 +25,8 @@ const {
   proximoItemVazioOrdem,
   primeiroItemVazioOrdem,
   preenchidosNaOrdem,
+  proximoFocoMultiplicacao,
+  focarProximoMultiplicacao,
   focarResultadoPorColuna,
   focarVaiUmPorColuna,
   tratarTeclaResultado,
@@ -58,6 +60,8 @@ const {
   digitosDosOperandos,
   digitosDoMultiplicador,
   calcularVaiUmMultiplicacao,
+  resultadoDezenaMultiplicacao,
+  multiplicacaoPrecisaCentena,
 } = require('../../main/resources/static/app.js');
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -485,25 +489,195 @@ test('normalizarPasso não pode ser usado no transporte da multiplicação', () 
   assert.equal(lerVaiUmMultiplicacao(['7']), 7);
 });
 
-test('ordemFocoMultiplicacao coloca o vai um entre as unidades e as dezenas', () => {
-  assert.deepEqual(ordemFocoMultiplicacao(3, true), [
-    { tipo: 'resultado', coluna: 0 },
-    { tipo: 'vaiUm', coluna: 1 },
-    { tipo: 'resultado', coluna: 1 },
-    { tipo: 'resultado', coluna: 2 },
-  ]);
-});
-
-test('ordemFocoMultiplicacao segue em sequência quando não há transporte', () => {
+test('ordemFocoMultiplicacao no nível fácil mantém unidade e dezena disponíveis', () => {
   assert.deepEqual(ordemFocoMultiplicacao(2, false), [
     { tipo: 'resultado', coluna: 0 },
     { tipo: 'resultado', coluna: 1 },
   ]);
-  assert.deepEqual(ordemFocoMultiplicacao(3, false), [
+});
+
+test('ordemFocoMultiplicacao no nível médio sem transporte segue para a dezena', () => {
+  assert.deepEqual(ordemFocoMultiplicacao(3, false, false), [
     { tipo: 'resultado', coluna: 0 },
     { tipo: 'resultado', coluna: 1 },
-    { tipo: 'resultado', coluna: 2 },
   ]);
+});
+
+test('ordemFocoMultiplicacao no nível médio coloca o transporte antes da dezena', () => {
+  assert.deepEqual(ordemFocoMultiplicacao(3, true, false), [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'vaiUm', coluna: 1 },
+    { tipo: 'resultado', coluna: 1 },
+  ]);
+});
+
+test('ordemFocoMultiplicacao no nível médio preenche a centena antes da dezena', () => {
+  assert.deepEqual(ordemFocoMultiplicacao(3, false, true), [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'resultado', coluna: 2 },
+    { tipo: 'resultado', coluna: 1 },
+  ]);
+  assert.deepEqual(ordemFocoMultiplicacao(3, true, true), [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'vaiUm', coluna: 1 },
+    { tipo: 'resultado', coluna: 2 },
+    { tipo: 'resultado', coluna: 1 },
+  ]);
+});
+
+test('multiplicacaoPrecisaCentena considera a dezena somada ao transporte', () => {
+  assert.equal(resultadoDezenaMultiplicacao(34, 3, 1), 10);
+  assert.equal(multiplicacaoPrecisaCentena(34, 3, 1), true);
+  assert.equal(resultadoDezenaMultiplicacao(42, 3, 0), 12);
+  assert.equal(multiplicacaoPrecisaCentena(42, 3, 0), true);
+  assert.equal(resultadoDezenaMultiplicacao(14, 3, 1), 4);
+  assert.equal(multiplicacaoPrecisaCentena(14, 3, 1), false);
+  assert.equal(multiplicacaoPrecisaCentena(12, 3, 0), false);
+});
+
+test('proximoFocoMultiplicacao flexível alterna as casas vazias no nível fácil', () => {
+  const ordem = ordemFocoMultiplicacao(2, false);
+  const unidade = { tipo: 'resultado', coluna: 0 };
+  const dezena = { tipo: 'resultado', coluna: 1 };
+
+  assert.deepEqual(
+    proximoFocoMultiplicacao(ordem, dezena, ['resultado:1'], true),
+    unidade,
+  );
+  assert.deepEqual(
+    proximoFocoMultiplicacao(ordem, unidade, ['resultado:0'], true),
+    dezena,
+  );
+  assert.equal(
+    proximoFocoMultiplicacao(ordem, dezena, ['resultado:0', 'resultado:1'], true),
+    null,
+  );
+  assert.equal(
+    proximoFocoMultiplicacao(ordem, dezena, ['resultado:1'], false),
+    null,
+  );
+});
+
+test('proximoFocoMultiplicacao no nível médio pula para dezena ou centena', () => {
+  const unidade = { tipo: 'resultado', coluna: 0 };
+  const vaiUm = { tipo: 'vaiUm', coluna: 1 };
+  const dezena = { tipo: 'resultado', coluna: 1 };
+  const centena = { tipo: 'resultado', coluna: 2 };
+
+  assert.deepEqual(
+    proximoFocoMultiplicacao(
+      ordemFocoMultiplicacao(3, false, false),
+      unidade,
+      ['resultado:0'],
+      false,
+    ),
+    dezena,
+  );
+  assert.deepEqual(
+    proximoFocoMultiplicacao(
+      ordemFocoMultiplicacao(3, false, true),
+      unidade,
+      ['resultado:0'],
+      false,
+    ),
+    centena,
+  );
+  assert.deepEqual(
+    proximoFocoMultiplicacao(
+      ordemFocoMultiplicacao(3, true, false),
+      vaiUm,
+      ['resultado:0', 'vaiUm:1'],
+      false,
+    ),
+    dezena,
+  );
+});
+
+test('focarProximoMultiplicacao permite começar pela dezena no nível fácil', () => {
+  const unidade = campoFalso('');
+  const dezena = campoFalso('5');
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="0"]': unidade,
+      '.resultado-input[data-coluna="1"]': dezena,
+    }),
+  };
+  const ordem = ordemFocoMultiplicacao(2, false);
+
+  const focou = focarProximoMultiplicacao(
+    el,
+    ordem,
+    { tipo: 'resultado', coluna: 1 },
+    { flexivel: true },
+  );
+
+  assert.equal(focou, true);
+  assert.equal(unidade.focado, true);
+  assert.equal(dezena.focado, false);
+});
+
+test('focarProximoMultiplicacao permite começar pela unidade no nível fácil', () => {
+  const unidade = campoFalso('7');
+  const dezena = campoFalso('');
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="0"]': unidade,
+      '.resultado-input[data-coluna="1"]': dezena,
+    }),
+  };
+  const ordem = ordemFocoMultiplicacao(2, false);
+
+  const focou = focarProximoMultiplicacao(
+    el,
+    ordem,
+    { tipo: 'resultado', coluna: 0 },
+    { flexivel: true },
+  );
+
+  assert.equal(focou, true);
+  assert.equal(dezena.focado, true);
+});
+
+test('foco da multiplicação média percorre unidade, transporte, centena e dezena', () => {
+  const unidade = campoFalso('2');
+  const transporte = campoFalso('');
+  const dezena = campoFalso('');
+  const centena = campoFalso('');
+  const el = {
+    conta: contaFalsa({
+      '.resultado-input[data-coluna="0"]': unidade,
+      '.caixa-vai-um[data-coluna="1"]': transporte,
+      '.resultado-input[data-coluna="1"]': dezena,
+      '.resultado-input[data-coluna="2"]': centena,
+    }),
+  };
+  const ordem = ordemFocoMultiplicacao(3, true, true);
+
+  assert.equal(
+    focarProximoMultiplicacao(el, ordem, { tipo: 'resultado', coluna: 0 }),
+    true,
+  );
+  assert.equal(transporte.focado, true);
+
+  transporte.value = '1';
+  assert.equal(
+    focarProximoMultiplicacao(el, ordem, { tipo: 'vaiUm', coluna: 1 }),
+    true,
+  );
+  assert.equal(centena.focado, true);
+
+  centena.value = '1';
+  assert.equal(
+    focarProximoMultiplicacao(el, ordem, { tipo: 'resultado', coluna: 2 }),
+    true,
+  );
+  assert.equal(dezena.focado, true);
+
+  dezena.value = '0';
+  assert.equal(
+    focarProximoMultiplicacao(el, ordem, { tipo: 'resultado', coluna: 1 }),
+    false,
+  );
 });
 
 test('ordemFocoSoma começa na unidade e segue para a dezena sem transporte', () => {

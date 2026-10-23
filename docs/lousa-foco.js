@@ -25,17 +25,41 @@
   }
 
   /*
-   * Ordem lógica do preenchimento na multiplicação: unidades do resultado,
-   * transporte ("vai um") daquela coluna e só então a próxima coluna do
-   * resultado. Sem transporte, as colunas seguem em sequência.
+   * Ordem lógica do preenchimento na multiplicação.
+   *
+   * Fácil (duas casas): unidade e dezena ficam livres para começar por
+   * qualquer uma delas; a alternância é tratada por
+   * proximoFocoMultiplicacao(..., flexivel = true).
+   *
+   * Médio (três casas): começa na unidade, sobe para o transporte quando ele
+   * existe e só então vai para a dezena. Quando a dezena, somada ao
+   * transporte, alcança a centena, a centena é preenchida antes da dezena.
    */
-  function ordemFocoMultiplicacao(colunas, temVaiUm) {
-    const ordem = [];
-    for (let indice = 0; indice < colunas; indice += 1) {
+  function ordemFocoMultiplicacao(colunas, temVaiUm, vaiParaCentena) {
+    const quantidade = Math.max(0, Math.trunc(Number(colunas) || 0));
+    if (quantidade === 0) {
+      return [];
+    }
+
+    const ordem = [{ tipo: 'resultado', coluna: 0 }];
+    if (quantidade === 1) {
+      return ordem;
+    }
+    if (quantidade === 2) {
+      ordem.push({ tipo: 'resultado', coluna: 1 });
+      return ordem;
+    }
+
+    if (temVaiUm) {
+      ordem.push({ tipo: 'vaiUm', coluna: 1 });
+    }
+    if (vaiParaCentena) {
+      ordem.push({ tipo: 'resultado', coluna: 2 });
+    }
+    ordem.push({ tipo: 'resultado', coluna: 1 });
+
+    for (let indice = 3; indice < quantidade; indice += 1) {
       ordem.push({ tipo: 'resultado', coluna: indice });
-      if (temVaiUm && indice === 0) {
-        ordem.push({ tipo: 'vaiUm', coluna: 1 });
-      }
     }
     return ordem;
   }
@@ -203,8 +227,28 @@
     return focarItemOrdem(el, alvo);
   }
 
-  function focarProximoMultiplicacao(el, ordem, atual) {
-    focarNaOrdemFoco(el, ordem, atual, 1);
+  /*
+   * No nível fácil a criança pode começar pela unidade ou pela dezena. Quando
+   * o fluxo linear termina, `flexivel` retoma a primeira casa ainda vazia para
+   * que a digitação não trave.
+   */
+  function proximoFocoMultiplicacao(ordem, atual, preenchidos, flexivel) {
+    const alvo = proximoItemVazioOrdem(ordem, atual, preenchidos);
+    if (alvo || !flexivel) {
+      return alvo;
+    }
+    return primeiroItemVazioOrdem(ordem, preenchidos);
+  }
+
+  function focarProximoMultiplicacao(el, ordem, atual, opcoes) {
+    const preenchidos = preenchidosNaOrdem(el, ordem);
+    const alvo = proximoFocoMultiplicacao(
+      ordem,
+      atual,
+      preenchidos,
+      Boolean(opcoes && opcoes.flexivel),
+    );
+    return focarItemOrdem(el, alvo);
   }
 
   function focarPorSeletor(el, seletor) {
@@ -310,6 +354,7 @@
     preenchidosNaOrdem,
     focarItemOrdem,
     focarNaOrdemFoco,
+    proximoFocoMultiplicacao,
     focarProximoMultiplicacao,
     focarResultadoPorColuna,
     focarVaiUmPorColuna,
