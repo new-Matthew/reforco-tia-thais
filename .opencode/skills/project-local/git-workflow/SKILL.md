@@ -44,14 +44,15 @@ Blocker: If tests fail, fix the issues and rerun the tests. Do not proceed if te
 
 ### 4. Merge into Main
 
-Only after all tests pass, switch back to `main`, update it, merge with `--no-ff`, and clean up the local feature branch.
+# Estando na feature branch:
+git checkout feature/<feature-name>
+git fetch origin main
+git rebase origin/main
 
-```bash
+# Depois, para juntar na main de forma limpa (sem commit de merge):
 git checkout main
-git pull origin main --ff-only
-git merge --no-ff feature/<feature-name> -m "feat: merge feature/<feature-name> into main"
+git merge --ff-only feature/<feature-name>
 git branch -d feature/<feature-name>
-```
 
 ## AGENT RESPONSE FORMAT
 
