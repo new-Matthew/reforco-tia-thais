@@ -5,7 +5,8 @@ Jogo educativo de adição, subtração, multiplicação e divisão para crianç
 ## Funcionalidades
 
 - Contas de adição e subtração nos níveis fácil (2 dígitos) e médio (3 dígitos).
-- Multiplicação nos níveis fácil (1 dígito por 1 dígito) e médio (2 dígitos por 1 dígito), com preenchimento do "vai um".
+- Multiplicação nos níveis fácil (1 dígito por 1 dígito), médio (2 dígitos por 1 dígito) e difícil (3 dígitos por 2 dígitos), com preenchimento do "vai um".
+- Dica progressiva na multiplicação difícil: destaca o par de algarismos, o campo da etapa atual e, em verde, o carry que precisa ser somado, após 3 segundos de inatividade ou quando a resposta é recusada.
 - Divisão em formato de chave no nível fácil (2 dígitos por 1 dígito, exata), com quociente, subtração intermediária e resto.
 - Preenchimento dos passos de "vai um" e empréstimo.
 - Correção automática das respostas pela API.
@@ -47,7 +48,7 @@ Backend:
 Frontend:
 
 ```bash
-node --test src/test/js/app.test.js
+node --test src/test/js/*.test.js
 ```
 
 ## Estrutura

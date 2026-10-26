@@ -15,6 +15,15 @@ const LousaFoco = (typeof module !== 'undefined' && module.exports)
   ? require('./lousa-foco.js')
   : window.LousaFoco;
 
+const DicaProgressiva = (typeof module !== 'undefined' && module.exports)
+  ? require('./dica-progressiva.js')
+  : window.DicaProgressiva;
+
+const {
+  TEMPO_INATIVIDADE_PADRAO: TEMPO_INATIVIDADE_DICA,
+  criarDicaProgressiva,
+} = DicaProgressiva;
+
 const {
   normalizarPasso,
   ordemFocoMultiplicacao,
@@ -56,6 +65,7 @@ const CHAVE_JOGADOR = 'reforco-tia-thais-jogador';
 const LIMITE_NOME_JOGADOR = 30;
 const LIMITE_AVISO_SERVIDOR = 2000;
 const META_NIVEL = 5;
+const CLASSE_DICA_CARRY = 'dica-ativa-carry';
 const NIVEIS_DIFICULDADE = ['FACIL', 'MEDIO'];
 const NIVEIS_DIFICULDADE_MULTIPLICACAO = ['FACIL', 'MEDIO', 'DIFICIL'];
 const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio', DIFICIL: 'Difícil' };
@@ -347,6 +357,174 @@ function montarModeloMultiplicacaoDificil(numeroA, numeroB) {
     carriesSoma: soma.carries,
     ordemFoco: ordemFocoMultiplicacaoDificil(a, b),
   };
+}
+
+function seletorCelulaOperandoDica(linha, coluna) {
+  return '.celula-multiplicacao-dificil'
+    + '[data-linha="' + linha + '"]'
+    + '[data-coluna="' + coluna + '"]';
+}
+
+function seletorCarryDica(linha, coluna) {
+  return '.caixa-vai-um'
+    + '[data-coluna="' + coluna + '"]'
+    + '[data-linha="' + linha + '"]';
+}
+
+function seletoresCarryDicaMultiplicacaoDificil(modelo, alvo) {
+  if (!alvo) {
+    return [];
+  }
+
+  const colunaOrigem = colunaOrigemDicaMultiplicacaoDificil(modelo, alvo);
+  let linha = null;
+  let coluna = null;
+
+  if (alvo.linha === 'resultadoUnidade' && colunaOrigem > 0) {
+    linha = 'carryUnidade';
+    coluna = colunaOrigem;
+  } else if (alvo.linha === 'resultadoDezena' && colunaOrigem > 0) {
+    linha = 'carryDezena';
+    coluna = colunaOrigem;
+  } else if (alvo.linha === 'resultadoSoma' && alvo.coluna > 0) {
+    linha = 'carrySoma';
+    coluna = alvo.coluna;
+  }
+
+  if (!linha) {
+    return [];
+  }
+
+  return [{
+    seletor: seletorCarryDica(linha, coluna),
+    classe: CLASSE_DICA_CARRY,
+  }];
+}
+
+function colunaOrigemDicaMultiplicacaoDificil(modelo, alvo) {
+  if (!modelo || !alvo) {
+    return null;
+  }
+
+  const digitosA = Math.max(1, modelo.digitosA?.length ?? 0);
+
+  if (alvo.linha === 'resultadoUnidade' || alvo.linha === 'carryUnidade') {
+    const base = alvo.linha === 'carryUnidade' ? alvo.coluna - 1 : alvo.coluna;
+    return Math.min(base, digitosA - 1);
+  }
+
+  if (alvo.linha === 'resultadoDezena' || alvo.linha === 'carryDezena') {
+    return Math.min(alvo.coluna - 1, digitosA - 1);
+  }
+
+  return null;
+}
+
+function seletoresOperandosDicaMultiplicacaoDificil(modelo, alvo) {
+  if (!modelo || !alvo) {
+    return [];
+  }
+
+  const colunaA = colunaOrigemDicaMultiplicacaoDificil(modelo, alvo);
+  let colunaB = null;
+
+  if (alvo.linha === 'resultadoUnidade' || alvo.linha === 'carryUnidade') {
+    colunaB = 0;
+  } else if (alvo.linha === 'resultadoDezena' || alvo.linha === 'carryDezena') {
+    colunaB = 1;
+  }
+
+  if (colunaA !== null && colunaA >= 0 && colunaB !== null) {
+    return [
+      seletorCelulaOperandoDica('operandoA', colunaA),
+      seletorCelulaOperandoDica('operandoB', colunaB),
+    ];
+  }
+
+  if (alvo.linha === 'resultadoSoma' || alvo.linha === 'carrySoma') {
+    return [
+      '.resultado-input[data-linha="resultadoUnidade"]'
+        + '[data-coluna="' + alvo.coluna + '"]',
+      '.resultado-input[data-linha="resultadoDezena"]'
+        + '[data-coluna="' + alvo.coluna + '"]',
+    ];
+  }
+
+  return [];
+}
+
+function seletoresDicaMultiplicacaoDificil(modelo, alvo) {
+  if (!alvo) {
+    return [];
+  }
+  return [
+    seletorCampoMultiplicacaoDificil(alvo),
+    ...seletoresOperandosDicaMultiplicacaoDificil(modelo, alvo),
+    ...seletoresCarryDicaMultiplicacaoDificil(modelo, alvo),
+  ];
+}
+
+function resolverAlvoDicaMultiplicacaoDificil(modelo, alvoFoco, preenchidos) {
+  if (!modelo || !Array.isArray(modelo.ordemFoco) || modelo.ordemFoco.length === 0) {
+    return null;
+  }
+
+  const ocupados = preenchidos instanceof Set
+    ? preenchidos
+    : new Set(preenchidos ?? []);
+  const chavesValidas = new Set(modelo.ordemFoco.map(chaveAlvoFoco));
+  const chaveFoco = chaveAlvoFoco(alvoFoco);
+
+  if (chaveFoco && chavesValidas.has(chaveFoco) && !ocupados.has(chaveFoco)) {
+    return alvoFoco;
+  }
+
+  return primeiroItemVazioOrdem(modelo.ordemFoco, ocupados)
+    ?? modelo.ordemFoco[modelo.ordemFoco.length - 1];
+}
+
+function alvoDoCampoMultiplicacaoDificil(campo) {
+  const dados = campo && campo.dataset;
+  if (!dados || !dados.linha) {
+    return null;
+  }
+  if (dados.tipo !== 'resultado' && dados.tipo !== 'vaiUm') {
+    return null;
+  }
+  const coluna = Number(dados.coluna);
+  if (!Number.isInteger(coluna)) {
+    return null;
+  }
+  return { tipo: dados.tipo, linha: dados.linha, coluna };
+}
+
+function alvoFocoAtualMultiplicacaoDificil(el) {
+  const ativo = typeof document !== 'undefined' ? document.activeElement : null;
+  if (!ativo || !el || !el.conta || typeof el.conta.contains !== 'function') {
+    return null;
+  }
+  if (!el.conta.contains(ativo)) {
+    return null;
+  }
+  return alvoDoCampoMultiplicacaoDificil(ativo);
+}
+
+function seletoresDicaAtualMultiplicacaoDificil(estado, el) {
+  if (!ehMultiplicacaoDificil(estado && estado.questao)) {
+    return [];
+  }
+  const modelo = estado.multiplicacaoDificil;
+  if (!modelo || !el || !el.conta) {
+    return [];
+  }
+
+  const preenchidos = preenchidosNaOrdem(el, modelo.ordemFoco);
+  const alvo = resolverAlvoDicaMultiplicacaoDificil(
+    modelo,
+    alvoFocoAtualMultiplicacaoDificil(el),
+    preenchidos,
+  );
+  return seletoresDicaMultiplicacaoDificil(modelo, alvo);
 }
 
 /*
@@ -995,8 +1173,16 @@ function iniciarInterface() {
     validando: false,
     questaoRespondida: false,
     pedido: 0,
+    multiplicacaoDificil: null,
+    dicaProgressiva: null,
     avisoServidor: criarAvisoServidor(el),
   };
+
+  estado.dicaProgressiva = criarDicaProgressiva({
+    raiz: el.conta,
+    tempoInatividade: TEMPO_INATIVIDADE_DICA,
+    obterSeletores: () => seletoresDicaAtualMultiplicacaoDificil(estado, el),
+  });
 
   aplicarPreferencias(estado, typeof window !== 'undefined' ? window.location.search : '');
   atualizarSegmentado(el.seletorOperacao, estado.operacao);
@@ -1035,6 +1221,14 @@ function iniciarInterface() {
   el.btnNovaQuestao.addEventListener('click', () => carregarQuestao(estado, el));
   el.btnRecarregar.addEventListener('click', () => carregarQuestao(estado, el));
   el.btnValidar.addEventListener('click', () => validarResposta(estado, el));
+
+  const reiniciarDica = () => {
+    if (estado.questao) {
+      estado.dicaProgressiva.reiniciar();
+    }
+  };
+  el.conta.addEventListener('input', reiniciarDica);
+  el.conta.addEventListener('focusin', reiniciarDica);
 
   el.modalProxima.addEventListener('click', () => {
     fecharModal(el);
@@ -1171,6 +1365,7 @@ async function carregarQuestao(estado, el) {
     return;
   }
 
+  estado.dicaProgressiva?.parar();
   estado.carregando = true;
   estado.questaoRespondida = false;
   const pedido = estado.pedido + 1;
@@ -1194,17 +1389,20 @@ async function carregarQuestao(estado, el) {
 
     estado.questao = await resposta.json();
     estado.emprestimos = new Set();
+    estado.multiplicacaoDificil = null;
     estado.progresso = calcularProgresso(estado.sequencia);
     esconderPlaceholder(el);
     atualizarBarraProgresso(estado, el);
     renderConta(estado, el);
     atualizarDica(estado, el);
+    estado.dicaProgressiva.iniciar();
   } catch (erro) {
     console.error(erro);
     if (pedido !== estado.pedido) {
       return;
     }
     estado.questao = null;
+    estado.multiplicacaoDificil = null;
     mostrarPlaceholder(
       el,
       'Não consegui carregar a questão. O servidor está rodando na porta 8080?',
@@ -1351,14 +1549,27 @@ function criarLinhaMultiplicacaoDificil(linha, colunas) {
   return elemento;
 }
 
-function criarCelulaEstaticaMultiplicacaoDificil(coluna, digito, linha, colunas) {
+function criarCelulaEstaticaMultiplicacaoDificil(
+  coluna,
+  digito,
+  linha,
+  colunas,
+  nomeLinha,
+) {
   const celula = document.createElement('div');
   celula.className = 'celula-digito celula-multiplicacao-dificil';
   celula.dataset.coluna = String(coluna);
+  celula.dataset.linha = nomeLinha;
   celula.style.gridColumn = String(colunaGradeMultiplicacao(coluna, colunas));
   celula.style.gridRow = String(linha);
   celula.textContent = String(digito);
   return celula;
+}
+
+function colunaZeroFantasmaParcelaUnidade(digitos, colunas) {
+  const totalColunas = Math.max(1, Math.trunc(Number(colunas) || 1));
+  const preenchidas = Array.isArray(digitos) ? digitos.length : 0;
+  return preenchidas > 0 && preenchidas < totalColunas ? preenchidas : null;
 }
 
 function criarZeroFantasmaMultiplicacaoDificil(coluna, linha, colunas) {
@@ -1373,6 +1584,8 @@ function criarZeroFantasmaMultiplicacaoDificil(coluna, linha, colunas) {
 
 function configurarCampoMultiplicacaoDificil(campo, alvo, contexto) {
   const { el, ordemFoco } = contexto;
+
+  campo.dataset.tipo = alvo.tipo;
 
   campo.addEventListener('input', () => {
     campo.value = campo.value.replace(/\D/g, '').slice(-1);
@@ -1503,6 +1716,7 @@ function renderMultiplicacaoDificil(estado, el) {
       digito,
       linhas.operandoA,
       modelo.colunas,
+      'operandoA',
     ));
   });
   modelo.digitosB.forEach((digito, coluna) => {
@@ -1511,6 +1725,7 @@ function renderMultiplicacaoDificil(estado, el) {
       digito,
       linhas.operandoB,
       modelo.colunas,
+      'operandoB',
     ));
   });
 
@@ -1524,6 +1739,17 @@ function renderMultiplicacaoDificil(estado, el) {
       contexto,
     ));
   });
+  const colunaZeroUnidade = colunaZeroFantasmaParcelaUnidade(
+    modelo.digitosUnidade,
+    modelo.colunas,
+  );
+  if (colunaZeroUnidade !== null) {
+    el.conta.appendChild(criarZeroFantasmaMultiplicacaoDificil(
+      colunaZeroUnidade,
+      linhas.resultadoUnidade,
+      modelo.colunas,
+    ));
+  }
   modelo.digitosUnidade.forEach((_, coluna) => {
     el.conta.appendChild(criarCampoResultadoMultiplicacaoDificil(
       coluna,
@@ -2991,6 +3217,7 @@ async function validarResposta(estado, el) {
     });
   }
 
+  estado.dicaProgressiva?.parar();
   estado.validando = true;
   atualizarControles(estado, el);
   el.btnValidar.textContent = 'Conferindo...';
@@ -3011,9 +3238,17 @@ async function validarResposta(estado, el) {
     estado.questaoRespondida = true;
     const resolucao = atualizarPlacar(estado, el, dados);
     abrirFeedback(el, dados, resolucao, estado.jogador);
+    if (dados.correto) {
+      estado.dicaProgressiva?.parar();
+    } else {
+      estado.dicaProgressiva?.acionarErro();
+    }
   } catch (erro) {
     console.error(erro);
     mostrarAviso(el, 'Não consegui conferir agora. O servidor está rodando na porta 8080?');
+    if (estado.questao) {
+      estado.dicaProgressiva?.reiniciar();
+    }
   } finally {
     concluirAviso();
     estado.validando = false;
@@ -3269,6 +3504,16 @@ if (typeof module !== 'undefined' && module.exports) {
     somarParcelasMultiplicacaoDificil,
     ordemFocoMultiplicacaoDificil,
     montarModeloMultiplicacaoDificil,
+    colunaZeroFantasmaParcelaUnidade,
+    seletoresOperandosDicaMultiplicacaoDificil,
+    seletoresCarryDicaMultiplicacaoDificil,
+    colunaOrigemDicaMultiplicacaoDificil,
+    seletoresDicaMultiplicacaoDificil,
+    resolverAlvoDicaMultiplicacaoDificil,
+    alvoDoCampoMultiplicacaoDificil,
+    seletoresDicaAtualMultiplicacaoDificil,
+    TEMPO_INATIVIDADE_DICA,
+    CLASSE_DICA_CARRY,
     LINHAS_MULTIPLICACAO_DIFICIL,
     quantidadeCaixasVaiUm,
     niveisDificuldade,

@@ -12,6 +12,8 @@
   --papel: #fffdf7;
   --linha-caderno: rgba(11, 60, 140, 0.18);
   --sombra: 0 18px 40px rgba(0, 0, 0, 0.22);
+  --dica-ambar: #ffb703;
+  --dica-ambar-claro: #ffe8a3;
 }
 
 * {
@@ -681,6 +683,17 @@ h1 {
   max-width: 38px;
   border-width: 2px;
   font-size: 0.95rem;
+}
+
+.conta-multiplicacao-dificil .celula-multiplicacao-dificil,
+.conta-multiplicacao-dificil .resultado-input-dificil,
+.conta-multiplicacao-dificil .caixa-vai-um-dificil {
+  transition:
+    border-color 0.22s ease,
+    background-color 0.22s ease,
+    box-shadow 0.22s ease,
+    outline-color 0.22s ease,
+    transform 0.22s ease;
 }
 
 .conta-multiplicacao-dificil .linha-multiplicacao-dificil {
@@ -1589,6 +1602,64 @@ h1 {
 
   .celula-digito {
     min-height: 46px;
+  }
+}
+
+/* --------------------- Dica progressiva (pulsante) ---------------------- */
+
+.celula-multiplicacao-dificil.dica-ativa,
+.resultado-input-dificil.dica-ativa,
+.caixa-vai-um-dificil.dica-ativa,
+.celula-multiplicacao-dificil.dica-ativa-carry,
+.resultado-input-dificil.dica-ativa-carry,
+.caixa-vai-um-dificil.dica-ativa-carry {
+  --dica-cor: var(--dica-ambar);
+  --dica-halo: rgba(255, 209, 102, 0.35);
+  --dica-glow: rgba(255, 183, 3, 0.6);
+  position: relative;
+  z-index: 3;
+  border-color: var(--dica-cor);
+  outline: 3px solid var(--dica-cor);
+  outline-offset: 2px;
+  background-color: #fff7d1;
+  color: var(--tinta);
+  box-shadow:
+    0 0 0 5px var(--dica-halo),
+    0 0 22px 7px var(--dica-glow);
+  animation: dica-pulsar 1.15s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.caixa-vai-um-dificil.dica-ativa {
+  background-color: var(--dica-ambar-claro);
+}
+
+.celula-multiplicacao-dificil.dica-ativa {
+  border-radius: 14px;
+}
+
+.celula-multiplicacao-dificil.dica-ativa-carry,
+.resultado-input-dificil.dica-ativa-carry,
+.caixa-vai-um-dificil.dica-ativa-carry {
+  --dica-cor: #16a34a;
+  --dica-halo: rgba(34, 197, 94, 0.38);
+  --dica-glow: rgba(22, 163, 74, 0.62);
+  background-color: #dcfce7;
+}
+
+@keyframes dica-pulsar {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 4px var(--dica-halo),
+      0 0 16px 4px var(--dica-glow);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow:
+      0 0 0 7px var(--dica-halo),
+      0 0 28px 10px var(--dica-glow);
   }
 }
 
