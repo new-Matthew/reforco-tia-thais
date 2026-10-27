@@ -1,5 +1,6 @@
 package com.example.jogo.service;
 
+import com.example.jogo.dto.EtapaDivisaoDTO;
 import com.example.jogo.dto.QuestaoDTO;
 import com.example.jogo.dto.RequisicaoValidacaoDTO;
 import com.example.jogo.dto.RespostaValidacaoDTO;
@@ -35,7 +36,10 @@ public class JogoService {
     private static final int DIVISOR_MAXIMO_FACIL = 9;
     private static final int DIVIDENDO_MINIMO_LONGO = 100;
     private static final int DIVIDENDO_MAXIMO_LONGO = 999;
+    private static final int DIVIDENDO_MINIMO_DIFICIL = 1_000;
+    private static final int DIVIDENDO_MAXIMO_DIFICIL = 9_999;
     private static final int DIVISOR_MINIMO_LONGO = 10;
+    private static final int DIVISOR_MAXIMO_LONGO = 99;
 
     private final Random random;
 
@@ -53,14 +57,6 @@ public class JogoService {
         }
         if (dificuldade == null) {
             throw new IllegalArgumentException("A dificuldade é obrigatória.");
-        }
-        if (dificuldade == Dificuldade.DIFICIL
-                && operacao != Operacao.MULTIPLICACAO
-                && operacao != Operacao.SOMA
-                && operacao != Operacao.SUBTRACAO) {
-            throw new IllegalArgumentException(
-                    "O nível difícil está disponível apenas para a soma, a subtração "
-                            + "e a multiplicação.");
         }
 
         return switch (operacao) {
@@ -177,24 +173,75 @@ public class JogoService {
         return new AvaliacaoPassos(respostaCorreta, passosCorretos);
     }
 
-    private boolean validarEtapasDivisaoLonga(RequisicaoValidacaoDTO requisicao, int numeroA, int numeroB) {
-        EtapasDivisao etapas = calcularEtapasDivisao(numeroA, numeroB);
-        return Objects.equals(
-                        requisicao.getQuocienteParcialDigitado(),
-                        etapas.quocienteParcial())
+    private boolean validarEtapasDivisaoLonga(
+            RequisicaoValidacaoDTO requisicao,
+            int numeroA,
+            int numeroB) {
+        List<EtapaDivisaoDTO> etapas = calcularEtapasDivisaoLonga(numeroA, numeroB);
+
+        if (possuiListasEtapas(requisicao)) {
+            return validarListasEtapas(requisicao, etapas);
+        }
+
+        if (etapas.size() >= 3) {
+            return validarEtapasDivisaoDificil(requisicao, etapas);
+        }
+
+        EtapaDivisaoDTO primeira = etapas.get(0);
+        EtapaDivisaoDTO segunda = etapas.get(etapas.size() - 1);
+        return Objects.equals(requisicao.getQuocienteParcialDigitado(), primeira.getQuociente())
+                && Objects.equals(requisicao.getSubtracaoParcialDigitada(), primeira.getSubtracao())
+                && Objects.equals(requisicao.getRestoParcialDigitado(), primeira.getResto())
+                && Objects.equals(requisicao.getQuocienteFinalDigitado(), segunda.getQuociente())
+                && Objects.equals(requisicao.getSubtracaoFinalDigitada(), segunda.getSubtracao())
+                && Objects.equals(requisicao.getRestoDigitado(), segunda.getResto());
+    }
+
+    private boolean possuiListasEtapas(RequisicaoValidacaoDTO requisicao) {
+        return requisicao.getQuocientesParciaisDigitados() != null
+                || requisicao.getSubtracoesParciaisDigitadas() != null
+                || requisicao.getRestosParciaisDigitados() != null;
+    }
+
+    private boolean validarListasEtapas(
+            RequisicaoValidacaoDTO requisicao,
+            List<EtapaDivisaoDTO> etapas) {
+        List<Integer> quocientes = etapas.stream()
+                .map(EtapaDivisaoDTO::getQuociente)
+                .toList();
+        List<Integer> subtracoes = etapas.stream()
+                .map(EtapaDivisaoDTO::getSubtracao)
+                .toList();
+        List<Integer> restos = etapas.stream()
+                .map(EtapaDivisaoDTO::getResto)
+                .toList();
+
+        return Objects.equals(requisicao.getQuocientesParciaisDigitados(), quocientes)
+                && Objects.equals(requisicao.getSubtracoesParciaisDigitadas(), subtracoes)
+                && Objects.equals(requisicao.getRestosParciaisDigitados(), restos)
+                && Objects.equals(requisicao.getRestoDigitado(), etapas.get(etapas.size() - 1).getResto());
+    }
+
+    private boolean validarEtapasDivisaoDificil(
+            RequisicaoValidacaoDTO requisicao,
+            List<EtapaDivisaoDTO> etapas) {
+        EtapaDivisaoDTO primeira = etapas.get(0);
+        EtapaDivisaoDTO intermediaria = etapas.get(1);
+        EtapaDivisaoDTO ultima = etapas.get(etapas.size() - 1);
+
+        return Objects.equals(requisicao.getQuocienteParcialDigitado(), primeira.getQuociente())
+                && Objects.equals(requisicao.getSubtracaoParcialDigitada(), primeira.getSubtracao())
+                && Objects.equals(requisicao.getRestoParcialDigitado(), primeira.getResto())
                 && Objects.equals(
-                        requisicao.getSubtracaoParcialDigitada(),
-                        etapas.subtracaoParcial())
+                        requisicao.getQuocienteIntermediarioDigitado(),
+                        intermediaria.getQuociente())
                 && Objects.equals(
-                        requisicao.getRestoParcialDigitado(),
-                        etapas.restoParcial())
-                && Objects.equals(
-                        requisicao.getQuocienteFinalDigitado(),
-                        etapas.quocienteFinal())
-                && Objects.equals(
-                        requisicao.getSubtracaoFinalDigitada(),
-                        etapas.subtracaoFinal())
-                && Objects.equals(requisicao.getRestoDigitado(), etapas.restoFinal());
+                        requisicao.getSubtracaoIntermediariaDigitada(),
+                        intermediaria.getSubtracao())
+                && Objects.equals(requisicao.getRestoIntermediarioDigitado(), intermediaria.getResto())
+                && Objects.equals(requisicao.getQuocienteFinalDigitado(), ultima.getQuociente())
+                && Objects.equals(requisicao.getSubtracaoFinalDigitada(), ultima.getSubtracao())
+                && Objects.equals(requisicao.getRestoDigitado(), ultima.getResto());
     }
 
     private boolean validarEtapasDivisaoSimples(
@@ -355,10 +402,14 @@ public class JogoService {
     }
 
     private QuestaoDTO gerarDivisao(Operacao operacao, Dificuldade dificuldade) {
-        if (dificuldade == Dificuldade.MEDIO) {
-            return gerarDivisaoLonga(operacao, dificuldade);
-        }
+        return switch (dificuldade) {
+            case FACIL -> gerarDivisaoFacil(operacao, dificuldade);
+            case MEDIO -> gerarDivisaoLonga(operacao, dificuldade);
+            case DIFICIL -> gerarDivisaoDificil(operacao, dificuldade);
+        };
+    }
 
+    private QuestaoDTO gerarDivisaoFacil(Operacao operacao, Dificuldade dificuldade) {
         return gerarComTentativas(
                 "Não foi possível gerar uma divisão exata.",
                 () -> {
@@ -399,9 +450,31 @@ public class JogoService {
                         return null;
                     }
 
-                    EtapasDivisao etapas = calcularEtapasDivisao(dividendo, divisor);
+                    List<EtapaDivisaoDTO> etapas = calcularEtapasDivisaoLonga(dividendo, divisor);
                     return montarQuestaoDivisaoLonga(
                             operacao, dificuldade, dividendo, divisor, quociente, etapas);
+                });
+    }
+
+    private QuestaoDTO gerarDivisaoDificil(Operacao operacao, Dificuldade dificuldade) {
+        return gerarComTentativas(
+                "Não foi possível gerar uma divisão difícil.",
+                () -> {
+                    int dividendo = sortear(DIVIDENDO_MINIMO_DIFICIL, DIVIDENDO_MAXIMO_DIFICIL);
+                    int divisor = sortear(DIVISOR_MINIMO_LONGO, DIVISOR_MAXIMO_LONGO);
+                    int quociente = dividendo / divisor;
+
+                    if (quociente < MENOR_FATOR_DUAS_CASAS || quociente % 10 == 0) {
+                        return null;
+                    }
+
+                    List<EtapaDivisaoDTO> etapas = calcularEtapasDivisaoLonga(dividendo, divisor);
+                    boolean etapasValidas = etapas.size() >= 2
+                            && etapas.stream().allMatch(etapa -> etapa.getQuociente() > 0);
+                    return etapasValidas
+                            ? montarQuestaoDivisaoLonga(
+                                    operacao, dificuldade, dividendo, divisor, quociente, etapas)
+                            : null;
                 });
     }
 
@@ -411,17 +484,29 @@ public class JogoService {
             int dividendo,
             int divisor,
             int quociente,
-            EtapasDivisao etapas) {
+            List<EtapaDivisaoDTO> etapas) {
         QuestaoDTO questao = novaQuestao(operacao, dificuldade, dividendo, divisor);
         questao.setQuociente(quociente);
-        questao.setResto(etapas.restoFinal());
-        questao.setDividendoParcial(etapas.dividendoParcial());
-        questao.setQuocienteParcial(etapas.quocienteParcial());
-        questao.setSubtracaoParcial(etapas.subtracaoParcial());
-        questao.setRestoParcial(etapas.restoParcial());
-        questao.setDividendoAbaixado(etapas.dividendoAbaixado());
-        questao.setQuocienteFinal(etapas.quocienteFinal());
-        questao.setSubtracaoFinal(etapas.subtracaoFinal());
+        questao.setResto(etapas.get(etapas.size() - 1).getResto());
+        questao.setEtapas(etapas);
+
+        EtapaDivisaoDTO primeira = etapas.get(0);
+        EtapaDivisaoDTO ultima = etapas.get(etapas.size() - 1);
+        questao.setDividendoParcial(primeira.getDividendoParcial());
+        questao.setQuocienteParcial(primeira.getQuociente());
+        questao.setSubtracaoParcial(primeira.getSubtracao());
+        questao.setRestoParcial(primeira.getResto());
+        questao.setDividendoAbaixado(primeira.getDividendoAbaixado());
+        questao.setQuocienteFinal(ultima.getQuociente());
+        questao.setSubtracaoFinal(ultima.getSubtracao());
+
+        if (etapas.size() >= 3) {
+            EtapaDivisaoDTO intermediaria = etapas.get(1);
+            questao.setQuocienteIntermediario(intermediaria.getQuociente());
+            questao.setSubtracaoEtapaIntermediaria(intermediaria.getSubtracao());
+            questao.setRestoIntermediario(intermediaria.getResto());
+            questao.setDividendoAbaixadoFinal(intermediaria.getDividendoAbaixado());
+        }
         return questao;
     }
 
@@ -450,30 +535,49 @@ public class JogoService {
 
     private boolean ehDivisaoLonga(int dividendo, int divisor) {
         return dividendo >= DIVIDENDO_MINIMO_LONGO
-                && dividendo <= DIVIDENDO_MAXIMO_LONGO
+                && dividendo <= DIVIDENDO_MAXIMO_DIFICIL
                 && divisor >= DIVISOR_MINIMO_LONGO
-                && divisor <= MAIOR_FATOR_DUAS_CASAS
+                && divisor <= DIVISOR_MAXIMO_LONGO
                 && dividendo / divisor >= MENOR_FATOR_DUAS_CASAS;
     }
 
-    private EtapasDivisao calcularEtapasDivisao(int dividendo, int divisor) {
-        int dividendoParcial = dividendo / 10;
-        int quocienteParcial = dividendoParcial / divisor;
-        int subtracaoParcial = divisor * quocienteParcial;
-        int restoParcial = dividendoParcial - subtracaoParcial;
-        int dividendoAbaixado = restoParcial * 10 + (dividendo % 10);
-        int quocienteFinal = dividendoAbaixado / divisor;
-        int subtracaoFinal = divisor * quocienteFinal;
-        int restoFinal = dividendoAbaixado - subtracaoFinal;
-        return new EtapasDivisao(
-                dividendoParcial,
-                quocienteParcial,
-                subtracaoParcial,
-                restoParcial,
-                dividendoAbaixado,
-                quocienteFinal,
-                subtracaoFinal,
-                restoFinal);
+    private List<EtapaDivisaoDTO> calcularEtapasDivisaoLonga(int dividendo, int divisor) {
+        String digitos = String.valueOf(dividendo);
+        List<EtapaDivisaoDTO> etapas = new ArrayList<>();
+        int posicao = 0;
+        int alvo = 0;
+
+        while (posicao < digitos.length() && alvo < divisor) {
+            alvo = alvo * 10 + Character.getNumericValue(digitos.charAt(posicao));
+            posicao += 1;
+        }
+
+        while (posicao <= digitos.length()) {
+            int quociente = alvo / divisor;
+            int subtracao = divisor * quociente;
+            int resto = alvo - subtracao;
+            Integer abaixado = null;
+
+            if (posicao < digitos.length()) {
+                abaixado = resto * 10 + Character.getNumericValue(digitos.charAt(posicao));
+            }
+
+            etapas.add(new EtapaDivisaoDTO(
+                    etapas.size() + 1,
+                    alvo,
+                    quociente,
+                    subtracao,
+                    resto,
+                    abaixado));
+
+            if (abaixado == null) {
+                break;
+            }
+            alvo = abaixado;
+            posicao += 1;
+        }
+
+        return etapas;
     }
 
     /* --------------------------------------------------------------------- */
@@ -491,24 +595,13 @@ public class JogoService {
     }
 
     private QuestaoDTO novaQuestao(Operacao operacao, Dificuldade dificuldade, int numeroA, int numeroB) {
-        return new QuestaoDTO(
-                UUID.randomUUID().toString(),
-                operacao,
-                dificuldade,
-                numeroA,
-                numeroB,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null);
+        QuestaoDTO questao = new QuestaoDTO();
+        questao.setId(UUID.randomUUID().toString());
+        questao.setOperacao(operacao);
+        questao.setDificuldade(dificuldade);
+        questao.setNumeroA(numeroA);
+        questao.setNumeroB(numeroB);
+        return questao;
     }
 
     private int sortear(int minimo, int maximo) {
@@ -528,17 +621,6 @@ public class JogoService {
         if (requisicao.getResultadoDigitado() == null) {
             throw new IllegalArgumentException("O resultado digitado é obrigatório.");
         }
-    }
-
-    private record EtapasDivisao(
-            int dividendoParcial,
-            int quocienteParcial,
-            int subtracaoParcial,
-            int restoParcial,
-            int dividendoAbaixado,
-            int quocienteFinal,
-            int subtracaoFinal,
-            int restoFinal) {
     }
 
     private record AvaliacaoPassos(int respostaCorreta, boolean passosCorretos) {

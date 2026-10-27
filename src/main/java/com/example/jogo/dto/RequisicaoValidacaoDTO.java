@@ -27,6 +27,12 @@ public class RequisicaoValidacaoDTO {
     private Integer restoParcialDigitado;
     private Integer quocienteFinalDigitado;
     private Integer subtracaoFinalDigitada;
+    private Integer quocienteIntermediarioDigitado;
+    private Integer subtracaoIntermediariaDigitada;
+    private Integer restoIntermediarioDigitado;
+    private List<Integer> quocientesParciaisDigitados;
+    private List<Integer> subtracoesParciaisDigitadas;
+    private List<Integer> restosParciaisDigitados;
 
     public RequisicaoValidacaoDTO(
             String idQuestao,
@@ -52,7 +58,15 @@ public class RequisicaoValidacaoDTO {
             Integer vaiUmMultiplicacao,
             Integer subtracaoDigitada,
             Integer restoDigitado) {
-        this(idQuestao, operacao, numeroA, numeroB, resultadoDigitado, vaiUm, emprestados,
-                vaiUmMultiplicacao, subtracaoDigitada, restoDigitado, null, null, null, null, null);
+        this.idQuestao = idQuestao;
+        this.operacao = operacao;
+        this.numeroA = numeroA;
+        this.numeroB = numeroB;
+        this.resultadoDigitado = resultadoDigitado;
+        this.vaiUm = vaiUm;
+        this.emprestados = emprestados;
+        this.vaiUmMultiplicacao = vaiUmMultiplicacao;
+        this.subtracaoDigitada = subtracaoDigitada;
+        this.restoDigitado = restoDigitado;
     }
 }

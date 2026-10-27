@@ -1,5 +1,6 @@
 package com.example.jogo.service;
 
+import com.example.jogo.dto.EtapaDivisaoDTO;
 import com.example.jogo.dto.QuestaoDTO;
 import com.example.jogo.dto.RequisicaoValidacaoDTO;
 import com.example.jogo.dto.RespostaValidacaoDTO;
@@ -188,15 +189,110 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Rejeita o nível difícil na divisão")
-    void rejeitaNivelDificilNaDivisao() {
-        IllegalArgumentException erro = assertThrows(IllegalArgumentException.class,
-                () -> jogoService.gerarQuestao(Operacao.DIVISAO, Dificuldade.DIFICIL));
+    @DisplayName("Gera divisões difíceis com quatro dígitos por dois dígitos e etapas sem zero")
+    void geraDivisaoDificil() {
+        for (int i = 0; i < 200; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(Operacao.DIVISAO, Dificuldade.DIFICIL);
 
-        assertEquals(
-                "O nível difícil está disponível apenas para a soma, a subtração "
-                        + "e a multiplicação.",
-                erro.getMessage());
+            assertEquals(Operacao.DIVISAO, questao.getOperacao());
+            assertEquals(Dificuldade.DIFICIL, questao.getDificuldade());
+            assertTrue(questao.getNumeroA() >= 1000 && questao.getNumeroA() <= 9999);
+            assertTrue(questao.getNumeroB() >= 10 && questao.getNumeroB() <= 99);
+            assertEquals(questao.getNumeroA() / questao.getNumeroB(), questao.getQuociente());
+
+            List<EtapaDivisaoDTO> etapas = questao.getEtapas();
+            assertTrue(etapas.size() >= 2);
+            assertEquals(etapas.size() >= 3, questao.getQuocienteIntermediario() != null);
+
+            int quocienteComposto = 0;
+            for (int indice = 0; indice < etapas.size(); indice++) {
+                EtapaDivisaoDTO etapa = etapas.get(indice);
+                assertEquals(indice + 1, etapa.getIndice());
+                assertTrue(etapa.getQuociente() >= 1 && etapa.getQuociente() <= 9);
+                assertEquals(etapa.getQuociente() * questao.getNumeroB(), etapa.getSubtracao());
+                assertEquals(
+                        etapa.getDividendoParcial() - etapa.getSubtracao(),
+                        etapa.getResto());
+
+                if (indice + 1 < etapas.size()) {
+                    assertEquals(
+                            etapa.getDividendoAbaixado(),
+                            etapas.get(indice + 1).getDividendoParcial());
+                } else {
+                    assertNull(etapa.getDividendoAbaixado());
+                    assertEquals(etapa.getResto(), questao.getResto());
+                }
+                quocienteComposto = quocienteComposto * 10 + etapa.getQuociente();
+            }
+            assertEquals(questao.getQuociente(), quocienteComposto);
+
+            EtapaDivisaoDTO primeira = etapas.get(0);
+            EtapaDivisaoDTO ultima = etapas.get(etapas.size() - 1);
+            assertEquals(primeira.getDividendoParcial(), questao.getDividendoParcial());
+            assertEquals(primeira.getQuociente(), questao.getQuocienteParcial());
+            assertEquals(primeira.getSubtracao(), questao.getSubtracaoParcial());
+            assertEquals(primeira.getResto(), questao.getRestoParcial());
+            assertEquals(primeira.getDividendoAbaixado(), questao.getDividendoAbaixado());
+            assertEquals(ultima.getQuociente(), questao.getQuocienteFinal());
+            assertEquals(ultima.getSubtracao(), questao.getSubtracaoFinal());
+            assertNull(questao.getSubtracaoIntermediaria());
+        }
+    }
+
+    @Test
+    @DisplayName("Valida a divisão difícil enviada com listas de etapas")
+    void validaDivisaoDificilComListasDeEtapas() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-dificil", Operacao.DIVISAO, 6898, 15, 459,
+                null, null, null, null, 13);
+        requisicao.setQuocientesParciaisDigitados(List.of(4, 5, 9));
+        requisicao.setSubtracoesParciaisDigitadas(List.of(60, 75, 135));
+        requisicao.setRestosParciaisDigitados(List.of(8, 14, 13));
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(459, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando uma lista da divisão difícil está errada")
+    void validaDivisaoDificilComListaErrada() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-dificil-lista-errada", Operacao.DIVISAO, 6898, 15, 459,
+                null, null, null, null, 13);
+        requisicao.setQuocientesParciaisDigitados(List.of(4, 5, 9));
+        requisicao.setSubtracoesParciaisDigitadas(List.of(60, 75, 135));
+        requisicao.setRestosParciaisDigitados(List.of(8, 12, 13));
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(459, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("passos da divisão"));
+    }
+
+    @Test
+    @DisplayName("Valida a divisão difícil enviada com campos intermediários")
+    void validaDivisaoDificilComCamposIntermediarios() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-dificil-campos", Operacao.DIVISAO, 6898, 15, 459,
+                null, null, null, null, 13);
+        requisicao.setQuocienteParcialDigitado(4);
+        requisicao.setSubtracaoParcialDigitada(60);
+        requisicao.setRestoParcialDigitado(8);
+        requisicao.setQuocienteIntermediarioDigitado(5);
+        requisicao.setSubtracaoIntermediariaDigitada(75);
+        requisicao.setRestoIntermediarioDigitado(14);
+        requisicao.setQuocienteFinalDigitado(9);
+        requisicao.setSubtracaoFinalDigitada(135);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
     }
 
     @Test

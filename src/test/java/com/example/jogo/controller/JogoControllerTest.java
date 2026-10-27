@@ -109,15 +109,24 @@ class JogoControllerTest {
     }
 
     @Test
-    @DisplayName("Rejeita o nível difícil na divisão no endpoint de próxima questão")
-    void rejeitaDificuldadeDificilNaDivisao() throws Exception {
+    @DisplayName("Retorna uma divisão difícil com etapas no endpoint de próxima questão")
+    void retornaQuestaoDeDivisaoDificil() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
                         .param("operacao", "DIVISAO")
                         .param("dificuldade", "DIFICIL"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erro").value(
-                        "O nível difícil está disponível apenas para a soma, a subtração "
-                                + "e a multiplicação."));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("DIVISAO"))
+                .andExpect(jsonPath("$.dificuldade").value("DIFICIL"))
+                .andExpect(jsonPath("$.quociente").isNumber())
+                .andExpect(jsonPath("$.resto").isNumber())
+                .andExpect(jsonPath("$.etapas").isArray())
+                .andExpect(jsonPath("$.etapas[0].indice").value(1))
+                .andExpect(jsonPath("$.etapas[0].dividendoParcial").isNumber())
+                .andExpect(jsonPath("$.etapas[0].quociente").isNumber())
+                .andExpect(jsonPath("$.etapas[0].subtracao").isNumber())
+                .andExpect(jsonPath("$.etapas[0].resto").isNumber())
+                .andExpect(jsonPath("$.etapas[0].dividendoAbaixado").isNumber())
+                .andExpect(jsonPath("$.subtracaoIntermediaria").doesNotExist());
     }
 
     @Test

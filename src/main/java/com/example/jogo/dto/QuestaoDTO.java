@@ -3,13 +3,13 @@ package com.example.jogo.dto;
 import com.example.jogo.enums.Dificuldade;
 import com.example.jogo.enums.Operacao;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class QuestaoDTO {
 
@@ -30,4 +30,9 @@ public class QuestaoDTO {
     private Integer dividendoAbaixado;
     private Integer quocienteFinal;
     private Integer subtracaoFinal;
+    private Integer dividendoAbaixadoFinal;
+    private Integer quocienteIntermediario;
+    private Integer subtracaoEtapaIntermediaria;
+    private Integer restoIntermediario;
+    private List<EtapaDivisaoDTO> etapas;
 }
