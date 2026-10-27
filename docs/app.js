@@ -913,6 +913,10 @@ function seletorQuocienteDivisaoDificil(etapa) {
   return '.divisao-quociente[data-etapa="' + etapa + '"]';
 }
 
+function seletorDivisorDivisaoDificil() {
+  return '.divisao-divisor';
+}
+
 function seletorProdutoDivisaoDificil(etapa) {
   return '.divisao-produto[data-etapa="' + etapa + '"]';
 }
@@ -923,6 +927,22 @@ function seletorRestoDivisaoDificil(etapa) {
 
 function seletorParcialDivisaoDificil(etapa) {
   return '.dividendo-parcial[data-etapa="' + etapa + '"] .celula-digito';
+}
+
+function seletorDesceDivisaoDificil(etapa) {
+  return '.divisao-desce[data-etapa="' + etapa + '"]';
+}
+
+function digitoAbaixadoDivisaoDificil(etapa) {
+  const indice = Number(etapa && etapa.indice);
+  if (!Number.isInteger(indice) || indice <= 1) {
+    return null;
+  }
+  const parcial = Number(etapa && etapa.dividendoParcial);
+  if (!Number.isFinite(parcial)) {
+    return null;
+  }
+  return Math.abs(Math.trunc(parcial)) % 10;
 }
 
 function normalizarAlvoDivisaoDificil(modelo, alvo) {
@@ -997,14 +1017,15 @@ function seletoresDicaDivisaoDificil(modelo, alvo) {
   }
   const seletores = [seletorParcialDivisaoDificil(normalizado.etapa)];
   if (normalizado.tipo === 'quociente') {
-    seletores.push(seletorQuocienteDivisaoDificil(normalizado.etapa));
-  } else if (normalizado.tipo === 'subtracao') {
+    seletores.push(
+      seletorDivisorDivisaoDificil(),
+      seletorQuocienteDivisaoDificil(normalizado.etapa),
+    );
+  } else {
     seletores.push(
       seletorProdutoDivisaoDificil(normalizado.etapa),
       seletorRestoDivisaoDificil(normalizado.etapa),
     );
-  } else {
-    seletores.push(seletorRestoDivisaoDificil(normalizado.etapa));
   }
   return seletores;
 }
@@ -1044,16 +1065,19 @@ function seletoresDicaAtualDivisaoDificil(estado, el) {
   }
 
   const estadoDivisao = dados ?? { etapa: 1, fase: 'quociente' };
-  let alvo = alvoFocoAtualDivisaoDificil(el);
-  if (!alvo) {
-    alvo = {
-      tipo: estadoDivisao.fase === 'resto' ? 'resto' : 'quociente',
-      etapa: estadoDivisao.etapa,
-    };
-  }
   if (estado.questaoRespondida) {
-    alvo = alvoIncorretoDivisaoDificil(modelo, el) ?? alvo;
+    const incorreto = alvoIncorretoDivisaoDificil(modelo, el);
+    return incorreto ? seletoresDicaDivisaoDificil(modelo, incorreto) : [];
   }
+  if (estadoDivisao.fase === 'concluido') {
+    return [];
+  }
+  const alvo = {
+    tipo: estadoDivisao.fase === 'subtracao'
+      ? 'subtracao'
+      : (estadoDivisao.fase === 'resto' ? 'resto' : 'quociente'),
+    etapa: estadoDivisao.etapa,
+  };
   return seletoresDicaDivisaoDificil(modelo, alvo);
 }
 
@@ -3199,7 +3223,7 @@ function definirVisibilidadeEtapaDivisaoDificil(estado, el, etapa, visivel) {
   }
   const seletorEtapa = '[data-etapa="' + etapa + '"]';
   [
-    '.divisao-parcial-etapa-' + etapa,
+    '.divisao-linha-parcial-etapa-' + etapa,
     '.divisao-subtracao-etapa-' + etapa,
     '.divisao-linha-resto-etapa-' + etapa,
   ].forEach((seletor) => {
@@ -3551,7 +3575,7 @@ function renderDivisaoDificil(estado, el) {
   const chave = document.createElement('div');
   chave.className = 'divisao-chave';
   chave.setAttribute('aria-hidden', 'true');
-  chave.style.gridRow = '1 / span ' + (totalEtapas * 3 + 1);
+  chave.style.gridRow = '1 / span ' + (totalEtapas * 3 + 2);
   chave.style.gridColumn = '2';
 
   const divisor = criarOperandoDivisao(
@@ -3601,12 +3625,16 @@ function renderDivisaoDificil(estado, el) {
       el,
       'divisaoDificil',
     );
-    parcial.style.gridRow = String(linhaBase);
-    parcial.style.gridColumn = '1';
-    parcial.style.justifySelf = 'end';
-    if (oculta) {
-      parcial.hidden = true;
+    const linhaParcial = document.createElement('div');
+    linhaParcial.className = 'divisao-linha-parcial divisao-linha-parcial-etapa-'
+      + etapa.indice;
+    linhaParcial.style.gridRow = String(linhaBase);
+    linhaParcial.style.gridColumn = '1';
+    if (etapa.indice > 1) {
+      linhaParcial.appendChild(criarDesceDivisaoDificil(etapa));
     }
+    linhaParcial.appendChild(parcial);
+    linhaParcial.hidden = oculta;
 
     const sinal = document.createElement('span');
     sinal.className = 'divisao-sinal';
@@ -3656,7 +3684,7 @@ function renderDivisaoDificil(estado, el) {
     }
     linhaResto.hidden = oculta;
 
-    divisao.append(parcial, linhaSubtracao, linhaResto);
+    divisao.append(linhaParcial, linhaSubtracao, linhaResto);
   });
 
   el.conta.appendChild(divisao);
@@ -3664,6 +3692,31 @@ function renderDivisaoDificil(estado, el) {
   atualizarEmprestimosDivisao(estado, el, 1, 'divisaoDificil');
   atualizarGuiaDivisaoDificil(estado, el);
   renderApoioDivisaoDificil(estado, el);
+}
+
+function criarDesceDivisaoDificil(etapa) {
+  const digito = digitoAbaixadoDivisaoDificil(etapa);
+  const indicador = document.createElement('span');
+  indicador.className = 'divisao-desce';
+  indicador.dataset.etapa = String(etapa.indice);
+  indicador.setAttribute('role', 'img');
+  indicador.setAttribute(
+    'aria-label',
+    'Desça o dígito ' + digito + ' do dividendo para a etapa ' + etapa.indice,
+  );
+
+  const seta = document.createElement('span');
+  seta.className = 'divisao-desce-seta';
+  seta.textContent = '↓';
+  seta.setAttribute('aria-hidden', 'true');
+
+  const valor = document.createElement('span');
+  valor.className = 'divisao-desce-digito';
+  valor.textContent = String(digito);
+  valor.setAttribute('aria-hidden', 'true');
+
+  indicador.append(seta, valor);
+  return indicador;
 }
 
 function criarCampoProdutoDivisao(classe, rotulo, digitos) {
@@ -4923,9 +4976,12 @@ if (typeof module !== 'undefined' && module.exports) {
     ordemCamposDivisaoDificil,
     comporQuocienteDivisaoEtapas,
     seletorQuocienteDivisaoDificil,
+    seletorDivisorDivisaoDificil,
     seletorProdutoDivisaoDificil,
     seletorRestoDivisaoDificil,
     seletorParcialDivisaoDificil,
+    seletorDesceDivisaoDificil,
+    digitoAbaixadoDivisaoDificil,
     alvoDoCampoDivisaoDificil,
     valorEsperadoDivisaoDificil,
     alvoIncorretoDivisaoDificil,

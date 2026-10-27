@@ -1763,9 +1763,19 @@ h1 {
 
 .divisao-dinamica {
   grid-template-areas: none;
-  grid-template-columns: minmax(110px, auto) 4px minmax(64px, auto);
+  grid-template-columns: minmax(150px, auto) 4px minmax(64px, auto);
   grid-template-rows: auto auto;
-  gap: 8px 18px;
+  gap: 2px 16px;
+  align-items: center;
+}
+
+.divisao-dificil .divisao-linha-parcial {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
 }
 
 .divisao-dificil .dividendo-parcial {
@@ -1776,9 +1786,59 @@ h1 {
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
+.divisao-dificil .dividendo-parcial .celula-digito {
+  min-height: 42px;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+}
+
+.divisao-dificil .divisao-linha-parcial:not([hidden]) .dividendo-parcial {
+  animation: descer-numero-divisao 0.28s ease-out;
+}
+
+.divisao-desce {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 7px 1px 6px;
+  border: 2px dashed #fdba74;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  animation: desce-guia-divisao 0.45s ease-out;
+}
+
+.divisao-desce-seta {
+  font-size: 0.88em;
+  transform: translateY(-1px);
+}
+
+.divisao-desce-digito {
+  min-width: 1ch;
+  text-align: center;
+}
+
+@keyframes desce-guia-divisao {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.divisao-dificil .divisao-input {
+  height: 42px;
+}
+
 .divisao-dificil .divisao-subtracao,
 .divisao-dificil .divisao-linha-resto {
-  min-height: 46px;
+  min-height: 42px;
+}
+
+.divisao-dificil .divisao-subtracao {
+  padding-bottom: 1px;
+  border-bottom-width: 3px;
 }
 
 .divisao-dificil .divisao-linha-resto-etapa-1,
@@ -1800,6 +1860,19 @@ h1 {
   min-width: calc(var(--digitos-campo, 1) * 1.5ch + 16px);
 }
 
+@media (max-width: 420px) {
+  .divisao-dinamica {
+    grid-template-columns: minmax(136px, auto) 4px minmax(58px, auto);
+    gap: 2px 10px;
+  }
+
+  .divisao-desce {
+    gap: 1px;
+    padding: 1px 5px;
+    font-size: 0.82rem;
+  }
+}
+
 body[data-tema="laranja"] .apoio-divisao {
   background: #fff7ed;
   border-color: var(--tema-borda);
@@ -1815,6 +1888,8 @@ body[data-tema="laranja"] .apoio-mais {
 
 .celula-digito.dica-ativa,
 .resultado-input.dica-ativa,
+.divisao-input.dica-ativa,
+.divisao-divisor.dica-ativa,
 .caixa-vai-um.dica-ativa,
 .celula-multiplicacao-dificil.dica-ativa,
 .resultado-input-dificil.dica-ativa,
@@ -1848,8 +1923,14 @@ body[data-tema="laranja"] .apoio-mais {
 }
 
 .celula-digito.dica-ativa,
+.divisao-input.dica-ativa,
 .celula-multiplicacao-dificil.dica-ativa {
   border-radius: 14px;
+}
+
+.divisao-divisor.dica-ativa {
+  padding: 0 6px;
+  border-radius: 10px;
 }
 
 .celula-digito.dica-ativa-carry,

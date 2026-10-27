@@ -52,9 +52,12 @@ const {
   ordemCamposDivisaoDificil,
   comporQuocienteDivisaoEtapas,
   seletorQuocienteDivisaoDificil,
+  seletorDivisorDivisaoDificil,
   seletorProdutoDivisaoDificil,
   seletorRestoDivisaoDificil,
   seletorParcialDivisaoDificil,
+  seletorDesceDivisaoDificil,
+  digitoAbaixadoDivisaoDificil,
   alvoDoCampoDivisaoDificil,
   valorEsperadoDivisaoDificil,
   alvoIncorretoDivisaoDificil,
@@ -1545,11 +1548,12 @@ test('valorEsperadoDivisaoDificil devolve o valor da etapa e do tipo', () => {
   assert.equal(valorEsperadoDivisaoDificil(null, { tipo: 'resto', etapa: 1 }), null);
 });
 
-test('seletoresDicaDivisaoDificil aponta para o parcial e o campo da etapa', () => {
+test('seletoresDicaDivisaoDificil aponta para os números da etapa atual', () => {
   const modelo = montarModeloDivisaoDificil(6898, 15);
 
   assert.deepEqual(seletoresDicaDivisaoDificil(modelo, { tipo: 'quociente', etapa: 2 }), [
     seletorParcialDivisaoDificil(2),
+    seletorDivisorDivisaoDificil(),
     seletorQuocienteDivisaoDificil(2),
   ]);
   assert.deepEqual(seletoresDicaDivisaoDificil(modelo, { tipo: 'subtracao', etapa: 3 }), [
@@ -1559,9 +1563,21 @@ test('seletoresDicaDivisaoDificil aponta para o parcial e o campo da etapa', () 
   ]);
   assert.deepEqual(seletoresDicaDivisaoDificil(modelo, { tipo: 'resto', etapa: 1 }), [
     seletorParcialDivisaoDificil(1),
+    seletorProdutoDivisaoDificil(1),
     seletorRestoDivisaoDificil(1),
   ]);
   assert.deepEqual(seletoresDicaDivisaoDificil(null, { tipo: 'resto', etapa: 1 }), []);
+});
+
+test('digitoAbaixadoDivisaoDificil revela apenas o dígito que desce em cada etapa', () => {
+  const modelo = montarModeloDivisaoDificil(6898, 15);
+
+  assert.equal(digitoAbaixadoDivisaoDificil(modelo.etapas[0]), null);
+  assert.equal(digitoAbaixadoDivisaoDificil(modelo.etapas[1]), 9);
+  assert.equal(digitoAbaixadoDivisaoDificil(modelo.etapas[2]), 8);
+  assert.equal(digitoAbaixadoDivisaoDificil(null), null);
+  assert.equal(digitoAbaixadoDivisaoDificil({ indice: 2, dividendoParcial: 140 }), 0);
+  assert.match(seletorDesceDivisaoDificil(2), /data-etapa="2"/);
 });
 
 test('alvoIncorretoDivisaoDificil prioriza o primeiro resto preenchido errado', () => {
@@ -1584,10 +1600,31 @@ test('seletoresDicaAtualDivisaoDificil usa a fase e a etapa em andamento', () =>
     divisaoDificil: { ...modelo, etapa: 2, fase: 'resto' },
   };
 
+  estado.divisaoDificil.fase = 'quociente';
   assert.deepEqual(seletoresDicaAtualDivisaoDificil(estado, { conta: {} }), [
     seletorParcialDivisaoDificil(2),
+    seletorDivisorDivisaoDificil(),
+    seletorQuocienteDivisaoDificil(2),
+  ]);
+  estado.divisaoDificil.fase = 'resto';
+  assert.deepEqual(seletoresDicaAtualDivisaoDificil(estado, { conta: {} }), [
+    seletorParcialDivisaoDificil(2),
+    seletorProdutoDivisaoDificil(2),
     seletorRestoDivisaoDificil(2),
   ]);
+
+  estado.divisaoDificil.fase = 'subtracao';
+  assert.deepEqual(seletoresDicaAtualDivisaoDificil(estado, { conta: {} }), [
+    seletorParcialDivisaoDificil(2),
+    seletorProdutoDivisaoDificil(2),
+    seletorRestoDivisaoDificil(2),
+  ]);
+  estado.divisaoDificil.fase = 'concluido';
+  assert.deepEqual(seletoresDicaAtualDivisaoDificil(estado, { conta: {} }), []);
+  estado.questaoRespondida = true;
+  assert.deepEqual(seletoresDicaAtualDivisaoDificil(estado, {
+    conta: { querySelector: () => null },
+  }), []);
   assert.deepEqual(seletoresDicaAtualDivisaoDificil({
     questao: { operacao: 'DIVISAO', dificuldade: 'MEDIO' },
   }, { conta: {} }), []);
