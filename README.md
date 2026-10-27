@@ -7,8 +7,8 @@ Jogo educativo de adição, subtração, multiplicação e divisão para crianç
 - Contas de adição nos níveis fácil (2 dígitos), médio (3 dígitos) e difícil (4 dígitos com reservas encadeadas).
 - Contas de subtração nos níveis fácil (2 dígitos), médio (3 dígitos) e difícil (4 dígitos com empréstimos encadeados).
 - Multiplicação nos níveis fácil (1 dígito por 1 dígito), médio (2 dígitos por 1 dígito) e difícil (3 dígitos por 2 dígitos), com preenchimento do "vai um".
-- Dica progressiva na soma difícil, na subtração difícil e na multiplicação difícil: destaca o par de algarismos, o campo da etapa atual e, em verde, o transporte ou empréstimo afetado, após 3 segundos de inatividade ou quando a resposta é recusada.
-- Divisão em formato de chave no nível fácil (2 dígitos por 1 dígito, exata), com quociente, subtração intermediária e resto.
+- Dica progressiva em todas as operações difíceis: destaca os algarismos e o campo da etapa atual, além do transporte, empréstimo ou etapa da divisão, após 3 segundos de inatividade ou quando a resposta é recusada.
+- Divisão em formato de chave nos níveis fácil (2 dígitos por 1 dígito, exata), médio (3 dígitos por 2 dígitos) e difícil (4 dígitos por 2 dígitos), com quociente, subtrações intermediárias e resto.
 - Preenchimento dos passos de "vai um" e empréstimo.
 - Correção automática das respostas pela API.
 - Placar, sequência de acertos e barra de progresso.
