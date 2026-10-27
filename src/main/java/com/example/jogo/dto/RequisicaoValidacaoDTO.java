@@ -1,6 +1,7 @@
 package com.example.jogo.dto;
 
 import com.example.jogo.enums.Operacao;
+import com.example.jogo.enums.TipoNumero;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -33,6 +34,8 @@ public class RequisicaoValidacaoDTO {
     private List<Integer> quocientesParciaisDigitados;
     private List<Integer> subtracoesParciaisDigitadas;
     private List<Integer> restosParciaisDigitados;
+    private TipoNumero tipoNumero;
+    private Integer casasDecimais;
 
     public RequisicaoValidacaoDTO(
             String idQuestao,

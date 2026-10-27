@@ -6,6 +6,7 @@ import com.example.jogo.dto.RequisicaoValidacaoDTO;
 import com.example.jogo.dto.RespostaValidacaoDTO;
 import com.example.jogo.enums.Dificuldade;
 import com.example.jogo.enums.Operacao;
+import com.example.jogo.enums.TipoNumero;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -41,6 +42,10 @@ public class JogoService {
     private static final int DIVISOR_MINIMO_LONGO = 10;
     private static final int DIVISOR_MAXIMO_LONGO = 99;
 
+    private static final int ESCALA_DECIMAL = 100;
+    private static final int CASAS_DECIMAIS_MINIMAS = 1;
+    private static final int CASAS_DECIMAIS_MAXIMAS = 2;
+
     private final Random random;
 
     public JogoService() {
@@ -52,17 +57,33 @@ public class JogoService {
     }
 
     public QuestaoDTO gerarQuestao(Operacao operacao, Dificuldade dificuldade) {
+        return gerarQuestao(operacao, dificuldade, TipoNumero.INTEIROS);
+    }
+
+    public QuestaoDTO gerarQuestao(
+            Operacao operacao,
+            Dificuldade dificuldade,
+            TipoNumero tipoNumero) {
         if (operacao == null) {
             throw new IllegalArgumentException("A operação é obrigatória.");
         }
         if (dificuldade == null) {
             throw new IllegalArgumentException("A dificuldade é obrigatória.");
         }
+        if (tipoNumero == null) {
+            throw new IllegalArgumentException("O tipo de número é obrigatório.");
+        }
+        if (tipoNumero == TipoNumero.DECIMAIS && operacao != Operacao.SOMA) {
+            throw new IllegalArgumentException(
+                    "Números decimais estão disponíveis apenas na soma.");
+        }
 
         return switch (operacao) {
             case MULTIPLICACAO -> gerarMultiplicacao(operacao, dificuldade);
             case DIVISAO -> gerarDivisao(operacao, dificuldade);
-            case SOMA -> gerarSoma(operacao, dificuldade);
+            case SOMA -> tipoNumero == TipoNumero.DECIMAIS
+                    ? gerarSomaDecimal(operacao, dificuldade)
+                    : gerarSoma(operacao, dificuldade);
             case SUBTRACAO -> gerarSubtracao(operacao, dificuldade);
         };
     }
@@ -73,7 +94,7 @@ public class JogoService {
         AvaliacaoPassos avaliacao = avaliarPassos(requisicao);
         boolean resultadoCorreto = requisicao.getResultadoDigitado() == avaliacao.respostaCorreta();
 
-        return montarResposta(requisicao.getOperacao(), avaliacao, resultadoCorreto);
+        return montarResposta(requisicao, avaliacao, resultadoCorreto);
     }
 
     public boolean exigeVaiUm(int numeroA, int numeroB) {
@@ -274,9 +295,10 @@ public class JogoService {
     }
 
     private RespostaValidacaoDTO montarResposta(
-            Operacao operacao,
+            RequisicaoValidacaoDTO requisicao,
             AvaliacaoPassos avaliacao,
             boolean resultadoCorreto) {
+        Operacao operacao = requisicao.getOperacao();
         int respostaCorreta = avaliacao.respostaCorreta();
 
         if (resultadoCorreto && avaliacao.passosCorretos()) {
@@ -300,9 +322,26 @@ public class JogoService {
 
         return new RespostaValidacaoDTO(
                 false,
-                "Quase lá! A resposta correta é " + respostaCorreta + ". Tente de novo!",
+                "Quase lá! A resposta correta é "
+                        + formatarResposta(requisicao, respostaCorreta)
+                        + ". Tente de novo!",
                 PONTOS_ERRO,
                 respostaCorreta);
+    }
+
+    private String formatarResposta(RequisicaoValidacaoDTO requisicao, int respostaCorreta) {
+        if (requisicao.getTipoNumero() != TipoNumero.DECIMAIS) {
+            return String.valueOf(respostaCorreta);
+        }
+        return formatarDecimal(respostaCorreta, requisicao.getCasasDecimais());
+    }
+
+    private String formatarDecimal(int valorEscalado, int casasDecimais) {
+        int divisor = (int) Math.pow(10, casasDecimais);
+        int parteInteira = valorEscalado / divisor;
+        int parteFracionaria = valorEscalado % divisor;
+        return parteInteira + ","
+                + String.format("%0" + casasDecimais + "d", parteFracionaria);
     }
 
     /* --------------------------------------------------------------------- */
@@ -325,6 +364,54 @@ public class JogoService {
                             ? novaQuestao(operacao, dificuldade, numeroA, numeroB)
                             : null;
                 });
+    }
+
+    private QuestaoDTO gerarSomaDecimal(Operacao operacao, Dificuldade dificuldade) {
+        int minimo = dificuldade.getValorMinimo();
+        int maximo = dificuldade.getValorMaximo();
+
+        return gerarComTentativas(
+                "Não foi possível gerar uma soma decimal com 'vai um'.",
+                () -> {
+                    int inteiroA = sortear(minimo, maximo);
+                    int inteiroB = sortear(minimo, maximo);
+                    boolean primeiraComUmaCasa = random.nextBoolean();
+                    int casasA = primeiraComUmaCasa
+                            ? CASAS_DECIMAIS_MINIMAS
+                            : CASAS_DECIMAIS_MAXIMAS;
+                    int casasB = primeiraComUmaCasa
+                            ? CASAS_DECIMAIS_MAXIMAS
+                            : CASAS_DECIMAIS_MINIMAS;
+                    int numeroA = inteiroA * ESCALA_DECIMAL + sortearFracaoDecimal(casasA);
+                    int numeroB = inteiroB * ESCALA_DECIMAL + sortearFracaoDecimal(casasB);
+                    boolean reservasValidas = dificuldade == Dificuldade.DIFICIL
+                            ? exigeVaiUmEncadeado(numeroA, numeroB)
+                            : exigeVaiUm(numeroA, numeroB);
+                    return reservasValidas
+                            ? novaQuestaoDecimal(operacao, dificuldade, numeroA, numeroB, casasA, casasB)
+                            : null;
+                });
+    }
+
+    private int sortearFracaoDecimal(int casasDecimais) {
+        if (casasDecimais == CASAS_DECIMAIS_MINIMAS) {
+            return sortear(1, 9) * 10;
+        }
+        return sortear(1, 9) * 10 + sortear(1, 9);
+    }
+
+    private QuestaoDTO novaQuestaoDecimal(
+            Operacao operacao,
+            Dificuldade dificuldade,
+            int numeroA,
+            int numeroB,
+            int casasDecimaisA,
+            int casasDecimaisB) {
+        QuestaoDTO questao = novaQuestao(operacao, dificuldade, numeroA, numeroB);
+        questao.setTipoNumero(TipoNumero.DECIMAIS);
+        questao.setCasasDecimaisA(casasDecimaisA);
+        questao.setCasasDecimaisB(casasDecimaisB);
+        return questao;
     }
 
     private boolean exigeVaiUmEncadeado(int numeroA, int numeroB) {
@@ -599,6 +686,7 @@ public class JogoService {
         questao.setId(UUID.randomUUID().toString());
         questao.setOperacao(operacao);
         questao.setDificuldade(dificuldade);
+        questao.setTipoNumero(TipoNumero.INTEIROS);
         questao.setNumeroA(numeroA);
         questao.setNumeroB(numeroB);
         return questao;
@@ -620,6 +708,20 @@ public class JogoService {
         }
         if (requisicao.getResultadoDigitado() == null) {
             throw new IllegalArgumentException("O resultado digitado é obrigatório.");
+        }
+        if (requisicao.getTipoNumero() == TipoNumero.DECIMAIS) {
+            if (requisicao.getOperacao() != Operacao.SOMA) {
+                throw new IllegalArgumentException(
+                        "Números decimais estão disponíveis apenas na soma.");
+            }
+            int casasDecimais = requisicao.getCasasDecimais() == null
+                    ? -1
+                    : requisicao.getCasasDecimais();
+            if (casasDecimais < CASAS_DECIMAIS_MINIMAS
+                    || casasDecimais > CASAS_DECIMAIS_MAXIMAS) {
+                throw new IllegalArgumentException(
+                        "A quantidade de casas decimais deve ser 1 ou 2.");
+            }
         }
     }
 

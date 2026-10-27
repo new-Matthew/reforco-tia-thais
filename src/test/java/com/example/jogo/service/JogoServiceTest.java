@@ -6,6 +6,7 @@ import com.example.jogo.dto.RequisicaoValidacaoDTO;
 import com.example.jogo.dto.RespostaValidacaoDTO;
 import com.example.jogo.enums.Dificuldade;
 import com.example.jogo.enums.Operacao;
+import com.example.jogo.enums.TipoNumero;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,115 @@ class JogoServiceTest {
             assertTrue(temReservasConsecutivas,
                     "A soma difícil deve encadear pelo menos duas reservas.");
         }
+    }
+
+    @Test
+    @DisplayName("Gera somas decimais com uma e duas casas e reservas válidas")
+    void geraSomaDecimalComCasasDiferentesEReservas() {
+        for (Dificuldade dificuldade : List.of(
+                Dificuldade.FACIL, Dificuldade.MEDIO, Dificuldade.DIFICIL)) {
+            for (int i = 0; i < 100; i++) {
+                QuestaoDTO questao = jogoService.gerarQuestao(
+                        Operacao.SOMA, dificuldade, TipoNumero.DECIMAIS);
+
+                assertEquals(Operacao.SOMA, questao.getOperacao());
+                assertEquals(dificuldade, questao.getDificuldade());
+                assertEquals(TipoNumero.DECIMAIS, questao.getTipoNumero());
+
+                int casasA = questao.getCasasDecimaisA();
+                int casasB = questao.getCasasDecimaisB();
+                assertTrue(casasA == 1 || casasA == 2);
+                assertTrue(casasB == 1 || casasB == 2);
+                assertTrue(casasA != casasB);
+
+                int inteiroA = questao.getNumeroA() / 100;
+                int inteiroB = questao.getNumeroB() / 100;
+                assertTrue(inteiroA >= dificuldade.getValorMinimo()
+                        && inteiroA <= dificuldade.getValorMaximo());
+                assertTrue(inteiroB >= dificuldade.getValorMinimo()
+                        && inteiroB <= dificuldade.getValorMaximo());
+
+                assertTrue(jogoService.exigeVaiUm(
+                        questao.getNumeroA(), questao.getNumeroB()));
+
+                if (dificuldade == Dificuldade.DIFICIL) {
+                    List<Integer> passos = jogoService.calcularVaiUm(
+                            questao.getNumeroA(), questao.getNumeroB());
+                    boolean encadeados = false;
+                    for (int coluna = 0; coluna + 1 < passos.size(); coluna++) {
+                        if (passos.get(coluna) == 1 && passos.get(coluna + 1) == 1) {
+                            encadeados = true;
+                            break;
+                        }
+                    }
+                    assertTrue(encadeados,
+                            "A soma decimal difícil deve encadear reservas.");
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Mantém inteiros como padrão e rejeita decimais fora da soma")
+    void validaTipoNumeroNaGeracao() {
+        QuestaoDTO questao = jogoService.gerarQuestao(Operacao.SOMA, Dificuldade.FACIL);
+        assertEquals(TipoNumero.INTEIROS, questao.getTipoNumero());
+
+        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
+                Operacao.SUBTRACAO, Dificuldade.FACIL, TipoNumero.DECIMAIS));
+        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
+                Operacao.SOMA, Dificuldade.FACIL, null));
+    }
+
+    @Test
+    @DisplayName("Valida soma decimal com alinhamento de duas casas")
+    void validaSomaDecimalComCasasAlinhadas() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-decimal", Operacao.SOMA, 1275, 348, 1623,
+                List.of(1, 1, 0, 0), null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(2);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(1623, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Formata a resposta decimal com vírgula no feedback de erro")
+    void formataRespostaDecimalNoFeedback() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-decimal-errado", Operacao.SOMA, 1275, 348, 1600,
+                List.of(1, 1, 0, 0), null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(2);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("16,23"));
+    }
+
+    @Test
+    @DisplayName("Rejeita casas decimais ausentes ou operação incompatível")
+    void rejeitaValidacaoDecimalInvalida() {
+        RequisicaoValidacaoDTO semCasas = new RequisicaoValidacaoDTO(
+                "id-sem-casas", Operacao.SOMA, 1275, 348, 1623,
+                List.of(1, 1, 0, 0), null, null);
+        semCasas.setTipoNumero(TipoNumero.DECIMAIS);
+
+        RequisicaoValidacaoDTO operacaoIncompativel = new RequisicaoValidacaoDTO(
+                "id-subtracao-decimal", Operacao.SUBTRACAO, 1275, 348, 927,
+                null, List.of(1, 0, 1, 0), null);
+        operacaoIncompativel.setTipoNumero(TipoNumero.DECIMAIS);
+        operacaoIncompativel.setCasasDecimais(2);
+
+        assertThrows(IllegalArgumentException.class, () -> jogoService.validar(semCasas));
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(operacaoIncompativel));
     }
 
     @Test

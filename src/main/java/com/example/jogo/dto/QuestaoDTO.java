@@ -2,6 +2,7 @@ package com.example.jogo.dto;
 
 import com.example.jogo.enums.Dificuldade;
 import com.example.jogo.enums.Operacao;
+import com.example.jogo.enums.TipoNumero;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,6 +17,9 @@ public class QuestaoDTO {
     private String id;
     private Operacao operacao;
     private Dificuldade dificuldade;
+    private TipoNumero tipoNumero;
+    private Integer casasDecimaisA;
+    private Integer casasDecimaisB;
     private int numeroA;
     private int numeroB;
     private Integer vaiUm;

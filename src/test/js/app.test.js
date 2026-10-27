@@ -86,6 +86,7 @@ const {
   comporResultado,
   montarRequisicao,
   aplicarPreferencias,
+  atualizarSegmentado,
   podeIniciarQuestao,
   podeValidarResposta,
   normalizarNomeJogador,
@@ -113,7 +114,17 @@ const {
   alvoDoCampoMultiplicacaoDificil,
   seletoresDicaAtualMultiplicacaoDificil,
   ehSomaDificil,
+  ehSomaDecimal,
+  ehSomaGuiada,
+  casasDecimaisMaximas,
+  digitosEscalados,
+  digitosSomaDecimal,
+  quantidadeCaixasVaiUmDecimal,
+  colunasInteirasSomaDecimal,
+  colunaGradeSomaDecimal,
+  rotuloColunaDecimal,
   montarModeloSomaDificil,
+  montarModeloSomaDecimal,
   seletoresDicaSomaDificil,
   resolverAlvoDicaSomaDificil,
   alvoDoCampoResultadoSoma,
@@ -405,6 +416,85 @@ test('aplicarPreferencias ignora valores desconhecidos', () => {
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
   aplicarPreferencias(estado, '');
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
+});
+
+test('aplicarPreferencias lê o tipo de número apenas quando a operação é soma', () => {
+  const estado = { operacao: 'SOMA', dificuldade: 'FACIL' };
+  aplicarPreferencias(estado, '?operacao=SOMA&dificuldade=MEDIO&tipoNumero=DECIMAIS');
+  assert.equal(estado.tipoNumero, 'DECIMAIS');
+
+  const subtracao = { operacao: 'SOMA', dificuldade: 'FACIL' };
+  aplicarPreferencias(
+    subtracao,
+    '?operacao=SUBTRACAO&dificuldade=MEDIO&tipoNumero=DECIMAIS',
+  );
+  assert.equal(subtracao.tipoNumero, undefined);
+});
+
+test('atualizarSegmentado marca o botão do tipo de número selecionado', () => {
+  const botoes = ['INTEIROS', 'DECIMAIS'].map((tipoNumero) => {
+    const classes = new Set(['seg-btn']);
+    return {
+      dataset: { tipoNumero },
+      classes,
+      classList: {
+        toggle(classe, ativo) {
+          if (ativo) {
+            classes.add(classe);
+          } else {
+            classes.delete(classe);
+          }
+        },
+      },
+      ariaPressed: null,
+      setAttribute(nome, valor) {
+        if (nome === 'aria-pressed') {
+          this.ariaPressed = valor;
+        }
+      },
+    };
+  });
+  const container = {
+    id: 'seletor-tipo-numero',
+    querySelectorAll(seletor) {
+      return seletor === '[data-tipo-numero]' ? botoes : [];
+    },
+  };
+
+  atualizarSegmentado(container, 'DECIMAIS');
+
+  assert.equal(botoes[0].classes.has('ativo'), false);
+  assert.equal(botoes[0].ariaPressed, 'false');
+  assert.equal(botoes[1].classes.has('ativo'), true);
+  assert.equal(botoes[1].ariaPressed, 'true');
+});
+
+test('montarRequisicao envia tipo e casas decimais apenas na soma decimal', () => {
+  const questao = {
+    id: 'id-decimal',
+    operacao: 'SOMA',
+    tipoNumero: 'DECIMAIS',
+    casasDecimaisA: 1,
+    casasDecimaisB: 2,
+    numeroA: 1275,
+    numeroB: 348,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 1623,
+    vaiUm: [1, 1, 0, 0],
+    emprestados: null,
+    vaiUmMultiplicacao: null,
+  });
+
+  assert.equal(requisicao.tipoNumero, 'DECIMAIS');
+  assert.equal(requisicao.casasDecimais, 2);
+  assert.equal(requisicao.resultadoDigitado, 1623);
+});
+
+test('comporResultado trata as casas decimais vazias como zero alinhado', () => {
+  assert.equal(comporResultado(['', '9', '5', '1', '']), 1590);
+  assert.equal(comporResultado(['2', '9', '5', '1', '']), 1592);
+  assert.equal(comporResultado(['', '', '5', '1', '']), 1500);
 });
 
 test('criarAvisoServidor mostra o aviso após o limite e o remove ao concluir', async () => {
@@ -2501,6 +2591,78 @@ test('ehSomaDificil identifica somente a soma no nível difícil', () => {
     false,
   );
   assert.equal(ehSomaDificil(null), false);
+});
+
+test('ehSomaDecimal e ehSomaGuiada identificam a soma com vírgula', () => {
+  const decimal = { operacao: 'SOMA', dificuldade: 'MEDIO', tipoNumero: 'DECIMAIS' };
+  const inteiroDificil = { operacao: 'SOMA', dificuldade: 'DIFICIL' };
+
+  assert.equal(ehSomaDecimal(decimal), true);
+  assert.equal(ehSomaGuiada(decimal), true);
+  assert.equal(ehSomaDecimal(inteiroDificil), false);
+  assert.equal(ehSomaGuiada(inteiroDificil), true);
+  assert.equal(ehSomaDecimal({ operacao: 'SUBTRACAO', tipoNumero: 'DECIMAIS' }), false);
+  assert.equal(ehSomaDecimal(null), false);
+});
+
+test('helpers da soma decimal calculam casas, colunas e a coluna da vírgula', () => {
+  assert.equal(casasDecimaisMaximas({ operacao: 'SOMA', tipoNumero: 'DECIMAIS' }), 2);
+  assert.equal(casasDecimaisMaximas({ operacao: 'SOMA' }), 0);
+  assert.equal(digitosSomaDecimal('FACIL', 2), 4);
+  assert.equal(digitosSomaDecimal('MEDIO', 2), 5);
+  assert.equal(digitosSomaDecimal('DIFICIL', 2), 6);
+  assert.equal(quantidadeCaixasVaiUmDecimal('FACIL', 2), 3);
+  assert.equal(colunasInteirasSomaDecimal('FACIL'), 3);
+  assert.deepEqual(
+    [0, 1, 2, 3, 4].map((indice) => colunaGradeSomaDecimal(indice, 'FACIL', 2)),
+    [7, 6, 4, 3, 2],
+  );
+  assert.equal(rotuloColunaDecimal(0, 2), 'centésimos');
+  assert.equal(rotuloColunaDecimal(1, 2), 'décimos');
+  assert.equal(rotuloColunaDecimal(2, 2), 'unidades');
+});
+
+test('digitosEscalados separa parte inteira e decimal sem perder zeros', () => {
+  assert.deepEqual(digitosEscalados(1275, 4), [5, 7, 2, 1]);
+  assert.deepEqual(digitosEscalados(348, 4), [8, 4, 3, 0]);
+  assert.deepEqual(digitosEscalados(1005, 4), [5, 0, 0, 1]);
+});
+
+test('montarModeloSomaDecimal prepara as colunas decimais e os carries', () => {
+  const modelo = montarModeloSomaDecimal(1275, 348, 'FACIL', 2);
+
+  assert.equal(modelo.digitos, 4);
+  assert.equal(modelo.casasDecimais, 2);
+  assert.deepEqual(modelo.passos, [1, 1, 0, 0]);
+  assert.deepEqual(modelo.ordemFoco, [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'vaiUm', coluna: 1 },
+    { tipo: 'resultado', coluna: 1 },
+    { tipo: 'vaiUm', coluna: 2 },
+    { tipo: 'resultado', coluna: 2 },
+    { tipo: 'resultado', coluna: 3 },
+  ]);
+});
+
+test('dica da soma decimal mapeia as colunas de centésimos e décimos', () => {
+  const modelo = montarModeloSomaDecimal(1275, 348, 'FACIL', 2);
+
+  assert.deepEqual(
+    seletoresDicaSomaDificil(modelo, { tipo: 'resultado', coluna: 0 }),
+    [
+      '.resultado-input[data-coluna="0"]',
+      '.celula-digito[data-coluna="0"]',
+      { seletor: '.caixa-vai-um[data-coluna="1"]', classe: 'dica-ativa-carry' },
+    ],
+  );
+  assert.deepEqual(
+    seletoresDicaSomaDificil(modelo, { tipo: 'resultado', coluna: 2 }),
+    [
+      '.resultado-input[data-coluna="2"]',
+      '.celula-digito[data-coluna="2"]',
+      { seletor: '.caixa-vai-um[data-coluna="2"]', classe: 'dica-ativa-carry' },
+    ],
+  );
 });
 
 test('montarModeloSomaDificil prepara quatro colunas e os carries do topo', () => {

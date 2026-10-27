@@ -5,6 +5,7 @@ import com.example.jogo.dto.RequisicaoValidacaoDTO;
 import com.example.jogo.dto.RespostaValidacaoDTO;
 import com.example.jogo.enums.Dificuldade;
 import com.example.jogo.enums.Operacao;
+import com.example.jogo.enums.TipoNumero;
 import com.example.jogo.service.JogoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -31,8 +32,9 @@ public class JogoController {
     @GetMapping("/proxima-questao")
     public QuestaoDTO proximaQuestao(
             @RequestParam Operacao operacao,
-            @RequestParam Dificuldade dificuldade) {
-        return jogoService.gerarQuestao(operacao, dificuldade);
+            @RequestParam Dificuldade dificuldade,
+            @RequestParam(defaultValue = "INTEIROS") TipoNumero tipoNumero) {
+        return jogoService.gerarQuestao(operacao, dificuldade, tipoNumero);
     }
 
     @PostMapping("/validar")

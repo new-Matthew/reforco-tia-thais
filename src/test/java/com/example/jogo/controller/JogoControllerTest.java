@@ -87,6 +87,55 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Retorna uma soma decimal com as casas decimais das parcelas")
+    void retornaQuestaoDeSomaDecimal() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "SOMA")
+                        .param("dificuldade", "MEDIO")
+                        .param("tipoNumero", "DECIMAIS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("SOMA"))
+                .andExpect(jsonPath("$.dificuldade").value("MEDIO"))
+                .andExpect(jsonPath("$.tipoNumero").value("DECIMAIS"))
+                .andExpect(jsonPath("$.casasDecimaisA").isNumber())
+                .andExpect(jsonPath("$.casasDecimaisB").isNumber());
+    }
+
+    @Test
+    @DisplayName("Rejeita números decimais fora da soma")
+    void rejeitaDecimaisForaDaSoma() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "SUBTRACAO")
+                        .param("dificuldade", "FACIL")
+                        .param("tipoNumero", "DECIMAIS"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Valida uma soma decimal pela API")
+    void validaSomaDecimal() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "SOMA",
+                  "numeroA": 1275,
+                  "numeroB": 348,
+                  "resultadoDigitado": 1623,
+                  "vaiUm": [1, 1, 0, 0],
+                  "tipoNumero": "DECIMAIS",
+                  "casasDecimais": 2
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(1623));
+    }
+
+    @Test
     @DisplayName("Retorna uma subtração difícil no endpoint de próxima questão")
     void retornaQuestaoDeSubtracaoDificil() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
