@@ -87,6 +87,17 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Retorna uma subtração difícil no endpoint de próxima questão")
+    void retornaQuestaoDeSubtracaoDificil() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "SUBTRACAO")
+                        .param("dificuldade", "DIFICIL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("SUBTRACAO"))
+                .andExpect(jsonPath("$.dificuldade").value("DIFICIL"));
+    }
+
+    @Test
     @DisplayName("Retorna uma multiplicação difícil no endpoint de próxima questão")
     void retornaQuestaoDeMultiplicacaoDificil() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
@@ -98,14 +109,15 @@ class JogoControllerTest {
     }
 
     @Test
-    @DisplayName("Rejeita o nível difícil nas demais operações no endpoint de próxima questão")
-    void rejeitaDificuldadeDificilForaDaSomaEMultiplicacao() throws Exception {
+    @DisplayName("Rejeita o nível difícil na divisão no endpoint de próxima questão")
+    void rejeitaDificuldadeDificilNaDivisao() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
-                        .param("operacao", "SUBTRACAO")
+                        .param("operacao", "DIVISAO")
                         .param("dificuldade", "DIFICIL"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").value(
-                        "O nível difícil está disponível apenas para a soma e a multiplicação."));
+                        "O nível difícil está disponível apenas para a soma, a subtração "
+                                + "e a multiplicação."));
     }
 
     @Test
@@ -141,6 +153,28 @@ class JogoControllerTest {
                 .andExpect(jsonPath("$.quocienteFinal").isNumber())
                 .andExpect(jsonPath("$.subtracaoFinal").isNumber())
                 .andExpect(jsonPath("$.subtracaoIntermediaria").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Valida os empréstimos e o resultado da subtração difícil")
+    void validaSubtracaoDificil() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "SUBTRACAO",
+                  "numeroA": 5321,
+                  "numeroB": 1478,
+                  "resultadoDigitado": 3843,
+                  "emprestados": [1, 1, 1, 0]
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(3843));
     }
 
     @Test

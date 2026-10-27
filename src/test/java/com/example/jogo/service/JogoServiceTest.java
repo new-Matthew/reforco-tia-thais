@@ -112,6 +112,32 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Gera subtrações difíceis com quatro dígitos e empréstimos encadeados")
+    void geraSubtracaoDificilComEmprestimosEncadeados() {
+        for (int i = 0; i < 200; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(Operacao.SUBTRACAO, Dificuldade.DIFICIL);
+
+            assertEquals(Operacao.SUBTRACAO, questao.getOperacao());
+            assertEquals(Dificuldade.DIFICIL, questao.getDificuldade());
+            assertTrue(questao.getNumeroA() >= 1000 && questao.getNumeroA() <= 9999);
+            assertTrue(questao.getNumeroB() >= 1000 && questao.getNumeroB() <= 9999);
+            assertTrue(questao.getNumeroA() > questao.getNumeroB());
+
+            List<Integer> passos = jogoService.calcularEmprestimos(
+                    questao.getNumeroA(), questao.getNumeroB());
+            boolean temEmprestimosConsecutivos = false;
+            for (int coluna = 0; coluna + 1 < passos.size(); coluna++) {
+                if (passos.get(coluna) == 1 && passos.get(coluna + 1) == 1) {
+                    temEmprestimosConsecutivos = true;
+                    break;
+                }
+            }
+            assertTrue(temEmprestimosConsecutivos,
+                    "A subtração difícil deve encadear pelo menos dois empréstimos.");
+        }
+    }
+
+    @Test
     @DisplayName("Gera multiplicações fáceis com um dígito em cada fator")
     void geraMultiplicacaoFacilComUmDigito() {
         for (int i = 0; i < 200; i++) {
@@ -162,12 +188,15 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Rejeita o nível difícil fora da soma e da multiplicação")
-    void rejeitaNivelDificilForaDaSomaEMultiplicacao() {
-        assertThrows(IllegalArgumentException.class,
-                () -> jogoService.gerarQuestao(Operacao.SUBTRACAO, Dificuldade.DIFICIL));
-        assertThrows(IllegalArgumentException.class,
+    @DisplayName("Rejeita o nível difícil na divisão")
+    void rejeitaNivelDificilNaDivisao() {
+        IllegalArgumentException erro = assertThrows(IllegalArgumentException.class,
                 () -> jogoService.gerarQuestao(Operacao.DIVISAO, Dificuldade.DIFICIL));
+
+        assertEquals(
+                "O nível difícil está disponível apenas para a soma, a subtração "
+                        + "e a multiplicação.",
+                erro.getMessage());
     }
 
     @Test
@@ -574,6 +603,34 @@ class JogoServiceTest {
         assertTrue(resposta.isCorreto());
         assertEquals(15, resposta.getRespostaCorreta());
         assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Valida subtração difícil de quatro dígitos com empréstimos encadeados")
+    void validaSubtracaoDificilComEmprestimosEncadeados() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-subtracao-dificil", Operacao.SUBTRACAO, 5321, 1478, 3843,
+                null, List.of(1, 1, 1, 0), null);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(3843, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial na subtração difícil quando faltam empréstimos")
+    void validaSubtracaoDificilComEmprestimosIncompletos() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-subtracao-dificil-parcial", Operacao.SUBTRACAO, 5321, 1478, 3843,
+                null, List.of(1, 0, 0, 0), null);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("empréstimo"));
     }
 
     @Test
