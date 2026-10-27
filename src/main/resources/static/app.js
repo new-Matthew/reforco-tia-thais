@@ -862,18 +862,17 @@ function seletoresDicaSubtracaoDificil(modelo, alvo, emprestimos) {
     : new Set(emprestimos ?? []);
   const seletores = [
     seletorResultadoSubtracao(coluna),
-    seletorCelulaSubtracao('operandoA', coluna),
+    ativos.has(coluna)
+      ? seletorValorEmprestadoSubtracao(coluna)
+      : seletorCelulaSubtracao('operandoA', coluna),
     seletorCelulaSubtracao('operandoB', coluna),
   ];
 
   if (coluna + 1 < modelo.digitos && modelo.passos[coluna] === 1) {
     seletores.push({
-      seletor: seletorCelulaSubtracao('operandoA', coluna + 1),
-      classe: CLASSE_DICA_CARRY,
-    });
-  } else if (ativos.has(coluna)) {
-    seletores.push({
-      seletor: seletorValorEmprestadoSubtracao(coluna),
+      seletor: ativos.has(coluna + 1)
+        ? seletorValorEmprestadoSubtracao(coluna + 1)
+        : seletorCelulaSubtracao('operandoA', coluna + 1),
       classe: CLASSE_DICA_CARRY,
     });
   }

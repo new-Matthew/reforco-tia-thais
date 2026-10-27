@@ -2429,7 +2429,7 @@ test('dica da subtração difícil destaca o par e o dígito que empresta', () =
   );
 });
 
-test('dica da subtração difícil destaca o novo valor já emprestado', () => {
+test('dica da subtração difícil destaca o novo valor emprestado em âmbar', () => {
   const modelo = montarModeloSubtracaoDificil(7852, 4936);
 
   assert.deepEqual(
@@ -2440,10 +2440,48 @@ test('dica da subtração difícil destaca o novo valor já emprestado', () => {
     ),
     [
       '.resultado-input[data-coluna="1"]',
-      '.celula-digito[data-tipo="operandoA"][data-coluna="1"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
       '.celula-digito[data-tipo="operandoB"][data-coluna="1"]',
+    ],
+  );
+});
+
+test('dica da subtração difícil marca em verde o valor do dígito que já emprestou', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+
+  assert.deepEqual(
+    seletoresDicaSubtracaoDificil(
+      modelo,
+      { tipo: 'resultado', coluna: 0 },
+      new Set([1]),
+    ),
+    [
+      '.resultado-input[data-coluna="0"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="0"]',
+      '.celula-digito[data-tipo="operandoB"][data-coluna="0"]',
       {
         seletor: '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
+        classe: 'dica-ativa-carry',
+      },
+    ],
+  );
+});
+
+test('dica da subtração difícil destaca em verde o empréstimo encadeado', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+
+  assert.deepEqual(
+    seletoresDicaSubtracaoDificil(
+      modelo,
+      { tipo: 'resultado', coluna: 1 },
+      new Set([1, 2]),
+    ),
+    [
+      '.resultado-input[data-coluna="1"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
+      '.celula-digito[data-tipo="operandoB"][data-coluna="1"]',
+      {
+        seletor: '.celula-digito[data-tipo="operandoA"][data-coluna="2"] .valor-emprestado',
         classe: 'dica-ativa-carry',
       },
     ],

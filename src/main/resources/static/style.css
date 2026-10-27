@@ -1811,6 +1811,40 @@ h1 {
   background-color: #dcfce7;
 }
 
+.conta-subtracao-dificil .valor-emprestado.dica-ativa {
+  position: absolute;
+  z-index: 3;
+  transform: translateX(-50%) scale(1.08);
+  outline: 3px solid var(--dica-ambar);
+  outline-offset: 2px;
+  border-color: var(--dica-ambar);
+  background-color: #fff7d1;
+  color: var(--tinta);
+  box-shadow:
+    0 0 0 4px rgba(255, 209, 102, 0.38),
+    0 0 16px 3px rgba(255, 183, 3, 0.6);
+  font-weight: 700;
+  text-align: center;
+  animation: dica-pulsar-emprestado 1.15s ease-in-out infinite;
+}
+
+@keyframes dica-pulsar-emprestado {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+    box-shadow:
+      0 0 0 4px rgba(255, 209, 102, 0.38),
+      0 0 16px 4px rgba(255, 183, 3, 0.6);
+  }
+
+  50% {
+    transform: translateX(-50%) scale(1.08);
+    box-shadow:
+      0 0 0 7px rgba(255, 209, 102, 0.38),
+      0 0 28px 10px rgba(255, 183, 3, 0.6);
+  }
+}
+
 .conta-subtracao-dificil .valor-emprestado.dica-ativa-carry {
   position: absolute;
   z-index: 3;
