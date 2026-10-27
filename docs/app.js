@@ -102,6 +102,28 @@ const ROTULOS_DIVISAO = {
 /* Funções puras (testáveis sem DOM)                                          */
 /* ------------------------------------------------------------------------- */
 
+const TEMAS_POR_OPERACAO = {
+  SOMA: 'verde',
+  SUBTRACAO: 'azul',
+  MULTIPLICACAO: 'roxo',
+  DIVISAO: 'laranja',
+};
+
+const TEMA_OPERACAO_PADRAO = 'verde';
+
+function temaDaOperacao(operacao) {
+  return TEMAS_POR_OPERACAO[operacao] || TEMA_OPERACAO_PADRAO;
+}
+
+function aplicarTemaOperacao(operacao, raiz) {
+  const tema = temaDaOperacao(operacao);
+  const alvo = raiz || (typeof document !== 'undefined' ? document.body : null);
+  if (alvo && alvo.dataset) {
+    alvo.dataset.tema = tema;
+  }
+  return tema;
+}
+
 function digitosDe(numero) {
   return String(Math.abs(Math.trunc(numero)))
     .split('')
@@ -1185,6 +1207,7 @@ function iniciarInterface() {
   });
 
   aplicarPreferencias(estado, typeof window !== 'undefined' ? window.location.search : '');
+  aplicarTemaOperacao(estado.operacao);
   atualizarSegmentado(el.seletorOperacao, estado.operacao);
   atualizarNiveisDificuldade(estado, el);
   carregarPlacar(estado, el);
@@ -1196,6 +1219,7 @@ function iniciarInterface() {
       return;
     }
     estado.operacao = botao.dataset.operacao;
+    aplicarTemaOperacao(estado.operacao);
     atualizarSegmentado(el.seletorOperacao, estado.operacao);
     atualizarNiveisDificuldade(estado, el);
     carregarQuestao(estado, el);
@@ -3492,6 +3516,10 @@ function dispararConfete(canvas) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    TEMAS_POR_OPERACAO,
+    TEMA_OPERACAO_PADRAO,
+    temaDaOperacao,
+    aplicarTemaOperacao,
     digitosDe,
     quantidadeColunas,
     digitosDosOperandos,

@@ -14,6 +14,53 @@
   --sombra: 0 18px 40px rgba(0, 0, 0, 0.22);
   --dica-ambar: #ffb703;
   --dica-ambar-claro: #ffe8a3;
+  --tema-cor: #10b981;
+  --tema-cor-clara: #6ee7b7;
+  --tema-cor-escura: #047857;
+  --tema-texto: #04281c;
+  --tema-halo: rgba(16, 185, 129, 0.38);
+  --tema-borda: rgba(110, 231, 183, 0.5);
+  --tema-foco: rgba(16, 185, 129, 0.28);
+}
+
+body[data-tema="verde"] {
+  --tema-cor: #10b981;
+  --tema-cor-clara: #6ee7b7;
+  --tema-cor-escura: #047857;
+  --tema-texto: #04281c;
+  --tema-halo: rgba(16, 185, 129, 0.38);
+  --tema-borda: rgba(110, 231, 183, 0.5);
+  --tema-foco: rgba(16, 185, 129, 0.28);
+}
+
+body[data-tema="azul"] {
+  --tema-cor: #60a5fa;
+  --tema-cor-clara: #bfdbfe;
+  --tema-cor-escura: #2563eb;
+  --tema-texto: #062a5e;
+  --tema-halo: rgba(96, 165, 250, 0.42);
+  --tema-borda: rgba(147, 197, 253, 0.55);
+  --tema-foco: rgba(96, 165, 250, 0.3);
+}
+
+body[data-tema="roxo"] {
+  --tema-cor: #a855f7;
+  --tema-cor-clara: #d8b4fe;
+  --tema-cor-escura: #7e22ce;
+  --tema-texto: #2e1065;
+  --tema-halo: rgba(168, 85, 247, 0.42);
+  --tema-borda: rgba(216, 180, 254, 0.55);
+  --tema-foco: rgba(168, 85, 247, 0.3);
+}
+
+body[data-tema="laranja"] {
+  --tema-cor: #fb923c;
+  --tema-cor-clara: #fdba74;
+  --tema-cor-escura: #c2410c;
+  --tema-texto: #431407;
+  --tema-halo: rgba(251, 146, 60, 0.42);
+  --tema-borda: rgba(253, 186, 116, 0.55);
+  --tema-foco: rgba(251, 146, 60, 0.3);
 }
 
 * {
@@ -120,8 +167,9 @@ h1 {
   padding: 10px 18px;
   border-radius: 18px;
   background: rgba(5, 31, 74, 0.45);
-  border: 2px solid rgba(255, 255, 255, 0.24);
+  border: 2px solid var(--tema-borda);
   box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.05);
+  transition: border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
 .placar-rotulo {
@@ -136,8 +184,9 @@ h1 {
 .placar-valor {
   font-family: 'Fredoka', sans-serif;
   font-size: 1.7rem;
-  color: var(--amarelo);
+  color: var(--tema-cor-clara);
   line-height: 1.1;
+  transition: color 0.5s ease;
 }
 
 .placar-valor.pulsar {
@@ -167,8 +216,9 @@ h1 {
   padding: 16px 18px;
   border-radius: 22px;
   background: rgba(5, 31, 74, 0.42);
-  border: 2px solid rgba(255, 255, 255, 0.16);
+  border: 2px solid var(--tema-borda);
   box-shadow: inset 0 0 26px rgba(255, 255, 255, 0.05);
+  transition: border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
 .progresso-cabecalho {
@@ -194,7 +244,8 @@ h1 {
   font-size: 1rem;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--amarelo);
+  color: var(--tema-cor-clara);
+  transition: color 0.5s ease;
 }
 
 .progresso-contagem {
@@ -206,7 +257,8 @@ h1 {
 .progresso-contagem strong {
   font-family: 'Fredoka', sans-serif;
   font-size: 1.1rem;
-  color: var(--amarelo);
+  color: var(--tema-cor-clara);
+  transition: color 0.5s ease;
 }
 
 .progresso-trilha {
@@ -224,9 +276,12 @@ h1 {
   width: 0%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #ffe98a, var(--amarelo) 58%, #f5c518);
-  box-shadow: 0 0 14px rgba(255, 222, 89, 0.55);
-  transition: width 0.55s cubic-bezier(0.34, 1.4, 0.64, 1);
+  background: var(--tema-cor);
+  box-shadow: 0 0 14px var(--tema-halo);
+  transition:
+    width 0.55s cubic-bezier(0.34, 1.4, 0.64, 1),
+    background-color 0.5s ease,
+    box-shadow 0.5s ease;
 }
 
 .progresso-preenchimento::after {
@@ -296,7 +351,8 @@ h1 {
   margin-bottom: 22px;
   border-radius: 22px;
   background: rgba(5, 31, 74, 0.42);
-  border: 2px solid rgba(255, 255, 255, 0.14);
+  border: 2px solid var(--tema-borda);
+  transition: border-color 0.5s ease;
 }
 
 .grupo-controle {
@@ -337,7 +393,11 @@ h1 {
   font-weight: 800;
   line-height: 1.1;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    background-color 0.45s ease,
+    color 0.45s ease,
+    transform 0.18s ease,
+    box-shadow 0.45s ease;
 }
 
 .seg-btn b {
@@ -369,6 +429,18 @@ h1 {
   opacity: 0.85;
 }
 
+#seletor-operacao .seg-btn.ativo {
+  color: var(--tema-texto);
+  background: var(--tema-cor);
+  box-shadow:
+    0 3px 0 var(--tema-cor-escura),
+    0 0 18px var(--tema-halo);
+}
+
+#seletor-operacao .seg-btn.ativo:hover {
+  filter: brightness(1.06);
+}
+
 .seg-btn:focus-visible,
 .btn:focus-visible,
 .celula-digito:focus-visible,
@@ -387,7 +459,12 @@ h1 {
   font-size: 1rem;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.15s ease, filter 0.2s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    filter 0.2s ease,
+    background-color 0.45s ease,
+    color 0.45s ease,
+    box-shadow 0.45s ease;
 }
 
 .btn:active {
@@ -401,9 +478,9 @@ h1 {
 }
 
 .btn-primario {
-  color: var(--azul-royal);
-  background: linear-gradient(180deg, #ffe98a, var(--amarelo));
-  box-shadow: 0 5px 0 var(--amarelo-escuro);
+  color: var(--tema-texto);
+  background: var(--tema-cor);
+  box-shadow: 0 5px 0 var(--tema-cor-escura);
 }
 
 .btn-primario:hover {
@@ -429,8 +506,13 @@ h1 {
 .lousa {
   padding: 14px;
   border-radius: 30px;
+  border: 3px solid var(--tema-cor);
   background: linear-gradient(150deg, #c58a52 0%, #a86f3c 40%, #8b5a2b 100%);
-  box-shadow: var(--sombra), inset 0 2px 0 rgba(255, 255, 255, 0.35);
+  box-shadow:
+    var(--sombra),
+    0 0 0 5px var(--tema-halo),
+    inset 0 2px 0 rgba(255, 255, 255, 0.35);
+  transition: border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
 .moldura {
@@ -441,6 +523,7 @@ h1 {
   min-height: 320px;
   padding: 20px;
   border-radius: 20px;
+  border: 2px solid var(--tema-borda);
   background:
     radial-gradient(circle at 30% 16%, rgba(255, 255, 255, 0.12), transparent 55%),
     radial-gradient(circle at 80% 90%, rgba(0, 0, 0, 0.18), transparent 60%),
@@ -448,6 +531,7 @@ h1 {
   box-shadow:
     inset 0 0 70px rgba(0, 0, 0, 0.35),
     inset 0 2px 4px rgba(255, 255, 255, 0.16);
+  transition: border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
 .placeholder {
@@ -623,7 +707,8 @@ h1 {
   font-size: 1.15rem;
   font-weight: 700;
   text-align: center;
-  caret-color: var(--azul-royal);
+  caret-color: var(--tema-cor-escura);
+  transition: border-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
 }
 
 .caixa-vai-um::placeholder {
@@ -632,9 +717,9 @@ h1 {
 
 .caixa-vai-um:focus {
   border-style: solid;
-  border-color: var(--azul-royal);
+  border-color: var(--tema-cor);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(11, 60, 140, 0.18);
+  box-shadow: 0 0 0 3px var(--tema-foco);
 }
 
 .resultado-input {
@@ -648,15 +733,16 @@ h1 {
   font-size: clamp(1.5rem, 3.4vw, 1.95rem);
   font-weight: 600;
   text-align: center;
-  caret-color: var(--azul);
+  caret-color: var(--tema-cor-escura);
   box-shadow: inset 0 -3px 0 rgba(36, 59, 83, 0.08);
+  transition: border-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
 }
 
 .resultado-input:focus {
-  border-color: var(--azul);
+  border-color: var(--tema-cor);
   outline: none;
   box-shadow:
-    0 0 0 3px rgba(17, 138, 178, 0.18),
+    0 0 0 3px var(--tema-foco),
     inset 0 -3px 0 rgba(36, 59, 83, 0.08);
 }
 
@@ -839,15 +925,16 @@ h1 {
   font-size: clamp(1.5rem, 3.4vw, 1.95rem);
   font-weight: 600;
   text-align: center;
-  caret-color: var(--azul);
+  caret-color: var(--tema-cor-escura);
   box-shadow: inset 0 -3px 0 rgba(36, 59, 83, 0.08);
+  transition: border-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
 }
 
 .divisao-input:focus {
-  border-color: var(--azul);
+  border-color: var(--tema-cor);
   outline: none;
   box-shadow:
-    0 0 0 3px rgba(17, 138, 178, 0.18),
+    0 0 0 3px var(--tema-foco),
     inset 0 -3px 0 rgba(36, 59, 83, 0.08);
 }
 
@@ -1180,10 +1267,10 @@ h1 {
 
 .btn-validar {
   padding: 17px 40px;
-  color: var(--azul-royal);
+  color: var(--tema-texto);
   font-size: 1.15rem;
-  background: linear-gradient(180deg, #ffe98a, var(--amarelo));
-  box-shadow: 0 6px 0 var(--amarelo-escuro);
+  background: var(--tema-cor);
+  box-shadow: 0 6px 0 var(--tema-cor-escura);
 }
 
 .btn-validar:hover {
@@ -1247,8 +1334,8 @@ h1 {
 }
 
 .nome-input:focus {
-  border-color: var(--azul-royal);
-  outline: 3px solid rgba(11, 60, 140, 0.28);
+  border-color: var(--tema-cor);
+  outline: 3px solid var(--tema-foco);
   outline-offset: 2px;
 }
 
@@ -1296,7 +1383,8 @@ h1 {
   margin: 0 0 8px;
   font-family: 'Fredoka', sans-serif;
   font-size: 1.7rem;
-  color: var(--azul-royal);
+  color: var(--tema-cor-escura);
+  transition: color 0.5s ease;
 }
 
 .modal-mensagem {
@@ -1343,7 +1431,7 @@ h1 {
   padding: 12px 20px;
   border-radius: 999px;
   background: rgba(5, 31, 74, 0.95);
-  border: 2px solid rgba(255, 222, 89, 0.72);
+  border: 2px solid var(--tema-cor);
   color: var(--branco);
   font-size: 0.92rem;
   font-weight: 800;
@@ -1358,7 +1446,7 @@ h1 {
   width: 18px;
   height: 18px;
   border: 3px solid rgba(255, 255, 255, 0.28);
-  border-top-color: var(--amarelo);
+  border-top-color: var(--tema-cor);
   border-radius: 50%;
   animation: girar 0.8s linear infinite;
 }

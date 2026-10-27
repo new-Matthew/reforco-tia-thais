@@ -4,6 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  TEMAS_POR_OPERACAO,
+  TEMA_OPERACAO_PADRAO,
+  temaDaOperacao,
+  aplicarTemaOperacao,
   digitosDe,
   quantidadeColunas,
   quantidadeCaixasVaiUm,
@@ -92,6 +96,40 @@ const {
 } = require('../../main/resources/static/app.js');
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test('temaDaOperacao mapeia cada operação para sua cor temática', () => {
+  assert.equal(temaDaOperacao('SOMA'), 'verde');
+  assert.equal(temaDaOperacao('SUBTRACAO'), 'azul');
+  assert.equal(temaDaOperacao('MULTIPLICACAO'), 'roxo');
+  assert.equal(temaDaOperacao('DIVISAO'), 'laranja');
+});
+
+test('temaDaOperacao usa o tema verde como padrão para operações desconhecidas', () => {
+  assert.equal(temaDaOperacao('DESCONHECIDA'), TEMA_OPERACAO_PADRAO);
+  assert.equal(temaDaOperacao(undefined), TEMA_OPERACAO_PADRAO);
+  assert.equal(temaDaOperacao(null), TEMA_OPERACAO_PADRAO);
+  assert.deepEqual(Object.keys(TEMAS_POR_OPERACAO), [
+    'SOMA',
+    'SUBTRACAO',
+    'MULTIPLICACAO',
+    'DIVISAO',
+  ]);
+});
+
+test('aplicarTemaOperacao grava o tema no data attribute da raiz', () => {
+  const raiz = { dataset: {} };
+
+  assert.equal(aplicarTemaOperacao('DIVISAO', raiz), 'laranja');
+  assert.equal(raiz.dataset.tema, 'laranja');
+
+  aplicarTemaOperacao('MULTIPLICACAO', raiz);
+  assert.equal(raiz.dataset.tema, 'roxo');
+});
+
+test('aplicarTemaOperacao não falha quando a raiz não tem dataset', () => {
+  assert.equal(aplicarTemaOperacao('SUBTRACAO', {}), 'azul');
+  assert.equal(aplicarTemaOperacao('SUBTRACAO', null), 'azul');
+});
 
 test('normalizarPasso converte campos vazios e inválidos em zero', () => {
   assert.equal(normalizarPasso(''), 0);
