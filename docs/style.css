@@ -734,10 +734,10 @@ h1 {
 .resultado-input {
   width: 100%;
   height: 58px;
-  border: 3px solid #c5d8ef;
+  border: 3px solid var(--tema-borda);
   border-radius: 14px;
   background: #fff;
-  color: var(--tinta);
+  color: var(--tema-texto);
   font-family: 'Fredoka', 'Nunito', sans-serif;
   font-size: clamp(1.5rem, 3.4vw, 1.95rem);
   font-weight: 600;
@@ -873,7 +873,7 @@ h1 {
 
 .divisao-dividendo,
 .divisao-divisor {
-  color: var(--tinta);
+  color: var(--tema-texto);
   font-family: 'Fredoka', 'Nunito', sans-serif;
   font-size: clamp(2rem, 5vw, 2.9rem);
   font-weight: 600;
@@ -911,7 +911,7 @@ h1 {
   align-self: stretch;
   width: 4px;
   border-radius: 999px;
-  background: var(--tinta);
+  background: var(--tema-cor-escura);
 }
 
 .divisao-subtracao {
@@ -922,7 +922,7 @@ h1 {
 }
 
 .divisao-sinal {
-  color: var(--coral);
+  color: var(--tema-cor-escura);
   font-family: 'Fredoka', sans-serif;
   font-size: clamp(1.6rem, 3.6vw, 2.2rem);
   font-weight: 700;
@@ -941,12 +941,12 @@ h1 {
   align-items: center;
   gap: 6px;
   padding-top: 6px;
-  border-top: 4px solid var(--tinta);
+  border-top: 4px solid var(--tema-cor-escura);
 }
 
 .divisao-quociente {
   border-top-width: 3px;
-  border-top-color: #c5d8ef;
+  border-top-color: var(--tema-borda);
 }
 
 .divisao-resto {
@@ -959,17 +959,17 @@ h1 {
 
 .divisao-resto .divisao-input {
   border-top-width: 4px;
-  border-top-color: var(--tinta);
+  border-top-color: var(--tema-cor-escura);
 }
 
 .divisao-input {
   width: calc(var(--digitos-campo, 1) * 1.5ch + 22px);
   max-width: 100%;
   height: 56px;
-  border: 3px solid #c5d8ef;
+  border: 3px solid var(--tema-borda);
   border-radius: 14px;
   background: #fff;
-  color: var(--tinta);
+  color: var(--tema-texto);
   font-family: 'Fredoka', 'Nunito', sans-serif;
   font-size: clamp(1.5rem, 3.4vw, 1.95rem);
   font-weight: 600;
@@ -1062,14 +1062,15 @@ h1 {
   grid-area: parcial1;
   padding: 0 10px;
   border-radius: 14px;
-  background: rgba(17, 138, 178, 0.1);
-  box-shadow: inset 0 0 0 2px rgba(17, 138, 178, 0.16);
+  background: var(--tema-foco);
+  box-shadow: inset 0 0 0 2px var(--tema-borda);
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.divisao-parcial-etapa-1.ativa {
-  background: rgba(255, 209, 102, 0.2);
-  box-shadow: inset 0 0 0 2px rgba(212, 160, 0, 0.32);
+.divisao-parcial-etapa-1.ativa,
+.divisao-dificil .dividendo-parcial.ativa {
+  background: rgba(255, 209, 102, 0.24);
+  box-shadow: inset 0 0 0 2px rgba(212, 160, 0, 0.36);
 }
 
 .divisao-parcial-etapa-1,
@@ -1118,7 +1119,7 @@ h1 {
   justify-content: flex-end;
   gap: 6px;
   padding: 0 4px 4px 2px;
-  border-bottom: 4px solid var(--coral);
+  border-bottom: 4px solid var(--tema-cor-escura);
   border-radius: 0 0 4px 4px;
 }
 
@@ -1175,7 +1176,7 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  color: var(--azul-royal);
+  color: var(--tema-cor-escura);
   font-family: 'Fredoka', 'Nunito', sans-serif;
   font-size: clamp(1.3rem, 3vw, 1.7rem);
   font-weight: 700;
@@ -1215,9 +1216,9 @@ h1 {
   gap: 12px;
   width: min(100%, 270px);
   padding: 18px;
-  border: 3px solid #c5d8ef;
+  border: 3px solid var(--tema-borda);
   border-radius: 18px;
-  background: #f7fbff;
+  background: color-mix(in srgb, var(--tema-cor-clara) 16%, #ffffff);
   box-shadow: inset 0 -3px 0 rgba(36, 59, 83, 0.08);
 }
 
@@ -1756,6 +1757,58 @@ h1 {
   .celula-digito {
     min-height: 46px;
   }
+}
+
+/* --------------------- Divisão difícil (dinâmica) ----------------------- */
+
+.divisao-dinamica {
+  grid-template-areas: none;
+  grid-template-columns: minmax(110px, auto) 4px minmax(64px, auto);
+  grid-template-rows: auto auto;
+  gap: 8px 18px;
+}
+
+.divisao-dificil .dividendo-parcial {
+  padding: 0 10px;
+  border-radius: 14px;
+  background: var(--tema-foco);
+  box-shadow: inset 0 0 0 2px var(--tema-borda);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.divisao-dificil .divisao-subtracao,
+.divisao-dificil .divisao-linha-resto {
+  min-height: 46px;
+}
+
+.divisao-dificil .divisao-linha-resto-etapa-1,
+.divisao-dificil .divisao-linha-resto-etapa-2 {
+  justify-content: flex-end;
+}
+
+.divisao-dificil .divisao-resto-dificil {
+  padding: 0 10px;
+  text-align: right;
+}
+
+.divisao-dificil .divisao-quociente-dificil {
+  border-top-width: 3px;
+  border-top-color: var(--tema-borda);
+}
+
+.divisao-dificil .divisao-produto {
+  min-width: calc(var(--digitos-campo, 1) * 1.5ch + 16px);
+}
+
+body[data-tema="laranja"] .apoio-divisao {
+  background: #fff7ed;
+  border-color: var(--tema-borda);
+}
+
+body[data-tema="laranja"] .apoio-divisor-valor,
+body[data-tema="laranja"] .apoio-menos,
+body[data-tema="laranja"] .apoio-mais {
+  color: var(--tema-cor-escura);
 }
 
 /* --------------------- Dica progressiva (pulsante) ---------------------- */

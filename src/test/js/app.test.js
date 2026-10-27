@@ -43,6 +43,25 @@ const {
   ROTULOS_DIVISAO,
   ehDivisaoLonga,
   ehDivisaoMedia,
+  ehDivisaoDificil,
+  calcularEtapasDivisaoLonga,
+  montarModeloDivisaoLonga,
+  montarModeloDivisaoDificil,
+  modeloDivisaoDaQuestao,
+  nomesCamposEtapaDivisao,
+  ordemCamposDivisaoDificil,
+  comporQuocienteDivisaoEtapas,
+  seletorQuocienteDivisaoDificil,
+  seletorProdutoDivisaoDificil,
+  seletorRestoDivisaoDificil,
+  seletorParcialDivisaoDificil,
+  alvoDoCampoDivisaoDificil,
+  valorEsperadoDivisaoDificil,
+  alvoIncorretoDivisaoDificil,
+  seletoresDicaDivisaoDificil,
+  seletoresDicaAtualDivisaoDificil,
+  ORDEM_CAMPOS_DIVISAO_DIFICIL,
+  ESTAGIOS_MAXIMOS_DIVISAO,
   etapaDoCampoDivisao,
   alvoApoioDivisao,
   ajustarMultiplicador,
@@ -284,12 +303,12 @@ test('resolverProgresso sobe de nível ao completar cinco acertos', () => {
 });
 
 test('resolverProgresso comemora a rodada no nível máximo sem subir mais', () => {
-  const resultado = resolverProgresso(4, 'MEDIO', true, 5, 'DIVISAO');
+  const resultado = resolverProgresso(4, 'DIFICIL', true, 5, 'DIVISAO');
   assert.equal(resultado.sequencia, 0);
   assert.equal(resultado.progresso, 1);
   assert.equal(resultado.subiuNivel, false);
   assert.equal(resultado.nivelMaximo, true);
-  assert.equal(resultado.dificuldade, 'MEDIO');
+  assert.equal(resultado.dificuldade, 'DIFICIL');
 });
 
 test('montarArrayVaiUm recebe só as caixinhas internas e calcula o transporte final', () => {
@@ -1079,6 +1098,16 @@ test('aplicarPreferencias aceita divisão', () => {
   assert.equal(estado.dificuldade, 'FACIL');
 });
 
+test('aplicarPreferencias aceita a divisão difícil', () => {
+  const estado = aplicarPreferencias(
+    { operacao: 'SOMA', dificuldade: 'MEDIO' },
+    '?operacao=DIVISAO&dificuldade=DIFICIL',
+  );
+
+  assert.equal(estado.operacao, 'DIVISAO');
+  assert.equal(estado.dificuldade, 'DIFICIL');
+});
+
 test('proximoCampoDivisao segue quociente, subtração e resto', () => {
   assert.equal(proximoCampoDivisao('quociente'), 'subtracao');
   assert.equal(proximoCampoDivisao('subtracao'), 'resto');
@@ -1350,8 +1379,9 @@ test('comporQuocienteDivisaoMedia junta os dois dígitos do quociente', () => {
   assert.equal(comporQuocienteDivisaoMedia(4.5, 6), null);
 });
 
-test('ehDivisaoLonga identifica divisões de três dígitos por dois dígitos', () => {
+test('ehDivisaoLonga identifica divisões de três e quatro dígitos por dois dígitos', () => {
   assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 793, numeroB: 17 }), true);
+  assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 6898, numeroB: 15 }), true);
   assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 36, numeroB: 4 }), false);
   assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 105, numeroB: 99 }), false);
   assert.equal(ehDivisaoLonga({ operacao: 'SOMA', numeroA: 793, numeroB: 17 }), false);
@@ -1363,6 +1393,205 @@ test('ehDivisaoMedia exige a operação de divisão no nível médio', () => {
   assert.equal(ehDivisaoMedia({ operacao: 'DIVISAO', dificuldade: 'FACIL' }), false);
   assert.equal(ehDivisaoMedia({ operacao: 'SOMA', dificuldade: 'MEDIO' }), false);
   assert.equal(ehDivisaoMedia(null), false);
+});
+
+test('ehDivisaoDificil exige a operação de divisão no nível difícil', () => {
+  assert.equal(ehDivisaoDificil({ operacao: 'DIVISAO', dificuldade: 'DIFICIL' }), true);
+  assert.equal(ehDivisaoDificil({ operacao: 'DIVISAO', dificuldade: 'MEDIO' }), false);
+  assert.equal(ehDivisaoDificil({ operacao: 'SOMA', dificuldade: 'DIFICIL' }), false);
+  assert.equal(ehDivisaoDificil(null), false);
+});
+
+test('calcularEtapasDivisaoLonga monta as três etapas de 6898 por 15', () => {
+  assert.deepEqual(calcularEtapasDivisaoLonga(6898, 15), [
+    {
+      indice: 1,
+      dividendoParcial: 68,
+      quociente: 4,
+      subtracao: 60,
+      resto: 8,
+      dividendoAbaixado: 89,
+      digitos: 2,
+    },
+    {
+      indice: 2,
+      dividendoParcial: 89,
+      quociente: 5,
+      subtracao: 75,
+      resto: 14,
+      dividendoAbaixado: 148,
+      digitos: 2,
+    },
+    {
+      indice: 3,
+      dividendoParcial: 148,
+      quociente: 9,
+      subtracao: 135,
+      resto: 13,
+      dividendoAbaixado: null,
+      digitos: 3,
+    },
+  ]);
+  assert.deepEqual(calcularEtapasDivisaoLonga(0, 15), []);
+  assert.deepEqual(calcularEtapasDivisaoLonga(100, 0), []);
+});
+
+test('calcularEtapasDivisaoLonga produz duas etapas quando o divisor cabe nos três primeiros dígitos', () => {
+  const etapas = calcularEtapasDivisaoLonga(1234, 56);
+
+  assert.equal(etapas.length, 2);
+  assert.equal(etapas[0].dividendoParcial, 123);
+  assert.equal(etapas[0].dividendoAbaixado, 114);
+  assert.equal(etapas[1].dividendoParcial, 114);
+  assert.equal(etapas[1].resto, 2);
+});
+
+test('montarModeloDivisaoDificil expõe a etapa intermediária e a ordem de foco', () => {
+  const modelo = montarModeloDivisaoDificil(6898, 15);
+
+  assert.equal(modelo.quociente, 459);
+  assert.equal(modelo.resto, 13);
+  assert.equal(modelo.quocienteIntermediario, 5);
+  assert.equal(modelo.subtracaoIntermediaria, 75);
+  assert.equal(modelo.restoIntermediario, 14);
+  assert.equal(modelo.dividendoAbaixadoFinal, 148);
+  assert.equal(modelo.quocienteFinal, 9);
+  assert.equal(modelo.subtracaoFinal, 135);
+  assert.deepEqual(modelo.ordemFoco, [
+    { tipo: 'quociente', etapa: 1 },
+    { tipo: 'resto', etapa: 1 },
+    { tipo: 'quociente', etapa: 2 },
+    { tipo: 'resto', etapa: 2 },
+    { tipo: 'quociente', etapa: 3 },
+    { tipo: 'resto', etapa: 3 },
+  ]);
+});
+
+test('modeloDivisaoDaQuestao usa os números da questão de divisão', () => {
+  const modelo = modeloDivisaoDaQuestao({
+    operacao: 'DIVISAO',
+    numeroA: 6898,
+    numeroB: 15,
+  });
+
+  assert.equal(modelo.quociente, 459);
+  assert.equal(modelo.etapas.length, 3);
+  assert.equal(modeloDivisaoDaQuestao({ operacao: 'SOMA', numeroA: 2, numeroB: 3 }), null);
+});
+
+test('nomesCamposEtapaDivisao distribui início, intermediária e etapa final', () => {
+  assert.deepEqual(nomesCamposEtapaDivisao(1, 3), {
+    quociente: 'quocienteParcial',
+    subtracao: 'subtracaoParcial',
+    resto: 'restoParcial',
+  });
+  assert.deepEqual(nomesCamposEtapaDivisao(2, 3), {
+    quociente: 'quocienteIntermediario',
+    subtracao: 'subtracaoIntermediaria',
+    resto: 'restoIntermediario',
+  });
+  assert.deepEqual(nomesCamposEtapaDivisao(3, 3), {
+    quociente: 'quocienteFinal',
+    subtracao: 'subtracaoFinal',
+    resto: 'restoFinal',
+  });
+  assert.deepEqual(nomesCamposEtapaDivisao(2, 2), {
+    quociente: 'quocienteFinal',
+    subtracao: 'subtracaoFinal',
+    resto: 'restoFinal',
+  });
+});
+
+test('ordemCamposDivisaoDificil respeita a quantidade de etapas', () => {
+  assert.deepEqual(ordemCamposDivisaoDificil(2), [
+    'quocienteParcial',
+    'restoParcial',
+    'quocienteFinal',
+    'restoFinal',
+  ]);
+  assert.deepEqual(ordemCamposDivisaoDificil(3), ORDEM_CAMPOS_DIVISAO_DIFICIL);
+  assert.equal(ESTAGIOS_MAXIMOS_DIVISAO, 3);
+});
+
+test('comporQuocienteDivisaoEtapas compõe os dígitos das etapas', () => {
+  assert.equal(comporQuocienteDivisaoEtapas([4, 5, 9]), 459);
+  assert.equal(comporQuocienteDivisaoEtapas(['4', '5', '9']), 459);
+  assert.equal(comporQuocienteDivisaoEtapas([]), null);
+  assert.equal(comporQuocienteDivisaoEtapas([4, 10, 9]), null);
+  assert.equal(comporQuocienteDivisaoEtapas(null), null);
+});
+
+test('alvoDoCampoDivisaoDificil lê o tipo e a etapa do campo', () => {
+  assert.deepEqual(
+    alvoDoCampoDivisaoDificil({ dataset: { tipo: 'quociente', etapa: '2' } }),
+    { tipo: 'quociente', etapa: 2 },
+  );
+  assert.deepEqual(
+    alvoDoCampoDivisaoDificil({ dataset: { tipo: 'resto', etapa: '3' } }),
+    { tipo: 'resto', etapa: 3 },
+  );
+  assert.equal(alvoDoCampoDivisaoDificil({ dataset: { tipo: 'outro', etapa: '1' } }), null);
+  assert.equal(alvoDoCampoDivisaoDificil({ dataset: { tipo: 'resto', etapa: '0' } }), null);
+  assert.equal(alvoDoCampoDivisaoDificil(null), null);
+});
+
+test('valorEsperadoDivisaoDificil devolve o valor da etapa e do tipo', () => {
+  const modelo = montarModeloDivisaoDificil(6898, 15);
+
+  assert.equal(valorEsperadoDivisaoDificil(modelo, { tipo: 'quociente', etapa: 2 }), 5);
+  assert.equal(valorEsperadoDivisaoDificil(modelo, { tipo: 'subtracao', etapa: 3 }), 135);
+  assert.equal(valorEsperadoDivisaoDificil(modelo, { tipo: 'resto', etapa: 1 }), 8);
+  assert.equal(valorEsperadoDivisaoDificil(modelo, { tipo: 'resto', etapa: 99 }), 13);
+  assert.equal(valorEsperadoDivisaoDificil(null, { tipo: 'resto', etapa: 1 }), null);
+});
+
+test('seletoresDicaDivisaoDificil aponta para o parcial e o campo da etapa', () => {
+  const modelo = montarModeloDivisaoDificil(6898, 15);
+
+  assert.deepEqual(seletoresDicaDivisaoDificil(modelo, { tipo: 'quociente', etapa: 2 }), [
+    seletorParcialDivisaoDificil(2),
+    seletorQuocienteDivisaoDificil(2),
+  ]);
+  assert.deepEqual(seletoresDicaDivisaoDificil(modelo, { tipo: 'subtracao', etapa: 3 }), [
+    seletorParcialDivisaoDificil(3),
+    seletorProdutoDivisaoDificil(3),
+    seletorRestoDivisaoDificil(3),
+  ]);
+  assert.deepEqual(seletoresDicaDivisaoDificil(modelo, { tipo: 'resto', etapa: 1 }), [
+    seletorParcialDivisaoDificil(1),
+    seletorRestoDivisaoDificil(1),
+  ]);
+  assert.deepEqual(seletoresDicaDivisaoDificil(null, { tipo: 'resto', etapa: 1 }), []);
+});
+
+test('alvoIncorretoDivisaoDificil prioriza o primeiro resto preenchido errado', () => {
+  const modelo = montarModeloDivisaoDificil(6898, 15);
+  const el = {
+    conta: contaFalsa({
+      [seletorQuocienteDivisaoDificil(1)]: { value: '4' },
+      [seletorRestoDivisaoDificil(1)]: { value: '9', disabled: false },
+    }),
+  };
+
+  assert.deepEqual(alvoIncorretoDivisaoDificil(modelo, el), { tipo: 'resto', etapa: 1 });
+  assert.equal(alvoIncorretoDivisaoDificil(null, el), null);
+});
+
+test('seletoresDicaAtualDivisaoDificil usa a fase e a etapa em andamento', () => {
+  const modelo = montarModeloDivisaoDificil(6898, 15);
+  const estado = {
+    questao: { operacao: 'DIVISAO', dificuldade: 'DIFICIL', numeroA: 6898, numeroB: 15 },
+    divisaoDificil: { ...modelo, etapa: 2, fase: 'resto' },
+  };
+
+  assert.deepEqual(seletoresDicaAtualDivisaoDificil(estado, { conta: {} }), [
+    seletorParcialDivisaoDificil(2),
+    seletorRestoDivisaoDificil(2),
+  ]);
+  assert.deepEqual(seletoresDicaAtualDivisaoDificil({
+    questao: { operacao: 'DIVISAO', dificuldade: 'MEDIO' },
+  }, { conta: {} }), []);
+  assert.deepEqual(seletoresDicaAtualDivisaoDificil(estado, null), []);
 });
 
 test('montarRequisicao envia todas as etapas da divisão média', () => {
@@ -1400,6 +1629,42 @@ test('montarRequisicao envia todas as etapas da divisão média', () => {
     quocienteFinalDigitado: 6,
     subtracaoFinalDigitada: 102,
   });
+});
+
+test('montarRequisicao envia as listas de etapas da divisão difícil', () => {
+  const questao = {
+    id: 'id-div-dificil',
+    operacao: 'DIVISAO',
+    dificuldade: 'DIFICIL',
+    numeroA: 6898,
+    numeroB: 15,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 459,
+    quocientesParciaisDigitados: [4, 5, 9],
+    subtracoesParciaisDigitadas: [60, 75, 135],
+    restosParciaisDigitados: [8, 14, 13],
+    restoDigitado: 13,
+  });
+
+  assert.deepEqual(requisicao, {
+    idQuestao: 'id-div-dificil',
+    operacao: 'DIVISAO',
+    numeroA: 6898,
+    numeroB: 15,
+    resultadoDigitado: 459,
+    vaiUm: null,
+    emprestados: null,
+    vaiUmMultiplicacao: null,
+    subtracaoDigitada: null,
+    restoDigitado: 13,
+    quocientesParciaisDigitados: [4, 5, 9],
+    subtracoesParciaisDigitadas: [60, 75, 135],
+    restosParciaisDigitados: [8, 14, 13],
+  });
+  assert.equal('quocienteParcialDigitado' in requisicao, false);
+  assert.equal('quocienteIntermediarioDigitado' in requisicao, false);
+  assert.equal('quocienteFinalDigitado' in requisicao, false);
 });
 
 test('montarRequisicao não envia etapas médias na divisão fácil', () => {
@@ -1603,18 +1868,20 @@ test('tratarTeclaDivisao volta no Backspace vazio e confirma no Enter', () => {
   assert.equal(anteriores, 1);
 });
 
-test('o nível difícil fica disponível na soma, subtração e multiplicação', () => {
+test('o nível difícil fica disponível em todas as operações', () => {
   assert.deepEqual(niveisDificuldade('MULTIPLICACAO'), ['FACIL', 'MEDIO', 'DIFICIL']);
   assert.deepEqual(niveisDificuldade('SOMA'), ['FACIL', 'MEDIO', 'DIFICIL']);
   assert.deepEqual(niveisDificuldade('SUBTRACAO'), ['FACIL', 'MEDIO', 'DIFICIL']);
+  assert.deepEqual(niveisDificuldade('DIVISAO'), ['FACIL', 'MEDIO', 'DIFICIL']);
   assert.equal(dificuldadePermitida('DIFICIL', 'SOMA'), 'DIFICIL');
   assert.equal(dificuldadePermitida('DIFICIL', 'MULTIPLICACAO'), 'DIFICIL');
   assert.equal(dificuldadePermitida('DIFICIL', 'SUBTRACAO'), 'DIFICIL');
+  assert.equal(dificuldadePermitida('DIFICIL', 'DIVISAO'), 'DIFICIL');
   assert.equal(proximaDificuldade('MEDIO', 'SOMA'), 'DIFICIL');
   assert.equal(proximaDificuldade('MEDIO', 'MULTIPLICACAO'), 'DIFICIL');
   assert.equal(proximaDificuldade('MEDIO', 'SUBTRACAO'), 'DIFICIL');
+  assert.equal(proximaDificuldade('MEDIO', 'DIVISAO'), 'DIFICIL');
   assert.equal(proximaDificuldade('DIFICIL', 'SOMA'), null);
-  assert.equal(proximaDificuldade('MEDIO', 'DIVISAO'), null);
 });
 
 test('resolverProgresso sobe para o difícil na soma e na multiplicação', () => {
