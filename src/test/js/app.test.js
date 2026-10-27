@@ -2231,6 +2231,34 @@ test('dica da soma difícil destaca o par de operandos e o carry da coluna', () 
     [
       '.resultado-input[data-coluna="0"]',
       '.celula-digito[data-coluna="0"]',
+      { seletor: '.caixa-vai-um[data-coluna="1"]', classe: 'dica-ativa-carry' },
+    ],
+  );
+});
+
+test('dica da soma difícil destaca o carry gerado pela coluna atual', () => {
+  const modelo = montarModeloSomaDificil(4391, 1628);
+
+  assert.deepEqual(modelo.passos, [0, 1, 1, 0]);
+  assert.deepEqual(
+    seletoresDicaSomaDificil(modelo, { tipo: 'resultado', coluna: 1 }),
+    [
+      '.resultado-input[data-coluna="1"]',
+      '.celula-digito[data-coluna="1"]',
+      { seletor: '.caixa-vai-um[data-coluna="2"]', classe: 'dica-ativa-carry' },
+    ],
+  );
+});
+
+test('dica da soma difícil não destaca carry quando a coluna atual não gera transporte', () => {
+  const modelo = montarModeloSomaDificil(1234, 2345);
+
+  assert.deepEqual(modelo.passos, [0, 0, 0, 0]);
+  assert.deepEqual(
+    seletoresDicaSomaDificil(modelo, { tipo: 'resultado', coluna: 0 }),
+    [
+      '.resultado-input[data-coluna="0"]',
+      '.celula-digito[data-coluna="0"]',
     ],
   );
 });

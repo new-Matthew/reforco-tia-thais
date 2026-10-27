@@ -676,6 +676,24 @@ function resolverAlvoDicaSomaDificil(modelo, alvoFoco, preenchidos) {
     ?? modelo.ordemFoco[modelo.ordemFoco.length - 1];
 }
 
+function colunaCarryDicaSomaDificil(modelo, alvo) {
+  if (!modelo || !alvo) {
+    return null;
+  }
+
+  const coluna = Math.max(0, Math.trunc(Number(alvo.coluna) || 0));
+  if (alvo.tipo === 'vaiUm') {
+    return coluna > 0 && modelo.passos[coluna - 1] === 1 ? coluna : null;
+  }
+  if (coluna > 0 && modelo.passos[coluna - 1] === 1) {
+    return coluna;
+  }
+  if (coluna + 1 < modelo.digitos && modelo.passos[coluna] === 1) {
+    return coluna + 1;
+  }
+  return null;
+}
+
 function seletoresDicaSomaDificil(modelo, alvo) {
   if (!modelo || !alvo) {
     return [];
@@ -691,9 +709,10 @@ function seletoresDicaSomaDificil(modelo, alvo) {
   if (colunaOperando >= 0) {
     seletores.push(seletorCelulaOperandoSoma(colunaOperando));
   }
-  if (coluna > 0 && coluna < modelo.digitos && modelo.passos[coluna - 1] === 1) {
+  const carry = colunaCarryDicaSomaDificil(modelo, alvo);
+  if (carry !== null) {
     seletores.push({
-      seletor: seletorCarrySoma(coluna),
+      seletor: seletorCarrySoma(carry),
       classe: CLASSE_DICA_CARRY,
     });
   }
