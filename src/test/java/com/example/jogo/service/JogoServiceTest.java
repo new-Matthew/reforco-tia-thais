@@ -57,6 +57,31 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Gera somas difíceis com quatro dígitos e reservas encadeadas")
+    void geraSomaDificilComReservasEncadeadas() {
+        for (int i = 0; i < 200; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(Operacao.SOMA, Dificuldade.DIFICIL);
+
+            assertEquals(Operacao.SOMA, questao.getOperacao());
+            assertEquals(Dificuldade.DIFICIL, questao.getDificuldade());
+            assertTrue(questao.getNumeroA() >= 1000 && questao.getNumeroA() <= 9999);
+            assertTrue(questao.getNumeroB() >= 1000 && questao.getNumeroB() <= 9999);
+
+            List<Integer> passos = jogoService.calcularVaiUm(
+                    questao.getNumeroA(), questao.getNumeroB());
+            boolean temReservasConsecutivas = false;
+            for (int coluna = 0; coluna + 1 < passos.size(); coluna++) {
+                if (passos.get(coluna) == 1 && passos.get(coluna + 1) == 1) {
+                    temReservasConsecutivas = true;
+                    break;
+                }
+            }
+            assertTrue(temReservasConsecutivas,
+                    "A soma difícil deve encadear pelo menos duas reservas.");
+        }
+    }
+
+    @Test
     @DisplayName("Gera subtrações fáceis com A maior que B e que exigem empréstimo")
     void geraSubtracaoFacilComEmprestimo() {
         for (int i = 0; i < 200; i++) {
@@ -137,10 +162,8 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Rejeita o nível difícil fora da multiplicação")
-    void rejeitaNivelDificilForaDaMultiplicacao() {
-        assertThrows(IllegalArgumentException.class,
-                () -> jogoService.gerarQuestao(Operacao.SOMA, Dificuldade.DIFICIL));
+    @DisplayName("Rejeita o nível difícil fora da soma e da multiplicação")
+    void rejeitaNivelDificilForaDaSomaEMultiplicacao() {
         assertThrows(IllegalArgumentException.class,
                 () -> jogoService.gerarQuestao(Operacao.SUBTRACAO, Dificuldade.DIFICIL));
         assertThrows(IllegalArgumentException.class,
@@ -524,6 +547,20 @@ class JogoServiceTest {
         assertEquals(63, resposta.getRespostaCorreta());
         assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
         assertEquals("Muito bem! Você acertou em cheio!", resposta.getMensagem());
+    }
+
+    @Test
+    @DisplayName("Valida soma difícil de quatro dígitos com reservas encadeadas")
+    void validaSomaDificilComReservasEncadeadas() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-soma-dificil", Operacao.SOMA, 4978, 2354, 7332,
+                List.of(1, 1, 1, 0), null, null);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(7332, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
     }
 
     @Test

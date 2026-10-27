@@ -76,6 +76,17 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Retorna uma soma difícil no endpoint de próxima questão")
+    void retornaQuestaoDeSomaDificil() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "SOMA")
+                        .param("dificuldade", "DIFICIL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("SOMA"))
+                .andExpect(jsonPath("$.dificuldade").value("DIFICIL"));
+    }
+
+    @Test
     @DisplayName("Retorna uma multiplicação difícil no endpoint de próxima questão")
     void retornaQuestaoDeMultiplicacaoDificil() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
@@ -87,14 +98,14 @@ class JogoControllerTest {
     }
 
     @Test
-    @DisplayName("Rejeita o nível difícil em outras operações no endpoint de próxima questão")
-    void rejeitaDificuldadeDificilForaDaMultiplicacao() throws Exception {
+    @DisplayName("Rejeita o nível difícil nas demais operações no endpoint de próxima questão")
+    void rejeitaDificuldadeDificilForaDaSomaEMultiplicacao() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
-                        .param("operacao", "SOMA")
+                        .param("operacao", "SUBTRACAO")
                         .param("dificuldade", "DIFICIL"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erro").value(
-                        "O nível difícil está disponível apenas para a multiplicação."));
+                        "O nível difícil está disponível apenas para a soma e a multiplicação."));
     }
 
     @Test

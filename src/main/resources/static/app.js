@@ -58,7 +58,14 @@ const API_BASE = (typeof window !== 'undefined' && window.LOUSADA_API)
       : '/api/jogo');
 
 const DIGITOS_POR_DIFICULDADE = { FACIL: 2, MEDIO: 3, DIFICIL: 4 };
-const ROTULOS_COLUNA = ['unidades', 'dezenas', 'centenas', 'milhares'];
+const ROTULOS_COLUNA = [
+  'unidades',
+  'dezenas',
+  'centenas',
+  'milhares',
+  'dezenas de milhar',
+  'centenas de milhar',
+];
 const CHAVE_PLACAR = 'reforco-tia-thais-placar';
 const CHAVE_PLACAR_LEGADA = 'lousa-matematica-placar';
 const CHAVE_JOGADOR = 'reforco-tia-thais-jogador';
@@ -67,6 +74,7 @@ const LIMITE_AVISO_SERVIDOR = 2000;
 const META_NIVEL = 5;
 const CLASSE_DICA_CARRY = 'dica-ativa-carry';
 const NIVEIS_DIFICULDADE = ['FACIL', 'MEDIO'];
+const NIVEIS_DIFICULDADE_SOMA = ['FACIL', 'MEDIO', 'DIFICIL'];
 const NIVEIS_DIFICULDADE_MULTIPLICACAO = ['FACIL', 'MEDIO', 'DIFICIL'];
 const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio', DIFICIL: 'Difícil' };
 const ORDEM_CAMPOS_DIVISAO = ['quociente', 'subtracao', 'resto'];
@@ -549,10 +557,187 @@ function seletoresDicaAtualMultiplicacaoDificil(estado, el) {
   return seletoresDicaMultiplicacaoDificil(modelo, alvo);
 }
 
+function ehSomaDificil(questao) {
+  return Boolean(questao)
+    && questao.operacao === 'SOMA'
+    && questao.dificuldade === 'DIFICIL';
+}
+
+function montarModeloSomaDificil(numeroA, numeroB, dificuldade = 'DIFICIL') {
+  const a = Math.abs(Math.trunc(Number(numeroA) || 0));
+  const b = Math.abs(Math.trunc(Number(numeroB) || 0));
+  const digitos = digitosDosOperandos(dificuldade, 'SOMA');
+  const passos = calcularVaiUm(a, b);
+
+  return {
+    numeroA: a,
+    numeroB: b,
+    digitos,
+    passos,
+    ordemFoco: ordemFocoSoma(digitos, passos),
+  };
+}
+
+function seletorResultadoSoma(coluna) {
+  return '.resultado-input[data-coluna="' + coluna + '"]';
+}
+
+function seletorCelulaOperandoSoma(coluna) {
+  return '.celula-digito[data-coluna="' + coluna + '"]';
+}
+
+function seletorCarrySoma(coluna) {
+  return '.caixa-vai-um[data-coluna="' + coluna + '"]';
+}
+
+function seletorAlvoSoma(alvo) {
+  if (!alvo) {
+    return null;
+  }
+  return alvo.tipo === 'vaiUm'
+    ? seletorCarrySoma(alvo.coluna)
+    : seletorResultadoSoma(alvo.coluna);
+}
+
+function alvoDoCampoResultadoSoma(campo) {
+  const dados = campo && campo.dataset;
+  if (!dados) {
+    return null;
+  }
+  if (dados.tipo !== 'resultado' && dados.tipo !== 'vaiUm') {
+    return null;
+  }
+  const coluna = Number(dados.coluna);
+  if (!Number.isInteger(coluna) || coluna < 0) {
+    return null;
+  }
+  return { tipo: dados.tipo, coluna };
+}
+
+function alvoFocoAtualSomaDificil(el) {
+  const ativo = typeof document !== 'undefined' ? document.activeElement : null;
+  if (!ativo || !el || !el.conta || typeof el.conta.contains !== 'function') {
+    return null;
+  }
+  if (!el.conta.contains(ativo)) {
+    return null;
+  }
+  return alvoDoCampoResultadoSoma(ativo);
+}
+
+function valorEsperadoSomaDificil(modelo, alvo) {
+  if (!modelo || !alvo) {
+    return null;
+  }
+  if (alvo.tipo === 'vaiUm') {
+    return alvo.coluna > 0 ? modelo.passos[alvo.coluna - 1] ?? 0 : 0;
+  }
+  const total = modelo.numeroA + modelo.numeroB;
+  return Math.floor(total / (10 ** alvo.coluna)) % 10;
+}
+
+function alvoIncorretoSomaDificil(modelo, el) {
+  if (!modelo || !el || !el.conta) {
+    return null;
+  }
+  for (const alvo of modelo.ordemFoco) {
+    const campo = el.conta.querySelector(seletorAlvoSoma(alvo));
+    if (!campo) {
+      continue;
+    }
+    const valor = String(campo.value ?? '').trim();
+    if (valor === '') {
+      continue;
+    }
+    if (Number(valor) !== valorEsperadoSomaDificil(modelo, alvo)) {
+      return alvo;
+    }
+  }
+  return null;
+}
+
+function resolverAlvoDicaSomaDificil(modelo, alvoFoco, preenchidos) {
+  if (!modelo || !Array.isArray(modelo.ordemFoco) || modelo.ordemFoco.length === 0) {
+    return null;
+  }
+
+  const ocupados = preenchidos instanceof Set
+    ? preenchidos
+    : new Set(preenchidos ?? []);
+  const chavesValidas = new Set(modelo.ordemFoco.map(chaveAlvoFoco));
+  const chaveFoco = chaveAlvoFoco(alvoFoco);
+
+  if (chaveFoco && chavesValidas.has(chaveFoco) && !ocupados.has(chaveFoco)) {
+    return alvoFoco;
+  }
+
+  return primeiroItemVazioOrdem(modelo.ordemFoco, ocupados)
+    ?? modelo.ordemFoco[modelo.ordemFoco.length - 1];
+}
+
+function seletoresDicaSomaDificil(modelo, alvo) {
+  if (!modelo || !alvo) {
+    return [];
+  }
+
+  const coluna = Math.max(0, Math.trunc(Number(alvo.coluna) || 0));
+  const colunaOperando = Math.min(coluna, modelo.digitos - 1);
+  const seletores = [];
+
+  if (alvo.tipo === 'resultado') {
+    seletores.push(seletorResultadoSoma(coluna));
+  }
+  if (colunaOperando >= 0) {
+    seletores.push(seletorCelulaOperandoSoma(colunaOperando));
+  }
+  if (coluna > 0 && coluna < modelo.digitos && modelo.passos[coluna - 1] === 1) {
+    seletores.push({
+      seletor: seletorCarrySoma(coluna),
+      classe: CLASSE_DICA_CARRY,
+    });
+  }
+
+  return seletores;
+}
+
+function seletoresDicaAtualSomaDificil(estado, el) {
+  if (!ehSomaDificil(estado && estado.questao)) {
+    return [];
+  }
+  const modelo = estado.somaDificil;
+  if (!modelo || !el || !el.conta) {
+    return [];
+  }
+
+  const preenchidos = preenchidosNaOrdem(el, modelo.ordemFoco);
+  let alvo = resolverAlvoDicaSomaDificil(
+    modelo,
+    alvoFocoAtualSomaDificil(el),
+    preenchidos,
+  );
+
+  if (estado.questaoRespondida) {
+    alvo = alvoIncorretoSomaDificil(modelo, el) ?? alvo;
+  }
+
+  return seletoresDicaSomaDificil(modelo, alvo);
+}
+
+function seletoresDicaAtual(estado, el) {
+  if (ehMultiplicacaoDificil(estado && estado.questao)) {
+    return seletoresDicaAtualMultiplicacaoDificil(estado, el);
+  }
+  if (ehSomaDificil(estado && estado.questao)) {
+    return seletoresDicaAtualSomaDificil(estado, el);
+  }
+  return [];
+}
+
 /*
 - Só existem caixinhas de "vai um" entre as colunas dos operandos: uma acima
-- das dezenas (2 dígitos) ou duas, acima das dezenas e das centenas (3 dígitos).
-- O transporte final, que vira o dígito extra do resultado, é calculado sozinho.
+- das dezenas (2 dígitos), duas acima das dezenas e centenas (3 dígitos) ou
+- três acima das dezenas, centenas e milhares (4 dígitos). O transporte final,
+- que vira o dígito extra do resultado, é calculado sozinho.
  */
 function quantidadeCaixasVaiUm(dificuldade) {
   const digitos = DIGITOS_POR_DIFICULDADE[dificuldade];
@@ -563,9 +748,13 @@ function quantidadeCaixasVaiUm(dificuldade) {
 }
 
 function niveisDificuldade(operacao) {
-  return operacao === 'MULTIPLICACAO'
-    ? NIVEIS_DIFICULDADE_MULTIPLICACAO
-    : NIVEIS_DIFICULDADE;
+  if (operacao === 'MULTIPLICACAO') {
+    return NIVEIS_DIFICULDADE_MULTIPLICACAO;
+  }
+  if (operacao === 'SOMA') {
+    return NIVEIS_DIFICULDADE_SOMA;
+  }
+  return NIVEIS_DIFICULDADE;
 }
 
 function proximaDificuldade(dificuldade, operacao = 'SOMA') {
@@ -1196,6 +1385,7 @@ function iniciarInterface() {
     questaoRespondida: false,
     pedido: 0,
     multiplicacaoDificil: null,
+    somaDificil: null,
     dicaProgressiva: null,
     avisoServidor: criarAvisoServidor(el),
   };
@@ -1203,7 +1393,7 @@ function iniciarInterface() {
   estado.dicaProgressiva = criarDicaProgressiva({
     raiz: el.conta,
     tempoInatividade: TEMPO_INATIVIDADE_DICA,
-    obterSeletores: () => seletoresDicaAtualMultiplicacaoDificil(estado, el),
+    obterSeletores: () => seletoresDicaAtual(estado, el),
   });
 
   aplicarPreferencias(estado, typeof window !== 'undefined' ? window.location.search : '');
@@ -1282,8 +1472,10 @@ function aplicarPreferencias(estado, busca) {
     || operacao === 'DIVISAO') {
     estado.operacao = operacao;
   }
+  const aceitaDificil = estado.operacao === 'SOMA'
+    || estado.operacao === 'MULTIPLICACAO';
   if (dificuldade === 'FACIL' || dificuldade === 'MEDIO'
-    || (dificuldade === 'DIFICIL' && estado.operacao === 'MULTIPLICACAO')) {
+    || (dificuldade === 'DIFICIL' && aceitaDificil)) {
     estado.dificuldade = dificuldade;
   }
   return estado;
@@ -1414,6 +1606,7 @@ async function carregarQuestao(estado, el) {
     estado.questao = await resposta.json();
     estado.emprestimos = new Set();
     estado.multiplicacaoDificil = null;
+    estado.somaDificil = null;
     estado.progresso = calcularProgresso(estado.sequencia);
     esconderPlaceholder(el);
     atualizarBarraProgresso(estado, el);
@@ -1427,6 +1620,7 @@ async function carregarQuestao(estado, el) {
     }
     estado.questao = null;
     estado.multiplicacaoDificil = null;
+    estado.somaDificil = null;
     mostrarPlaceholder(
       el,
       'Não consegui carregar a questão. O servidor está rodando na porta 8080?',
@@ -1459,6 +1653,9 @@ function renderConta(estado, el) {
   const questao = estado.questao;
   const divisao = questao.operacao === 'DIVISAO';
   const multiplicacaoDificil = ehMultiplicacaoDificil(questao);
+  estado.somaDificil = ehSomaDificil(questao)
+    ? montarModeloSomaDificil(questao.numeroA, questao.numeroB, questao.dificuldade)
+    : null;
   el.conta.classList.toggle('conta-divisao', divisao);
   el.conta.classList.toggle('conta-multiplicacao-dificil', multiplicacaoDificil);
   if (divisao) {
@@ -1532,7 +1729,7 @@ function renderConta(estado, el) {
   const valoresB = digitosDe(questao.numeroB);
   for (let indice = 0; indice < digitosB; indice += 1) {
     el.conta.appendChild(
-      criarCelulaOperandoB(valoresB[indice] ?? 0, colunaDaGrade(indice)),
+      criarCelulaOperandoB(valoresB[indice] ?? 0, colunaDaGrade(indice), indice),
     );
   }
 
@@ -1832,6 +2029,7 @@ function criarCaixaVaiUmSoma(indice, colunaGrade, el, ordemFoco) {
   const caixa = document.createElement('input');
   caixa.type = 'text';
   caixa.className = 'caixa-vai-um';
+  caixa.dataset.tipo = 'vaiUm';
   caixa.dataset.coluna = String(indice);
   caixa.maxLength = 1;
   caixa.inputMode = 'numeric';
@@ -1955,9 +2153,12 @@ function criarCelulaOperandoA(indice, digito, colunaGrade, podeEmprestar, estado
   return celula;
 }
 
-function criarCelulaOperandoB(digito, colunaGrade) {
+function criarCelulaOperandoB(digito, colunaGrade, indice) {
   const celula = document.createElement('div');
   celula.className = 'celula-digito';
+  if (Number.isInteger(indice)) {
+    celula.dataset.coluna = String(indice);
+  }
   celula.style.gridColumn = String(colunaGrade);
   celula.style.gridRow = '3';
 
@@ -2063,6 +2264,7 @@ function criarCampoResultado(indice, colunaGrade, contexto) {
   const campo = document.createElement('input');
   campo.type = 'text';
   campo.className = 'resultado-input';
+  campo.dataset.tipo = 'resultado';
   campo.dataset.coluna = String(indice);
   campo.maxLength = 1;
   campo.inputMode = 'numeric';
@@ -3540,6 +3742,15 @@ if (typeof module !== 'undefined' && module.exports) {
     resolverAlvoDicaMultiplicacaoDificil,
     alvoDoCampoMultiplicacaoDificil,
     seletoresDicaAtualMultiplicacaoDificil,
+    ehSomaDificil,
+    montarModeloSomaDificil,
+    seletoresDicaSomaDificil,
+    resolverAlvoDicaSomaDificil,
+    alvoDoCampoResultadoSoma,
+    valorEsperadoSomaDificil,
+    alvoIncorretoSomaDificil,
+    seletoresDicaAtualSomaDificil,
+    seletoresDicaAtual,
     TEMPO_INATIVIDADE_DICA,
     CLASSE_DICA_CARRY,
     LINHAS_MULTIPLICACAO_DIFICIL,

@@ -54,9 +54,11 @@ public class JogoService {
         if (dificuldade == null) {
             throw new IllegalArgumentException("A dificuldade é obrigatória.");
         }
-        if (dificuldade == Dificuldade.DIFICIL && operacao != Operacao.MULTIPLICACAO) {
+        if (dificuldade == Dificuldade.DIFICIL
+                && operacao != Operacao.MULTIPLICACAO
+                && operacao != Operacao.SOMA) {
             throw new IllegalArgumentException(
-                    "O nível difícil está disponível apenas para a multiplicação.");
+                    "O nível difícil está disponível apenas para a soma e a multiplicação.");
         }
 
         return switch (operacao) {
@@ -267,10 +269,24 @@ public class JogoService {
                 () -> {
                     int numeroA = sortear(minimo, maximo);
                     int numeroB = sortear(minimo, maximo);
-                    return exigeVaiUm(numeroA, numeroB)
+                    boolean reservasValidas = dificuldade == Dificuldade.DIFICIL
+                            ? exigeVaiUmEncadeado(numeroA, numeroB)
+                            : exigeVaiUm(numeroA, numeroB);
+                    return reservasValidas
                             ? novaQuestao(operacao, dificuldade, numeroA, numeroB)
                             : null;
                 });
+    }
+
+    private boolean exigeVaiUmEncadeado(int numeroA, int numeroB) {
+        List<Integer> passos = calcularVaiUm(numeroA, numeroB);
+
+        for (int coluna = 0; coluna + 1 < passos.size(); coluna += 1) {
+            if (passos.get(coluna) == 1 && passos.get(coluna + 1) == 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private QuestaoDTO gerarSubtracao(Operacao operacao, Dificuldade dificuldade) {

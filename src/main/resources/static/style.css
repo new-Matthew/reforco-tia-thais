@@ -596,6 +596,10 @@ h1 {
   font-size: clamp(1.9rem, 4.6vw, 2.7rem);
   font-weight: 600;
   line-height: 1;
+  transition:
+    background-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
 }
 
 .digito {
@@ -708,7 +712,12 @@ h1 {
   font-weight: 700;
   text-align: center;
   caret-color: var(--tema-cor-escura);
-  transition: border-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
+  transition:
+    border-color 0.35s ease,
+    color 0.35s ease,
+    box-shadow 0.35s ease,
+    background-color 0.22s ease,
+    transform 0.22s ease;
 }
 
 .caixa-vai-um::placeholder {
@@ -735,7 +744,12 @@ h1 {
   text-align: center;
   caret-color: var(--tema-cor-escura);
   box-shadow: inset 0 -3px 0 rgba(36, 59, 83, 0.08);
-  transition: border-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
+  transition:
+    border-color 0.35s ease,
+    color 0.35s ease,
+    box-shadow 0.35s ease,
+    background-color 0.22s ease,
+    transform 0.22s ease;
 }
 
 .resultado-input:focus {
@@ -927,7 +941,12 @@ h1 {
   text-align: center;
   caret-color: var(--tema-cor-escura);
   box-shadow: inset 0 -3px 0 rgba(36, 59, 83, 0.08);
-  transition: border-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
+  transition:
+    border-color 0.35s ease,
+    color 0.35s ease,
+    box-shadow 0.35s ease,
+    background-color 0.22s ease,
+    transform 0.22s ease;
 }
 
 .divisao-input:focus {
@@ -1695,9 +1714,15 @@ h1 {
 
 /* --------------------- Dica progressiva (pulsante) ---------------------- */
 
+.celula-digito.dica-ativa,
+.resultado-input.dica-ativa,
+.caixa-vai-um.dica-ativa,
 .celula-multiplicacao-dificil.dica-ativa,
 .resultado-input-dificil.dica-ativa,
 .caixa-vai-um-dificil.dica-ativa,
+.celula-digito.dica-ativa-carry,
+.resultado-input.dica-ativa-carry,
+.caixa-vai-um.dica-ativa-carry,
 .celula-multiplicacao-dificil.dica-ativa-carry,
 .resultado-input-dificil.dica-ativa-carry,
 .caixa-vai-um-dificil.dica-ativa-carry {
@@ -1718,14 +1743,19 @@ h1 {
   transform-origin: center;
 }
 
+.caixa-vai-um.dica-ativa,
 .caixa-vai-um-dificil.dica-ativa {
   background-color: var(--dica-ambar-claro);
 }
 
+.celula-digito.dica-ativa,
 .celula-multiplicacao-dificil.dica-ativa {
   border-radius: 14px;
 }
 
+.celula-digito.dica-ativa-carry,
+.resultado-input.dica-ativa-carry,
+.caixa-vai-um.dica-ativa-carry,
 .celula-multiplicacao-dificil.dica-ativa-carry,
 .resultado-input-dificil.dica-ativa-carry,
 .caixa-vai-um-dificil.dica-ativa-carry {

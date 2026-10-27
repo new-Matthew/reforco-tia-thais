@@ -89,6 +89,15 @@ const {
   resolverAlvoDicaMultiplicacaoDificil,
   alvoDoCampoMultiplicacaoDificil,
   seletoresDicaAtualMultiplicacaoDificil,
+  ehSomaDificil,
+  montarModeloSomaDificil,
+  seletoresDicaSomaDificil,
+  resolverAlvoDicaSomaDificil,
+  alvoDoCampoResultadoSoma,
+  valorEsperadoSomaDificil,
+  alvoIncorretoSomaDificil,
+  seletoresDicaAtualSomaDificil,
+  seletoresDicaAtual,
   TEMPO_INATIVIDADE_DICA,
   CLASSE_DICA_CARRY,
   LINHAS_MULTIPLICACAO_DIFICIL,
@@ -215,12 +224,15 @@ test('quantidadeColunas rejeita dificuldade desconhecida', () => {
 test('quantidadeCaixasVaiUm só cria caixinhas entre as colunas dos operandos', () => {
   assert.equal(quantidadeCaixasVaiUm('FACIL'), 1);
   assert.equal(quantidadeCaixasVaiUm('MEDIO'), 2);
+  assert.equal(quantidadeCaixasVaiUm('DIFICIL'), 3);
   assert.throws(() => quantidadeCaixasVaiUm('IMPOSSIVEL'), /Dificuldade inválida/);
 });
 
-test('proximaDificuldade avança do fácil para o médio e para no topo', () => {
+test('proximaDificuldade percorre os níveis disponíveis e para no topo', () => {
   assert.equal(proximaDificuldade('FACIL'), 'MEDIO');
-  assert.equal(proximaDificuldade('MEDIO'), null);
+  assert.equal(proximaDificuldade('MEDIO'), 'DIFICIL');
+  assert.equal(proximaDificuldade('DIFICIL'), null);
+  assert.equal(proximaDificuldade('MEDIO', 'SUBTRACAO'), null);
   assert.throws(() => proximaDificuldade('IMPOSSIVEL'), /Dificuldade inválida/);
 });
 
@@ -261,7 +273,7 @@ test('resolverProgresso sobe de nível ao completar cinco acertos', () => {
 });
 
 test('resolverProgresso comemora a rodada no nível máximo sem subir mais', () => {
-  const resultado = resolverProgresso(4, 'MEDIO', true);
+  const resultado = resolverProgresso(4, 'MEDIO', true, 5, 'SUBTRACAO');
   assert.equal(resultado.sequencia, 0);
   assert.equal(resultado.progresso, 1);
   assert.equal(resultado.subiuNivel, false);
@@ -1580,24 +1592,31 @@ test('tratarTeclaDivisao volta no Backspace vazio e confirma no Enter', () => {
   assert.equal(anteriores, 1);
 });
 
-test('o nível difícil fica disponível apenas para a multiplicação', () => {
+test('o nível difícil fica disponível apenas para a soma e a multiplicação', () => {
   assert.deepEqual(niveisDificuldade('MULTIPLICACAO'), ['FACIL', 'MEDIO', 'DIFICIL']);
-  assert.deepEqual(niveisDificuldade('SOMA'), ['FACIL', 'MEDIO']);
-  assert.equal(dificuldadePermitida('DIFICIL', 'SOMA'), 'MEDIO');
+  assert.deepEqual(niveisDificuldade('SOMA'), ['FACIL', 'MEDIO', 'DIFICIL']);
+  assert.deepEqual(niveisDificuldade('SUBTRACAO'), ['FACIL', 'MEDIO']);
+  assert.equal(dificuldadePermitida('DIFICIL', 'SOMA'), 'DIFICIL');
   assert.equal(dificuldadePermitida('DIFICIL', 'MULTIPLICACAO'), 'DIFICIL');
+  assert.equal(dificuldadePermitida('DIFICIL', 'SUBTRACAO'), 'MEDIO');
+  assert.equal(proximaDificuldade('MEDIO', 'SOMA'), 'DIFICIL');
   assert.equal(proximaDificuldade('MEDIO', 'MULTIPLICACAO'), 'DIFICIL');
-  assert.equal(proximaDificuldade('DIFICIL', 'MULTIPLICACAO'), null);
+  assert.equal(proximaDificuldade('DIFICIL', 'SOMA'), null);
   assert.equal(proximaDificuldade('MEDIO', 'DIVISAO'), null);
 });
 
-test('resolverProgresso sobe para o difícil somente na multiplicação', () => {
+test('resolverProgresso sobe para o difícil na soma e na multiplicação', () => {
   const multiplicacao = resolverProgresso(4, 'MEDIO', true, 5, 'MULTIPLICACAO');
   assert.equal(multiplicacao.dificuldade, 'DIFICIL');
   assert.equal(multiplicacao.subiuNivel, true);
 
   const soma = resolverProgresso(4, 'MEDIO', true, 5, 'SOMA');
-  assert.equal(soma.dificuldade, 'MEDIO');
-  assert.equal(soma.nivelMaximo, true);
+  assert.equal(soma.dificuldade, 'DIFICIL');
+  assert.equal(soma.subiuNivel, true);
+
+  const somaMaxima = resolverProgresso(4, 'DIFICIL', true, 5, 'SOMA');
+  assert.equal(somaMaxima.dificuldade, 'DIFICIL');
+  assert.equal(somaMaxima.nivelMaximo, true);
 });
 
 test('multiplicação difícil usa três dígitos no multiplicando e dois no multiplicador', () => {
@@ -1828,7 +1847,7 @@ test('multiplicação difícil sem transporte pula direto para a coluna seguinte
   assert.equal(ordem.some((alvo) => alvo.linha === 'carryUnidade'), false);
 });
 
-test('aplicarPreferencias aceita o nível difícil apenas na multiplicação', () => {
+test('aplicarPreferencias aceita o nível difícil na soma e na multiplicação', () => {
   assert.deepEqual(
     aplicarPreferencias(
       { operacao: 'SOMA', dificuldade: 'FACIL' },
@@ -1841,7 +1860,14 @@ test('aplicarPreferencias aceita o nível difícil apenas na multiplicação', (
       { operacao: 'SOMA', dificuldade: 'FACIL' },
       '?operacao=SOMA&dificuldade=DIFICIL',
     ),
-    { operacao: 'SOMA', dificuldade: 'FACIL' },
+    { operacao: 'SOMA', dificuldade: 'DIFICIL' },
+  );
+  assert.deepEqual(
+    aplicarPreferencias(
+      { operacao: 'SOMA', dificuldade: 'FACIL' },
+      '?operacao=SUBTRACAO&dificuldade=DIFICIL',
+    ),
+    { operacao: 'SUBTRACAO', dificuldade: 'FACIL' },
   );
 });
 
@@ -2145,6 +2171,161 @@ test('seletoresDicaAtualMultiplicacaoDificil ignora outras operações', () => {
   assert.deepEqual(
     seletoresDicaAtualMultiplicacaoDificil(
       { questao: { operacao: 'MULTIPLICACAO', dificuldade: 'MEDIO' } },
+      el,
+    ),
+    [],
+  );
+});
+
+test('ehSomaDificil identifica somente a soma no nível difícil', () => {
+  assert.equal(ehSomaDificil({ operacao: 'SOMA', dificuldade: 'DIFICIL' }), true);
+  assert.equal(ehSomaDificil({ operacao: 'SOMA', dificuldade: 'MEDIO' }), false);
+  assert.equal(
+    ehSomaDificil({ operacao: 'MULTIPLICACAO', dificuldade: 'DIFICIL' }),
+    false,
+  );
+  assert.equal(ehSomaDificil(null), false);
+});
+
+test('montarModeloSomaDificil prepara quatro colunas e os carries do topo', () => {
+  const modelo = montarModeloSomaDificil(4978, 2354);
+
+  assert.equal(modelo.digitos, 4);
+  assert.deepEqual(modelo.passos.slice(0, 4), [1, 1, 1, 0]);
+  assert.deepEqual(modelo.ordemFoco, [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'vaiUm', coluna: 1 },
+    { tipo: 'resultado', coluna: 1 },
+    { tipo: 'vaiUm', coluna: 2 },
+    { tipo: 'resultado', coluna: 2 },
+    { tipo: 'vaiUm', coluna: 3 },
+    { tipo: 'resultado', coluna: 3 },
+  ]);
+});
+
+test('dica da soma difícil destaca o par de operandos e o carry da coluna', () => {
+  const modelo = montarModeloSomaDificil(4978, 2354);
+
+  assert.deepEqual(
+    seletoresDicaSomaDificil(modelo, { tipo: 'resultado', coluna: 1 }),
+    [
+      '.resultado-input[data-coluna="1"]',
+      '.celula-digito[data-coluna="1"]',
+      { seletor: '.caixa-vai-um[data-coluna="1"]', classe: 'dica-ativa-carry' },
+    ],
+  );
+  assert.deepEqual(
+    seletoresDicaSomaDificil(modelo, { tipo: 'resultado', coluna: 0 }),
+    [
+      '.resultado-input[data-coluna="0"]',
+      '.celula-digito[data-coluna="0"]',
+    ],
+  );
+});
+
+test('dica da soma difícil destaca o carry sem repetir o campo de resultado', () => {
+  const modelo = montarModeloSomaDificil(4978, 2354);
+
+  assert.deepEqual(
+    seletoresDicaSomaDificil(modelo, { tipo: 'vaiUm', coluna: 2 }),
+    [
+      '.celula-digito[data-coluna="2"]',
+      { seletor: '.caixa-vai-um[data-coluna="2"]', classe: 'dica-ativa-carry' },
+    ],
+  );
+});
+
+test('valorEsperadoSomaDificil calcula resultado e reserva de cada coluna', () => {
+  const modelo = montarModeloSomaDificil(4978, 2354);
+
+  assert.equal(valorEsperadoSomaDificil(modelo, { tipo: 'resultado', coluna: 0 }), 2);
+  assert.equal(valorEsperadoSomaDificil(modelo, { tipo: 'resultado', coluna: 3 }), 7);
+  assert.equal(valorEsperadoSomaDificil(modelo, { tipo: 'vaiUm', coluna: 1 }), 1);
+  assert.equal(valorEsperadoSomaDificil(modelo, { tipo: 'vaiUm', coluna: 3 }), 1);
+});
+
+test('alvoIncorretoSomaDificil encontra a primeira coluna preenchida errada', () => {
+  const modelo = montarModeloSomaDificil(4978, 2354);
+  const valores = {
+    '.resultado-input[data-coluna="0"]': '2',
+    '.caixa-vai-um[data-coluna="1"]': '1',
+    '.resultado-input[data-coluna="1"]': '4',
+  };
+  const el = {
+    conta: {
+      querySelector(seletor) {
+        return Object.prototype.hasOwnProperty.call(valores, seletor)
+          ? { value: valores[seletor] }
+          : null;
+      },
+    },
+  };
+
+  assert.deepEqual(
+    alvoIncorretoSomaDificil(modelo, el),
+    { tipo: 'resultado', coluna: 1 },
+  );
+});
+
+test('alvoDoCampoResultadoSoma lê o tipo e a coluna do campo focado', () => {
+  assert.deepEqual(
+    alvoDoCampoResultadoSoma({ dataset: { tipo: 'resultado', coluna: '2' } }),
+    { tipo: 'resultado', coluna: 2 },
+  );
+  assert.deepEqual(
+    alvoDoCampoResultadoSoma({ dataset: { tipo: 'vaiUm', coluna: '1' } }),
+    { tipo: 'vaiUm', coluna: 1 },
+  );
+  assert.equal(alvoDoCampoResultadoSoma({ dataset: { tipo: 'outro', coluna: '1' } }), null);
+  assert.equal(alvoDoCampoResultadoSoma({ dataset: { tipo: 'resultado', coluna: 'x' } }), null);
+  assert.equal(alvoDoCampoResultadoSoma(null), null);
+});
+
+test('resolverAlvoDicaSomaDificil prioriza o foco vazio e depois o primeiro passo vazio', () => {
+  const modelo = montarModeloSomaDificil(4978, 2354);
+  const primeiro = modelo.ordemFoco[0];
+  const segundo = modelo.ordemFoco[1];
+
+  assert.deepEqual(resolverAlvoDicaSomaDificil(modelo, primeiro, new Set()), primeiro);
+  assert.deepEqual(
+    resolverAlvoDicaSomaDificil(modelo, primeiro, new Set(['resultado:0'])),
+    segundo,
+  );
+});
+
+test('seletoresDicaAtual direciona a dica para a soma difícil e ignora as demais', () => {
+  const modelo = montarModeloSomaDificil(4978, 2354);
+  const el = {
+    conta: {
+      querySelector() {
+        return null;
+      },
+    },
+  };
+  const estado = {
+    questao: { operacao: 'SOMA', dificuldade: 'DIFICIL' },
+    somaDificil: modelo,
+    questaoRespondida: false,
+  };
+
+  assert.deepEqual(
+    seletoresDicaAtualSomaDificil(estado, el),
+    seletoresDicaSomaDificil(modelo, modelo.ordemFoco[0]),
+  );
+  assert.deepEqual(
+    seletoresDicaAtual(estado, el),
+    seletoresDicaSomaDificil(modelo, modelo.ordemFoco[0]),
+  );
+  assert.deepEqual(
+    seletoresDicaAtual(
+      { questao: { operacao: 'SOMA', dificuldade: 'MEDIO' }, somaDificil: modelo },
+      el,
+    ),
+    [],
+  );
+  assert.deepEqual(
+    seletoresDicaAtual(
+      { questao: { operacao: 'SUBTRACAO', dificuldade: 'FACIL' } },
       el,
     ),
     [],
