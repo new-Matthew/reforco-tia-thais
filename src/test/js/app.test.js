@@ -2412,7 +2412,7 @@ test('montarModeloSubtracaoDificil prepara quatro colunas e empréstimos encadea
   ]);
 });
 
-test('dica da subtração difícil destaca o par e o dígito que empresta', () => {
+test('dica da subtração difícil destaca apenas a coluna atual', () => {
   const modelo = montarModeloSubtracaoDificil(5321, 1478);
 
   assert.deepEqual(
@@ -2421,10 +2421,6 @@ test('dica da subtração difícil destaca o par e o dígito que empresta', () =
       '.resultado-input[data-coluna="0"]',
       '.celula-digito[data-tipo="operandoA"][data-coluna="0"]',
       '.celula-digito[data-tipo="operandoB"][data-coluna="0"]',
-      {
-        seletor: '.celula-digito[data-tipo="operandoA"][data-coluna="1"]',
-        classe: 'dica-ativa-carry',
-      },
     ],
   );
 });
@@ -2446,7 +2442,7 @@ test('dica da subtração difícil destaca o novo valor emprestado em âmbar', (
   );
 });
 
-test('dica da subtração difícil marca em verde o valor do dígito que já emprestou', () => {
+test('dica da subtração difícil ignora a coluna vizinha que já emprestou', () => {
   const modelo = montarModeloSubtracaoDificil(5321, 1478);
 
   assert.deepEqual(
@@ -2459,15 +2455,11 @@ test('dica da subtração difícil marca em verde o valor do dígito que já emp
       '.resultado-input[data-coluna="0"]',
       '.celula-digito[data-tipo="operandoA"][data-coluna="0"]',
       '.celula-digito[data-tipo="operandoB"][data-coluna="0"]',
-      {
-        seletor: '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
-        classe: 'dica-ativa-carry',
-      },
     ],
   );
 });
 
-test('dica da subtração difícil destaca em verde o empréstimo encadeado', () => {
+test('dica da subtração difícil mantém o empréstimo encadeado na coluna atual', () => {
   const modelo = montarModeloSubtracaoDificil(5321, 1478);
 
   assert.deepEqual(
@@ -2480,12 +2472,27 @@ test('dica da subtração difícil destaca em verde o empréstimo encadeado', ()
       '.resultado-input[data-coluna="1"]',
       '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
       '.celula-digito[data-tipo="operandoB"][data-coluna="1"]',
-      {
-        seletor: '.celula-digito[data-tipo="operandoA"][data-coluna="2"] .valor-emprestado',
-        classe: 'dica-ativa-carry',
-      },
     ],
   );
+});
+
+test('dica da subtração difícil não avança para a próxima coluna', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+
+  for (let coluna = 0; coluna < modelo.digitos; coluna += 1) {
+    const seletores = seletoresDicaSubtracaoDificil(
+      modelo,
+      { tipo: 'resultado', coluna },
+      new Set([1, 2, 3]),
+    );
+
+    assert.equal(seletores.length, 3);
+    assert.equal(seletores.every((seletor) => typeof seletor === 'string'), true);
+    assert.equal(
+      seletores.every((seletor) => seletor.includes('[data-coluna="' + coluna + '"]')),
+      true,
+    );
+  }
 });
 
 test('valorEsperadoSubtracaoDificil calcula cada coluna do resultado', () => {

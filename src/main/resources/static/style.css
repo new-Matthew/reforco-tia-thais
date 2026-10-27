@@ -1845,21 +1845,6 @@ h1 {
   }
 }
 
-.conta-subtracao-dificil .valor-emprestado.dica-ativa-carry {
-  position: absolute;
-  z-index: 3;
-  transform: translateX(-50%) scale(1.08);
-  outline: 3px solid #16a34a;
-  outline-offset: 2px;
-  border-color: #16a34a;
-  background-color: #dcfce7;
-  color: #14532d;
-  box-shadow:
-    0 0 0 4px rgba(34, 197, 94, 0.28),
-    0 0 16px 3px rgba(22, 163, 74, 0.5);
-  animation: none;
-}
-
 @keyframes dica-pulsar {
   0%,
   100% {
