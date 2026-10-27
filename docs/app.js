@@ -75,6 +75,7 @@ const META_NIVEL = 5;
 const CLASSE_DICA_CARRY = 'dica-ativa-carry';
 const NIVEIS_DIFICULDADE = ['FACIL', 'MEDIO'];
 const NIVEIS_DIFICULDADE_SOMA = ['FACIL', 'MEDIO', 'DIFICIL'];
+const NIVEIS_DIFICULDADE_SUBTRACAO = ['FACIL', 'MEDIO', 'DIFICIL'];
 const NIVEIS_DIFICULDADE_MULTIPLICACAO = ['FACIL', 'MEDIO', 'DIFICIL'];
 const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio', DIFICIL: 'Difícil' };
 const ORDEM_CAMPOS_DIVISAO = ['quociente', 'subtracao', 'resto'];
@@ -723,12 +724,176 @@ function seletoresDicaAtualSomaDificil(estado, el) {
   return seletoresDicaSomaDificil(modelo, alvo);
 }
 
+function ehSubtracaoDificil(questao) {
+  return Boolean(questao)
+    && questao.operacao === 'SUBTRACAO'
+    && questao.dificuldade === 'DIFICIL';
+}
+
+function ordemFocoSubtracaoDificil(digitos) {
+  const quantidade = Math.max(0, Math.trunc(Number(digitos) || 0));
+  return Array.from(
+    { length: quantidade },
+    (_, coluna) => ({ tipo: 'resultado', coluna }),
+  );
+}
+
+function montarModeloSubtracaoDificil(numeroA, numeroB, dificuldade = 'DIFICIL') {
+  const a = Math.abs(Math.trunc(Number(numeroA) || 0));
+  const b = Math.abs(Math.trunc(Number(numeroB) || 0));
+  const digitos = digitosDosOperandos(dificuldade, 'SUBTRACAO');
+  const passos = calcularEmprestimos(a, b);
+  const colunasQueEmprestam = new Set();
+  passos.forEach((passo, coluna) => {
+    if (passo === 1) {
+      colunasQueEmprestam.add(coluna + 1);
+    }
+  });
+
+  return {
+    numeroA: a,
+    numeroB: b,
+    resultado: a - b,
+    digitos,
+    passos,
+    colunasQueEmprestam,
+    ordemFoco: ordemFocoSubtracaoDificil(digitos),
+  };
+}
+
+function seletorResultadoSubtracao(coluna) {
+  return '.resultado-input[data-coluna="' + coluna + '"]';
+}
+
+function seletorCelulaSubtracao(tipo, coluna) {
+  return '.celula-digito[data-tipo="' + tipo + '"][data-coluna="' + coluna + '"]';
+}
+
+function seletorValorEmprestadoSubtracao(coluna) {
+  return seletorCelulaSubtracao('operandoA', coluna) + ' .valor-emprestado';
+}
+
+function alvoDoCampoResultadoSubtracao(campo) {
+  return alvoDoCampoResultadoSoma(campo);
+}
+
+function alvoFocoAtualSubtracaoDificil(el) {
+  const ativo = typeof document !== 'undefined' ? document.activeElement : null;
+  if (!ativo || !el || !el.conta || typeof el.conta.contains !== 'function') {
+    return null;
+  }
+  if (!el.conta.contains(ativo)) {
+    return null;
+  }
+  return alvoDoCampoResultadoSubtracao(ativo);
+}
+
+function valorEsperadoSubtracaoDificil(modelo, alvo) {
+  if (!modelo || !alvo) {
+    return null;
+  }
+  return Math.floor(modelo.resultado / (10 ** alvo.coluna)) % 10;
+}
+
+function alvoIncorretoSubtracaoDificil(modelo, el, emprestimos) {
+  if (!modelo || !el || !el.conta) {
+    return null;
+  }
+
+  for (const alvo of modelo.ordemFoco) {
+    const campo = el.conta.querySelector(seletorResultadoSubtracao(alvo.coluna));
+    if (!campo) {
+      continue;
+    }
+    const valor = String(campo.value ?? '').trim();
+    if (valor === '' || Number(valor) !== valorEsperadoSubtracaoDificil(modelo, alvo)) {
+      return alvo;
+    }
+  }
+
+  const ativos = emprestimos instanceof Set
+    ? emprestimos
+    : new Set(emprestimos ?? []);
+  for (let coluna = 0; coluna < modelo.passos.length; coluna += 1) {
+    const esperado = modelo.passos[coluna] === 1;
+    const ativo = ativos.has(coluna + 1);
+    if (esperado !== ativo) {
+      return { tipo: 'resultado', coluna: Math.min(coluna, modelo.digitos - 1) };
+    }
+  }
+
+  return null;
+}
+
+function resolverAlvoDicaSubtracaoDificil(modelo, alvoFoco, preenchidos) {
+  return resolverAlvoDicaSomaDificil(modelo, alvoFoco, preenchidos);
+}
+
+function seletoresDicaSubtracaoDificil(modelo, alvo, emprestimos) {
+  if (!modelo || !alvo) {
+    return [];
+  }
+
+  const coluna = Math.max(0, Math.min(
+    Math.trunc(Number(alvo.coluna) || 0),
+    modelo.digitos - 1,
+  ));
+  const ativos = emprestimos instanceof Set
+    ? emprestimos
+    : new Set(emprestimos ?? []);
+  const seletores = [
+    seletorResultadoSubtracao(coluna),
+    seletorCelulaSubtracao('operandoA', coluna),
+    seletorCelulaSubtracao('operandoB', coluna),
+  ];
+
+  if (coluna + 1 < modelo.digitos && modelo.passos[coluna] === 1) {
+    seletores.push({
+      seletor: seletorCelulaSubtracao('operandoA', coluna + 1),
+      classe: CLASSE_DICA_CARRY,
+    });
+  } else if (ativos.has(coluna)) {
+    seletores.push({
+      seletor: seletorValorEmprestadoSubtracao(coluna),
+      classe: CLASSE_DICA_CARRY,
+    });
+  }
+
+  return seletores;
+}
+
+function seletoresDicaAtualSubtracaoDificil(estado, el) {
+  if (!ehSubtracaoDificil(estado && estado.questao)) {
+    return [];
+  }
+  const modelo = estado.subtracaoDificil;
+  if (!modelo || !el || !el.conta) {
+    return [];
+  }
+
+  const preenchidos = preenchidosNaOrdem(el, modelo.ordemFoco);
+  let alvo = resolverAlvoDicaSubtracaoDificil(
+    modelo,
+    alvoFocoAtualSubtracaoDificil(el),
+    preenchidos,
+  );
+
+  if (estado.questaoRespondida) {
+    alvo = alvoIncorretoSubtracaoDificil(modelo, el, estado.emprestimos) ?? alvo;
+  }
+
+  return seletoresDicaSubtracaoDificil(modelo, alvo, estado.emprestimos);
+}
+
 function seletoresDicaAtual(estado, el) {
   if (ehMultiplicacaoDificil(estado && estado.questao)) {
     return seletoresDicaAtualMultiplicacaoDificil(estado, el);
   }
   if (ehSomaDificil(estado && estado.questao)) {
     return seletoresDicaAtualSomaDificil(estado, el);
+  }
+  if (ehSubtracaoDificil(estado && estado.questao)) {
+    return seletoresDicaAtualSubtracaoDificil(estado, el);
   }
   return [];
 }
@@ -753,6 +918,9 @@ function niveisDificuldade(operacao) {
   }
   if (operacao === 'SOMA') {
     return NIVEIS_DIFICULDADE_SOMA;
+  }
+  if (operacao === 'SUBTRACAO') {
+    return NIVEIS_DIFICULDADE_SUBTRACAO;
   }
   return NIVEIS_DIFICULDADE;
 }
@@ -1114,6 +1282,23 @@ function calcularVaiUm(numeroA, numeroB) {
   return passos;
 }
 
+function calcularEmprestimos(numeroA, numeroB) {
+  let a = Math.abs(Math.trunc(Number(numeroA) || 0));
+  let b = Math.abs(Math.trunc(Number(numeroB) || 0));
+  const passos = [];
+  let emprestimo = 0;
+
+  while (a > 0 || b > 0) {
+    const diferenca = (a % 10) - (b % 10) - emprestimo;
+    emprestimo = diferenca < 0 ? 1 : 0;
+    passos.push(emprestimo);
+    a = Math.floor(a / 10);
+    b = Math.floor(b / 10);
+  }
+
+  return passos;
+}
+
 /*
 - As caixinhas de "vai um" são preenchidas da direita para a esquerda e cada
 - uma representa o transporte que sai da coluna anterior. Campos em branco são
@@ -1386,6 +1571,7 @@ function iniciarInterface() {
     pedido: 0,
     multiplicacaoDificil: null,
     somaDificil: null,
+    subtracaoDificil: null,
     dicaProgressiva: null,
     avisoServidor: criarAvisoServidor(el),
   };
@@ -1473,6 +1659,7 @@ function aplicarPreferencias(estado, busca) {
     estado.operacao = operacao;
   }
   const aceitaDificil = estado.operacao === 'SOMA'
+    || estado.operacao === 'SUBTRACAO'
     || estado.operacao === 'MULTIPLICACAO';
   if (dificuldade === 'FACIL' || dificuldade === 'MEDIO'
     || (dificuldade === 'DIFICIL' && aceitaDificil)) {
@@ -1607,6 +1794,7 @@ async function carregarQuestao(estado, el) {
     estado.emprestimos = new Set();
     estado.multiplicacaoDificil = null;
     estado.somaDificil = null;
+    estado.subtracaoDificil = null;
     estado.progresso = calcularProgresso(estado.sequencia);
     esconderPlaceholder(el);
     atualizarBarraProgresso(estado, el);
@@ -1621,6 +1809,7 @@ async function carregarQuestao(estado, el) {
     estado.questao = null;
     estado.multiplicacaoDificil = null;
     estado.somaDificil = null;
+    estado.subtracaoDificil = null;
     mostrarPlaceholder(
       el,
       'Não consegui carregar a questão. O servidor está rodando na porta 8080?',
@@ -1653,11 +1842,16 @@ function renderConta(estado, el) {
   const questao = estado.questao;
   const divisao = questao.operacao === 'DIVISAO';
   const multiplicacaoDificil = ehMultiplicacaoDificil(questao);
+  const subtracaoDificil = ehSubtracaoDificil(questao);
   estado.somaDificil = ehSomaDificil(questao)
     ? montarModeloSomaDificil(questao.numeroA, questao.numeroB, questao.dificuldade)
     : null;
+  estado.subtracaoDificil = subtracaoDificil
+    ? montarModeloSubtracaoDificil(questao.numeroA, questao.numeroB, questao.dificuldade)
+    : null;
   el.conta.classList.toggle('conta-divisao', divisao);
   el.conta.classList.toggle('conta-multiplicacao-dificil', multiplicacaoDificil);
+  el.conta.classList.toggle('conta-subtracao-dificil', subtracaoDificil);
   if (divisao) {
     renderDivisao(estado, el);
     return;
@@ -1693,7 +1887,9 @@ function renderConta(estado, el) {
       carryMultiplicacao > 0,
       centenaMultiplicacao,
     )
-    : (soma ? ordemFocoSoma(digitosA, transportesSoma) : []);
+    : (soma
+      ? ordemFocoSoma(digitosA, transportesSoma)
+      : (subtracaoDificil ? estado.subtracaoDificil.ordemFoco : []));
 
   el.conta.innerHTML = '';
   el.conta.style.setProperty('--colunas', String(colunas));
@@ -1745,6 +1941,7 @@ function renderConta(estado, el) {
     colunas,
     soma,
     multiplicacao,
+    subtracaoDificil,
     multiplicacaoFlexivel: multiplicacao && colunas === 2,
   };
   for (let indice = 0; indice < colunas; indice += 1) {
@@ -1755,6 +1952,16 @@ function renderConta(estado, el) {
 
   if (subtracao) {
     atualizarEmprestimos(estado, el);
+  }
+
+  if (subtracaoDificil && ordemFoco.length > 0) {
+    const primeiro = ordemFoco[0];
+    setTimeout(() => {
+      const modalAberto = el.modalNome && !el.modalNome.hidden;
+      if (!modalAberto && !el.conta.contains(document.activeElement)) {
+        focarItemOrdem(el, primeiro);
+      }
+    }, 0);
   }
 }
 
@@ -2102,6 +2309,7 @@ function criarCelulaOperandoA(indice, digito, colunaGrade, podeEmprestar, estado
     celula.type = 'button';
   }
   celula.className = 'celula-digito' + (podeEmprestar ? ' clicavel' : '');
+  celula.dataset.tipo = 'operandoA';
   celula.dataset.coluna = String(indice);
   celula.style.gridColumn = String(colunaGrade);
   celula.style.gridRow = '2';
@@ -2156,6 +2364,7 @@ function criarCelulaOperandoA(indice, digito, colunaGrade, podeEmprestar, estado
 function criarCelulaOperandoB(digito, colunaGrade, indice) {
   const celula = document.createElement('div');
   celula.className = 'celula-digito';
+  celula.dataset.tipo = 'operandoB';
   if (Number.isInteger(indice)) {
     celula.dataset.coluna = String(indice);
   }
@@ -2196,6 +2405,7 @@ function configurarEntradaResultado(campo, indice, contexto) {
     colunas,
     soma,
     multiplicacao,
+    subtracaoDificil,
     multiplicacaoFlexivel,
   } = contexto;
 
@@ -2232,6 +2442,13 @@ function configurarEntradaResultado(campo, indice, contexto) {
         { tipo: 'resultado', coluna: indice },
         { flexivel: multiplicacaoFlexivel },
       );
+    } else if (subtracaoDificil) {
+      const alvo = proximoItemOrdem(
+        ordemFoco, { tipo: 'resultado', coluna: indice },
+      );
+      if (!focarItemOrdem(el, alvo)) {
+        focarResultadoPorColuna(el, indice + 1);
+      }
     } else {
       focarResultadoPorColuna(el, indice + 1);
     }
@@ -2239,7 +2456,14 @@ function configurarEntradaResultado(campo, indice, contexto) {
 }
 
 function configurarTecladoResultado(campo, indice, contexto) {
-  const { el, ordemFoco, colunas, soma, multiplicacao } = contexto;
+  const {
+    el,
+    ordemFoco,
+    colunas,
+    soma,
+    multiplicacao,
+    subtracaoDificil,
+  } = contexto;
 
   campo.addEventListener('keydown', (evento) => {
     const tratado = tratarTeclaResultado(evento, {
@@ -2247,7 +2471,7 @@ function configurarTecladoResultado(campo, indice, contexto) {
       ordemFoco,
       indice,
       colunas,
-      usarOrdemFoco: soma || multiplicacao,
+      usarOrdemFoco: soma || multiplicacao || subtracaoDificil,
       campo,
     });
     if (tratado) {
@@ -3214,40 +3438,41 @@ function atualizarEmprestimos(estado, el) {
   }
   const digitosA = digitosDe(questao.numeroA);
 
-  el.conta.querySelectorAll('.celula-digito[data-coluna]').forEach((celula) => {
-    const indice = Number(celula.dataset.coluna);
-    const digitoBase = digitosA[indice] ?? 0;
-    const empresta = estado.emprestimos.has(indice);
-    const recebe = estado.emprestimos.has(indice + 1);
-    const novoValor = Math.max(0, digitoBase + (recebe ? 10 : 0) - 1);
+  el.conta.querySelectorAll('.celula-digito[data-tipo="operandoA"][data-coluna]')
+    .forEach((celula) => {
+      const indice = Number(celula.dataset.coluna);
+      const digitoBase = digitosA[indice] ?? 0;
+      const empresta = estado.emprestimos.has(indice);
+      const recebe = estado.emprestimos.has(indice + 1);
+      const novoValor = Math.max(0, digitoBase + (recebe ? 10 : 0) - 1);
 
-    celula.classList.toggle('empresta', empresta);
-    celula.classList.toggle('recebe', recebe);
+      celula.classList.toggle('empresta', empresta);
+      celula.classList.toggle('recebe', recebe);
 
-    const risco = celula.querySelector('.risco');
-    if (risco) {
-      risco.hidden = !empresta;
-    }
+      const risco = celula.querySelector('.risco');
+      if (risco) {
+        risco.hidden = !empresta;
+      }
 
-    const valorEmprestado = celula.querySelector('.valor-emprestado');
-    if (valorEmprestado) {
-      valorEmprestado.hidden = !empresta;
-      valorEmprestado.textContent = empresta ? String(novoValor) : '';
-    }
+      const valorEmprestado = celula.querySelector('.valor-emprestado');
+      if (valorEmprestado) {
+        valorEmprestado.hidden = !empresta;
+        valorEmprestado.textContent = empresta ? String(novoValor) : '';
+      }
 
-    const umEmprestado = celula.querySelector('.um-emprestado');
-    if (umEmprestado) {
-      umEmprestado.hidden = !(recebe && !empresta);
-    }
+      const umEmprestado = celula.querySelector('.um-emprestado');
+      if (umEmprestado) {
+        umEmprestado.hidden = !(recebe && !empresta);
+      }
 
-    if (celula.tagName === 'BUTTON') {
-      const destino = ROTULOS_COLUNA[indice - 1] ?? 'unidades';
-      const rotulo = 'Emprestar para a coluna das ' + destino
-        + (empresta ? ' (emprestando 1)' : '');
-      celula.setAttribute('aria-label', rotulo);
-      celula.setAttribute('aria-pressed', String(empresta));
-    }
-  });
+      if (celula.tagName === 'BUTTON') {
+        const destino = ROTULOS_COLUNA[indice - 1] ?? 'unidades';
+        const rotulo = 'Emprestar para a coluna das ' + destino
+          + (empresta ? ' (emprestando 1)' : '');
+        celula.setAttribute('aria-label', rotulo);
+        celula.setAttribute('aria-pressed', String(empresta));
+      }
+    });
 }
 
 function atualizarDica(estado, el) {
@@ -3272,6 +3497,8 @@ function atualizarDica(estado, el) {
     } else {
       el.dica.textContent = 'Dica: procure quantas vezes o divisor cabe no dividendo. Escreva o quociente embaixo do divisor, multiplique e subtraia para encontrar o resto.';
     }
+  } else if (estado.questao.dificuldade === 'DIFICIL') {
+    el.dica.textContent = 'Dica: resolva da direita para a esquerda. Se o número de cima for menor, toque no vizinho da esquerda para pedir emprestado: ele diminui 1 e a coluna atual ganha 10. Empréstimos podem se encadear por várias colunas.';
   } else {
     el.dica.textContent = 'Dica: se o número de cima for menor, toque no número da esquerda para pedir emprestado. Ele diminui 1 e o vizinho ganha 10.';
   }
@@ -3750,6 +3977,15 @@ if (typeof module !== 'undefined' && module.exports) {
     valorEsperadoSomaDificil,
     alvoIncorretoSomaDificil,
     seletoresDicaAtualSomaDificil,
+    ehSubtracaoDificil,
+    ordemFocoSubtracaoDificil,
+    montarModeloSubtracaoDificil,
+    seletoresDicaSubtracaoDificil,
+    resolverAlvoDicaSubtracaoDificil,
+    alvoDoCampoResultadoSubtracao,
+    valorEsperadoSubtracaoDificil,
+    alvoIncorretoSubtracaoDificil,
+    seletoresDicaAtualSubtracaoDificil,
     seletoresDicaAtual,
     TEMPO_INATIVIDADE_DICA,
     CLASSE_DICA_CARRY,
@@ -3803,6 +4039,7 @@ if (typeof module !== 'undefined' && module.exports) {
     proximoCampoDivisao,
     campoAnteriorDivisao,
     calcularVaiUm,
+    calcularEmprestimos,
     montarArrayVaiUm,
     montarArrayEmprestimos,
     comporResultado,

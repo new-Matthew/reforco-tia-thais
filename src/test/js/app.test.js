@@ -58,6 +58,7 @@ const {
   proximoCampoDivisao,
   campoAnteriorDivisao,
   calcularVaiUm,
+  calcularEmprestimos,
   montarArrayVaiUm,
   montarArrayEmprestimos,
   comporResultado,
@@ -97,6 +98,15 @@ const {
   valorEsperadoSomaDificil,
   alvoIncorretoSomaDificil,
   seletoresDicaAtualSomaDificil,
+  ehSubtracaoDificil,
+  ordemFocoSubtracaoDificil,
+  montarModeloSubtracaoDificil,
+  seletoresDicaSubtracaoDificil,
+  resolverAlvoDicaSubtracaoDificil,
+  alvoDoCampoResultadoSubtracao,
+  valorEsperadoSubtracaoDificil,
+  alvoIncorretoSubtracaoDificil,
+  seletoresDicaAtualSubtracaoDificil,
   seletoresDicaAtual,
   TEMPO_INATIVIDADE_DICA,
   CLASSE_DICA_CARRY,
@@ -232,7 +242,8 @@ test('proximaDificuldade percorre os níveis disponíveis e para no topo', () =>
   assert.equal(proximaDificuldade('FACIL'), 'MEDIO');
   assert.equal(proximaDificuldade('MEDIO'), 'DIFICIL');
   assert.equal(proximaDificuldade('DIFICIL'), null);
-  assert.equal(proximaDificuldade('MEDIO', 'SUBTRACAO'), null);
+  assert.equal(proximaDificuldade('MEDIO', 'SUBTRACAO'), 'DIFICIL');
+  assert.equal(proximaDificuldade('DIFICIL', 'SUBTRACAO'), null);
   assert.throws(() => proximaDificuldade('IMPOSSIVEL'), /Dificuldade inválida/);
 });
 
@@ -273,7 +284,7 @@ test('resolverProgresso sobe de nível ao completar cinco acertos', () => {
 });
 
 test('resolverProgresso comemora a rodada no nível máximo sem subir mais', () => {
-  const resultado = resolverProgresso(4, 'MEDIO', true, 5, 'SUBTRACAO');
+  const resultado = resolverProgresso(4, 'MEDIO', true, 5, 'DIVISAO');
   assert.equal(resultado.sequencia, 0);
   assert.equal(resultado.progresso, 1);
   assert.equal(resultado.subiuNivel, false);
@@ -1592,15 +1603,16 @@ test('tratarTeclaDivisao volta no Backspace vazio e confirma no Enter', () => {
   assert.equal(anteriores, 1);
 });
 
-test('o nível difícil fica disponível apenas para a soma e a multiplicação', () => {
+test('o nível difícil fica disponível na soma, subtração e multiplicação', () => {
   assert.deepEqual(niveisDificuldade('MULTIPLICACAO'), ['FACIL', 'MEDIO', 'DIFICIL']);
   assert.deepEqual(niveisDificuldade('SOMA'), ['FACIL', 'MEDIO', 'DIFICIL']);
-  assert.deepEqual(niveisDificuldade('SUBTRACAO'), ['FACIL', 'MEDIO']);
+  assert.deepEqual(niveisDificuldade('SUBTRACAO'), ['FACIL', 'MEDIO', 'DIFICIL']);
   assert.equal(dificuldadePermitida('DIFICIL', 'SOMA'), 'DIFICIL');
   assert.equal(dificuldadePermitida('DIFICIL', 'MULTIPLICACAO'), 'DIFICIL');
-  assert.equal(dificuldadePermitida('DIFICIL', 'SUBTRACAO'), 'MEDIO');
+  assert.equal(dificuldadePermitida('DIFICIL', 'SUBTRACAO'), 'DIFICIL');
   assert.equal(proximaDificuldade('MEDIO', 'SOMA'), 'DIFICIL');
   assert.equal(proximaDificuldade('MEDIO', 'MULTIPLICACAO'), 'DIFICIL');
+  assert.equal(proximaDificuldade('MEDIO', 'SUBTRACAO'), 'DIFICIL');
   assert.equal(proximaDificuldade('DIFICIL', 'SOMA'), null);
   assert.equal(proximaDificuldade('MEDIO', 'DIVISAO'), null);
 });
@@ -1847,7 +1859,7 @@ test('multiplicação difícil sem transporte pula direto para a coluna seguinte
   assert.equal(ordem.some((alvo) => alvo.linha === 'carryUnidade'), false);
 });
 
-test('aplicarPreferencias aceita o nível difícil na soma e na multiplicação', () => {
+test('aplicarPreferencias aceita o nível difícil na soma, subtração e multiplicação', () => {
   assert.deepEqual(
     aplicarPreferencias(
       { operacao: 'SOMA', dificuldade: 'FACIL' },
@@ -1867,7 +1879,7 @@ test('aplicarPreferencias aceita o nível difícil na soma e na multiplicação'
       { operacao: 'SOMA', dificuldade: 'FACIL' },
       '?operacao=SUBTRACAO&dificuldade=DIFICIL',
     ),
-    { operacao: 'SUBTRACAO', dificuldade: 'FACIL' },
+    { operacao: 'SUBTRACAO', dificuldade: 'DIFICIL' },
   );
 });
 
@@ -2332,6 +2344,214 @@ test('seletoresDicaAtual direciona a dica para a soma difícil e ignora as demai
   );
 });
 
+
+test('calcularEmprestimos reproduz os passos do backend', () => {
+  assert.deepEqual(calcularEmprestimos(52, 37), [1, 0]);
+  assert.deepEqual(calcularEmprestimos(5321, 1478), [1, 1, 1, 0]);
+  assert.deepEqual(calcularEmprestimos(7852, 4936), [1, 0, 1, 0]);
+});
+
+test('ehSubtracaoDificil identifica somente a subtração no nível difícil', () => {
+  assert.equal(
+    ehSubtracaoDificil({ operacao: 'SUBTRACAO', dificuldade: 'DIFICIL' }),
+    true,
+  );
+  assert.equal(
+    ehSubtracaoDificil({ operacao: 'SUBTRACAO', dificuldade: 'MEDIO' }),
+    false,
+  );
+  assert.equal(
+    ehSubtracaoDificil({ operacao: 'SOMA', dificuldade: 'DIFICIL' }),
+    false,
+  );
+  assert.equal(ehSubtracaoDificil(null), false);
+});
+
+test('montarModeloSubtracaoDificil prepara quatro colunas e empréstimos encadeados', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+
+  assert.equal(modelo.numeroA, 5321);
+  assert.equal(modelo.numeroB, 1478);
+  assert.equal(modelo.resultado, 3843);
+  assert.equal(modelo.digitos, 4);
+  assert.deepEqual(modelo.passos, [1, 1, 1, 0]);
+  assert.deepEqual(Array.from(modelo.colunasQueEmprestam), [1, 2, 3]);
+  assert.deepEqual(modelo.ordemFoco, [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'resultado', coluna: 1 },
+    { tipo: 'resultado', coluna: 2 },
+    { tipo: 'resultado', coluna: 3 },
+  ]);
+});
+
+test('dica da subtração difícil destaca o par e o dígito que empresta', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+
+  assert.deepEqual(
+    seletoresDicaSubtracaoDificil(modelo, { tipo: 'resultado', coluna: 0 }),
+    [
+      '.resultado-input[data-coluna="0"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="0"]',
+      '.celula-digito[data-tipo="operandoB"][data-coluna="0"]',
+      {
+        seletor: '.celula-digito[data-tipo="operandoA"][data-coluna="1"]',
+        classe: 'dica-ativa-carry',
+      },
+    ],
+  );
+});
+
+test('dica da subtração difícil destaca o novo valor já emprestado', () => {
+  const modelo = montarModeloSubtracaoDificil(7852, 4936);
+
+  assert.deepEqual(
+    seletoresDicaSubtracaoDificil(
+      modelo,
+      { tipo: 'resultado', coluna: 1 },
+      new Set([1, 3]),
+    ),
+    [
+      '.resultado-input[data-coluna="1"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="1"]',
+      '.celula-digito[data-tipo="operandoB"][data-coluna="1"]',
+      {
+        seletor: '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
+        classe: 'dica-ativa-carry',
+      },
+    ],
+  );
+});
+
+test('valorEsperadoSubtracaoDificil calcula cada coluna do resultado', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+
+  assert.equal(
+    valorEsperadoSubtracaoDificil(modelo, { tipo: 'resultado', coluna: 0 }),
+    3,
+  );
+  assert.equal(
+    valorEsperadoSubtracaoDificil(modelo, { tipo: 'resultado', coluna: 1 }),
+    4,
+  );
+  assert.equal(
+    valorEsperadoSubtracaoDificil(modelo, { tipo: 'resultado', coluna: 2 }),
+    8,
+  );
+  assert.equal(
+    valorEsperadoSubtracaoDificil(modelo, { tipo: 'resultado', coluna: 3 }),
+    3,
+  );
+});
+
+test('alvoIncorretoSubtracaoDificil prioriza a coluna errada do resultado', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+  const valores = {
+    '.resultado-input[data-coluna="0"]': '4',
+    '.resultado-input[data-coluna="1"]': '4',
+    '.resultado-input[data-coluna="2"]': '8',
+    '.resultado-input[data-coluna="3"]': '3',
+  };
+  const el = {
+    conta: {
+      querySelector(seletor) {
+        return Object.prototype.hasOwnProperty.call(valores, seletor)
+          ? { value: valores[seletor] }
+          : null;
+      },
+    },
+  };
+
+  assert.deepEqual(
+    alvoIncorretoSubtracaoDificil(modelo, el, new Set([1, 2, 3])),
+    { tipo: 'resultado', coluna: 0 },
+  );
+});
+
+test('alvoIncorretoSubtracaoDificil encontra o primeiro empréstimo ausente', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+  const valores = {
+    '.resultado-input[data-coluna="0"]': '3',
+    '.resultado-input[data-coluna="1"]': '4',
+    '.resultado-input[data-coluna="2"]': '8',
+    '.resultado-input[data-coluna="3"]': '3',
+  };
+  const el = {
+    conta: {
+      querySelector(seletor) {
+        return Object.prototype.hasOwnProperty.call(valores, seletor)
+          ? { value: valores[seletor] }
+          : null;
+      },
+    },
+  };
+
+  assert.deepEqual(
+    alvoIncorretoSubtracaoDificil(modelo, el, new Set([1, 3])),
+    { tipo: 'resultado', coluna: 1 },
+  );
+  assert.equal(alvoIncorretoSubtracaoDificil(modelo, el, new Set([1, 2, 3])), null);
+});
+
+test('alvoDoCampoResultadoSubtracao lê o campo de resultado', () => {
+  assert.deepEqual(
+    alvoDoCampoResultadoSubtracao({ dataset: { tipo: 'resultado', coluna: '2' } }),
+    { tipo: 'resultado', coluna: 2 },
+  );
+  assert.equal(alvoDoCampoResultadoSubtracao({ dataset: { tipo: 'outro', coluna: '2' } }), null);
+  assert.equal(alvoDoCampoResultadoSubtracao(null), null);
+});
+
+test('resolverAlvoDicaSubtracaoDificil usa a mesma ordem de foco da soma', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+  const primeiro = modelo.ordemFoco[0];
+  const segundo = modelo.ordemFoco[1];
+
+  assert.deepEqual(
+    resolverAlvoDicaSubtracaoDificil(modelo, primeiro, new Set()),
+    primeiro,
+  );
+  assert.deepEqual(
+    resolverAlvoDicaSubtracaoDificil(modelo, primeiro, new Set(['resultado:0'])),
+    segundo,
+  );
+});
+
+test('seletoresDicaAtual direciona a dica para a subtração difícil', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+  const el = {
+    conta: {
+      querySelector() {
+        return null;
+      },
+    },
+  };
+  const estado = {
+    questao: { operacao: 'SUBTRACAO', dificuldade: 'DIFICIL' },
+    subtracaoDificil: modelo,
+    emprestimos: new Set([1, 2, 3]),
+    questaoRespondida: false,
+  };
+
+  assert.deepEqual(
+    seletoresDicaAtualSubtracaoDificil(estado, el),
+    seletoresDicaSubtracaoDificil(
+      modelo,
+      modelo.ordemFoco[0],
+      estado.emprestimos,
+    ),
+  );
+  assert.deepEqual(
+    seletoresDicaAtual(estado, el),
+    seletoresDicaAtualSubtracaoDificil(estado, el),
+  );
+  assert.deepEqual(
+    seletoresDicaAtual(
+      { questao: { operacao: 'SUBTRACAO', dificuldade: 'MEDIO' } },
+      el,
+    ),
+    [],
+  );
+});
 test('a dica progressiva espera três segundos de inatividade', () => {
   assert.equal(TEMPO_INATIVIDADE_DICA, 3000);
 });
