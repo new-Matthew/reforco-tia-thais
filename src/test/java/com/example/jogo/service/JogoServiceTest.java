@@ -11,8 +11,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -146,11 +148,13 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Gera subtrações decimais com casas diferentes e empréstimos válidos")
+    @DisplayName("Gera subtrações decimais variadas com empréstimos válidos")
     void geraSubtracaoDecimalComCasasDiferentesEEmprestimos() {
         for (Dificuldade dificuldade : List.of(
                 Dificuldade.FACIL, Dificuldade.MEDIO, Dificuldade.DIFICIL)) {
-            for (int i = 0; i < 100; i++) {
+            Set<Integer> tamanhosInteiros = new HashSet<>();
+            Set<Integer> quantidadesDeCasas = new HashSet<>();
+            for (int i = 0; i < 200; i++) {
                 QuestaoDTO questao = jogoService.gerarQuestao(
                         Operacao.SUBTRACAO, dificuldade, TipoNumero.DECIMAIS);
 
@@ -160,16 +164,22 @@ class JogoServiceTest {
 
                 int casasA = questao.getCasasDecimaisA();
                 int casasB = questao.getCasasDecimaisB();
-                assertTrue(casasA == 1 || casasA == 2);
-                assertTrue(casasB == 1 || casasB == 2);
-                assertTrue(casasA != casasB);
+                assertTrue(casasA >= 1 && casasA <= 2);
+                assertTrue(casasB >= 1 && casasB <= 2);
+                quantidadesDeCasas.add(casasA);
+                quantidadesDeCasas.add(casasB);
 
                 int inteiroA = questao.getNumeroA() / 100;
                 int inteiroB = questao.getNumeroB() / 100;
-                assertTrue(inteiroA >= dificuldade.getValorMinimo()
+                int minimo = dificuldade == Dificuldade.DIFICIL
+                        ? 100
+                        : dificuldade.getValorMinimo();
+                assertTrue(inteiroA >= minimo
                         && inteiroA <= dificuldade.getValorMaximo());
-                assertTrue(inteiroB >= dificuldade.getValorMinimo()
+                assertTrue(inteiroB >= minimo
                         && inteiroB <= dificuldade.getValorMaximo());
+                tamanhosInteiros.add(String.valueOf(inteiroA).length());
+                tamanhosInteiros.add(String.valueOf(inteiroB).length());
                 assertTrue(questao.getNumeroA() > questao.getNumeroB());
                 assertTrue(jogoService.exigeEmprestimo(
                         questao.getNumeroA(), questao.getNumeroB()));
@@ -187,6 +197,11 @@ class JogoServiceTest {
                     assertTrue(encadeados,
                             "A subtração decimal difícil deve encadear empréstimos.");
                 }
+            }
+
+            assertEquals(Set.of(1, 2), quantidadesDeCasas);
+            if (dificuldade == Dificuldade.DIFICIL) {
+                assertEquals(Set.of(3, 4), tamanhosInteiros);
             }
         }
     }

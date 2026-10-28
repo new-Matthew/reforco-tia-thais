@@ -45,6 +45,7 @@ public class JogoService {
     private static final int ESCALA_DECIMAL = 100;
     private static final int CASAS_DECIMAIS_MINIMAS = 1;
     private static final int CASAS_DECIMAIS_MAXIMAS = 2;
+    private static final int DIGITOS_INTEIROS_DECIMAIS_DIFICIL_MINIMOS = 3;
 
     private final Random random;
 
@@ -448,21 +449,13 @@ public class JogoService {
     }
 
     private QuestaoDTO gerarSubtracaoDecimal(Operacao operacao, Dificuldade dificuldade) {
-        int minimo = dificuldade.getValorMinimo();
-        int maximo = dificuldade.getValorMaximo();
-
         return gerarComTentativas(
                 "Não foi possível gerar uma subtração decimal com empréstimo.",
                 () -> {
-                    int inteiroA = sortear(minimo, maximo);
-                    int inteiroB = sortear(minimo, maximo);
-                    boolean primeiraComUmaCasa = random.nextBoolean();
-                    int casasA = primeiraComUmaCasa
-                            ? CASAS_DECIMAIS_MINIMAS
-                            : CASAS_DECIMAIS_MAXIMAS;
-                    int casasB = primeiraComUmaCasa
-                            ? CASAS_DECIMAIS_MAXIMAS
-                            : CASAS_DECIMAIS_MINIMAS;
+                    int inteiroA = sortearInteiroDecimal(dificuldade);
+                    int inteiroB = sortearInteiroDecimal(dificuldade);
+                    int casasA = sortearCasasDecimais(dificuldade);
+                    int casasB = sortearCasasDecimais(dificuldade);
                     int numeroA = inteiroA * ESCALA_DECIMAL + sortearFracaoDecimal(casasA);
                     int numeroB = inteiroB * ESCALA_DECIMAL + sortearFracaoDecimal(casasB);
                     boolean emprestimosValidos = dificuldade == Dificuldade.DIFICIL
@@ -473,6 +466,29 @@ public class JogoService {
                                     operacao, dificuldade, numeroA, numeroB, casasA, casasB)
                             : null;
                 });
+    }
+
+    private int sortearInteiroDecimal(Dificuldade dificuldade) {
+        if (dificuldade != Dificuldade.DIFICIL) {
+            return sortear(dificuldade.getValorMinimo(), dificuldade.getValorMaximo());
+        }
+
+        int quantidadeDigitos = sortear(
+                DIGITOS_INTEIROS_DECIMAIS_DIFICIL_MINIMOS,
+                dificuldade.getQuantidadeDeDigitos());
+        return sortear(
+                (int) Math.pow(10, quantidadeDigitos - 1),
+                (int) Math.pow(10, quantidadeDigitos) - 1);
+    }
+
+    private int sortearCasasDecimais(Dificuldade dificuldade) {
+        if (dificuldade == Dificuldade.DIFICIL) {
+            return sortear(CASAS_DECIMAIS_MINIMAS, CASAS_DECIMAIS_MAXIMAS);
+        }
+
+        return random.nextBoolean()
+                ? CASAS_DECIMAIS_MINIMAS
+                : CASAS_DECIMAIS_MAXIMAS;
     }
 
     private boolean exigeEmprestimoEncadeado(int numeroA, int numeroB) {
