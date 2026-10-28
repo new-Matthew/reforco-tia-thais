@@ -130,6 +130,11 @@ const {
   colunaGradeDecimal,
   colunaGradeSomaDecimal,
   colunasInteirasSubtracaoDecimal,
+  digitosParteInteiraDecimal,
+  colunasInteirasDecimais,
+  casasDecimaisDoOperando,
+  ehZeroFantasmaDecimal,
+  digitoDecimalPreenchido,
   colunaGradeSubtracaoDecimal,
   rotuloColunaDecimal,
   montarModeloSomaDificil,
@@ -2697,6 +2702,11 @@ test('helpers da subtração decimal alinham as colunas pela vírgula', () => {
   assert.equal(colunasInteirasSubtracaoDecimal('FACIL'), 2);
   assert.equal(colunasInteirasSubtracaoDecimal('MEDIO'), 3);
   assert.equal(colunasInteirasSubtracaoDecimal('DIFICIL'), 4);
+  assert.equal(digitosParteInteiraDecimal(1275), 2);
+  assert.equal(digitosParteInteiraDecimal(829040), 4);
+  assert.equal(digitosParteInteiraDecimal(82940), 3);
+  assert.equal(colunasInteirasDecimais(829040, 299343), 4);
+  assert.equal(colunasInteirasDecimais(82940, 9943), 3);
   assert.deepEqual(
     [0, 1, 2, 3].map((indice) => colunaGradeSubtracaoDecimal(indice, 'FACIL', 2)),
     [6, 5, 3, 2],
@@ -2705,6 +2715,41 @@ test('helpers da subtração decimal alinham as colunas pela vírgula', () => {
     colunaGradeDecimal(0, 2, 2),
     colunaGradeSubtracaoDecimal(0, 'FACIL', 2),
   );
+});
+
+test('zeros fantasmas completam apenas as casas decimais ausentes', () => {
+  const questao = {
+    operacao: 'SUBTRACAO',
+    tipoNumero: 'DECIMAIS',
+    casasDecimaisA: 1,
+    casasDecimaisB: 2,
+  };
+
+  assert.equal(casasDecimaisDoOperando(questao, 'A'), 1);
+  assert.equal(casasDecimaisDoOperando(questao, 'B'), 2);
+  assert.equal(ehZeroFantasmaDecimal(questao, 'A', 0, 2), true);
+  assert.equal(ehZeroFantasmaDecimal(questao, 'A', 1, 2), false);
+  assert.equal(ehZeroFantasmaDecimal(questao, 'B', 0, 2), false);
+  assert.equal(
+    ehZeroFantasmaDecimal({ ...questao, casasDecimaisB: 1 }, 'B', 0, 2),
+    true,
+  );
+  assert.equal(
+    ehZeroFantasmaDecimal({ ...questao, casasDecimaisA: 2 }, 'A', 0, 2),
+    false,
+  );
+  assert.equal(
+    ehZeroFantasmaDecimal({ ...questao, casasDecimaisA: 0 }, 'A', 1, 2),
+    true,
+  );
+});
+
+test('identifica as colunas inteiras vazias do subtraendo', () => {
+  assert.equal(digitoDecimalPreenchido(829040, 5), true);
+  assert.equal(digitoDecimalPreenchido(82940, 5), false);
+  assert.equal(digitoDecimalPreenchido(82940, 4), true);
+  assert.equal(digitoDecimalPreenchido(9943, 3), true);
+  assert.equal(digitoDecimalPreenchido(9943, 4), false);
 });
 
 test('montarModeloSubtracaoDecimal prepara resultado e empréstimos', () => {
@@ -2723,6 +2768,22 @@ test('montarModeloSubtracaoDecimal prepara resultado e empréstimos', () => {
     { tipo: 'resultado', coluna: 2 },
     { tipo: 'resultado', coluna: 3 },
   ]);
+});
+
+test('modelo da subtração decimal acompanha a quantidade real de colunas', () => {
+  const completo = montarModeloSubtracaoDecimal(829040, 299343, 'DIFICIL', 2);
+  assert.equal(completo.colunasInteiras, 4);
+  assert.equal(completo.digitos, 6);
+  assert.equal(completo.resultado, 529697);
+
+  const compacto = montarModeloSubtracaoDecimal(82940, 9943, 'DIFICIL', 2);
+  assert.equal(compacto.colunasInteiras, 3);
+  assert.equal(compacto.digitos, 5);
+  assert.equal(compacto.resultado, 72997);
+  assert.deepEqual(
+    compacto.ordemFoco.map((alvo) => alvo.coluna),
+    [0, 1, 2, 3, 4],
+  );
 });
 
 test('dica da subtração decimal mapeia centésimos e décimos', () => {

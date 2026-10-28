@@ -595,11 +595,11 @@ h1 {
 .conta.conta-decimal {
   grid-template-columns:
     minmax(30px, auto)
-    repeat(var(--colunas-inteiras, 3), minmax(38px, 56px))
+    repeat(var(--colunas-inteiras, 3), minmax(36px, 52px))
     var(--largura-virgula, 18px)
-    repeat(var(--casas-decimais, 2), minmax(38px, 56px));
-  gap: 8px 4px;
-  padding: 36px 16px 20px;
+    repeat(var(--casas-decimais, 2), minmax(36px, 52px));
+  gap: 6px 4px;
+  padding: 32px 14px 16px;
 }
 
 .conta-decimal .celula-digito {
@@ -851,7 +851,7 @@ h1 {
 
 /* --------------------- Subtração difícil (empréstimos) ------------------ */
 
-.conta.conta-subtracao-dificil {
+.conta.conta-subtracao-dificil:not(.conta-decimal) {
   grid-template-columns: minmax(30px, auto) repeat(var(--colunas, 4), minmax(42px, 62px));
   gap: 8px 6px;
   padding: 36px 18px 20px;

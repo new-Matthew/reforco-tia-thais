@@ -664,6 +664,47 @@ function colunasInteirasSubtracaoDecimal(dificuldade) {
   return digitosDosOperandos(dificuldade, 'SUBTRACAO');
 }
 
+function digitosParteInteiraDecimal(valor) {
+  const escala = 10 ** CASAS_DECIMAIS_SOMA;
+  const inteiro = Math.floor(
+    Math.abs(Math.trunc(Number(valor) || 0)) / escala,
+  );
+  return String(inteiro).length;
+}
+
+function colunasInteirasDecimais(numeroA, numeroB) {
+  return Math.max(
+    1,
+    digitosParteInteiraDecimal(numeroA),
+    digitosParteInteiraDecimal(numeroB),
+  );
+}
+
+function casasDecimaisDoOperando(questao, operando) {
+  const chave = operando === 'B' ? 'casasDecimaisB' : 'casasDecimaisA';
+  const casas = Number(questao && questao[chave]);
+  if (!Number.isFinite(casas)) {
+    return CASAS_DECIMAIS_SOMA;
+  }
+  return Math.max(0, Math.min(CASAS_DECIMAIS_SOMA, Math.trunc(casas)));
+}
+
+function ehZeroFantasmaDecimal(
+  questao,
+  operando,
+  indice,
+  casas = casasDecimaisMaximas(questao),
+) {
+  const total = Math.max(0, Math.trunc(Number(casas) || 0));
+  const preenchidas = casasDecimaisDoOperando(questao, operando);
+  return indice >= 0 && indice < total && indice < total - preenchidas;
+}
+
+function digitoDecimalPreenchido(valor, indice) {
+  const total = String(Math.abs(Math.trunc(Number(valor) || 0))).length;
+  return indice >= 0 && indice < total;
+}
+
 function colunaGradeSubtracaoDecimal(
   indice,
   dificuldade,
@@ -935,7 +976,8 @@ function montarModeloSubtracaoDecimal(
   const a = Math.abs(Math.trunc(Number(numeroA) || 0));
   const b = Math.abs(Math.trunc(Number(numeroB) || 0));
   const casas = Math.max(1, Math.trunc(Number(casasDecimais) || CASAS_DECIMAIS_SOMA));
-  const digitos = digitosSomaDecimal(dificuldade, casas);
+  const colunasInteiras = colunasInteirasDecimais(a, b);
+  const digitos = colunasInteiras + casas;
   const passos = calcularEmprestimos(a, b);
   const colunasQueEmprestam = new Set();
   passos.forEach((passo, coluna) => {
@@ -949,6 +991,7 @@ function montarModeloSubtracaoDecimal(
     numeroB: b,
     resultado: a - b,
     digitos,
+    colunasInteiras,
     casasDecimais: casas,
     passos,
     colunasQueEmprestam,
@@ -2430,15 +2473,15 @@ function renderConta(estado, el) {
     : (ehSomaDificil(questao)
       ? montarModeloSomaDificil(questao.numeroA, questao.numeroB, questao.dificuldade)
       : null);
-  estado.subtracaoDificil = subtracaoDificil
-    ? montarModeloSubtracaoDificil(questao.numeroA, questao.numeroB, questao.dificuldade)
-    : (subtracaoDecimal
-      ? montarModeloSubtracaoDecimal(
-        questao.numeroA,
-        questao.numeroB,
-        questao.dificuldade,
-        casasDecimaisMaximas(questao),
-      )
+  estado.subtracaoDificil = subtracaoDecimal
+    ? montarModeloSubtracaoDecimal(
+      questao.numeroA,
+      questao.numeroB,
+      questao.dificuldade,
+      casasDecimaisMaximas(questao),
+    )
+    : (subtracaoDificil
+      ? montarModeloSubtracaoDificil(questao.numeroA, questao.numeroB, questao.dificuldade)
       : null);
   el.conta.classList.toggle('conta-divisao', divisao);
   el.conta.classList.toggle('conta-multiplicacao-dificil', multiplicacaoDificil);
@@ -2615,7 +2658,7 @@ function renderSomaDecimal(estado, el) {
       estado,
       el,
     );
-    if (indice < casas && indice < casas - Number(questao.casasDecimaisA ?? casas)) {
+    if (ehZeroFantasmaDecimal(questao, 'A', indice, casas)) {
       celula.classList.add('zero-preenchimento');
     }
     el.conta.appendChild(celula);
@@ -2630,7 +2673,7 @@ function renderSomaDecimal(estado, el) {
       colunaDaGrade(indice),
       indice,
     );
-    if (indice < casas && indice < casas - Number(questao.casasDecimaisB ?? casas)) {
+    if (ehZeroFantasmaDecimal(questao, 'B', indice, casas)) {
       celula.classList.add('zero-preenchimento');
     }
     el.conta.appendChild(celula);
@@ -2669,20 +2712,20 @@ function renderSomaDecimal(estado, el) {
 function renderSubtracaoDecimal(estado, el) {
   const questao = estado.questao;
   const casas = casasDecimaisMaximas(questao);
-  const digitos = digitosSomaDecimal(questao.dificuldade, casas);
-  const colunasInteiras = colunasInteirasSubtracaoDecimal(questao.dificuldade);
-  const totalColunas = 1 + colunasInteiras + 1 + casas;
-  const colunaVirgula = colunasInteiras + 2;
   const modelo = estado.subtracaoDificil ?? montarModeloSubtracaoDecimal(
     questao.numeroA,
     questao.numeroB,
     questao.dificuldade,
     casas,
   );
+  const colunasInteiras = modelo.colunasInteiras;
+  const digitos = modelo.digitos;
+  const totalColunas = 1 + colunasInteiras + 1 + casas;
+  const colunaVirgula = colunasInteiras + 2;
   const ordemFoco = modelo.ordemFoco;
-  const colunaDaGrade = (indice) => colunaGradeSubtracaoDecimal(
+  const colunaDaGrade = (indice) => colunaGradeDecimal(
     indice,
-    questao.dificuldade,
+    colunasInteiras,
     casas,
   );
 
@@ -2701,7 +2744,7 @@ function renderSubtracaoDecimal(estado, el) {
       el,
       rotuloColunaDecimal(indice - 1, casas),
     );
-    if (indice < casas && indice < casas - Number(questao.casasDecimaisA ?? casas)) {
+    if (ehZeroFantasmaDecimal(questao, 'A', indice, casas)) {
       celula.classList.add('zero-preenchimento');
     }
     el.conta.appendChild(celula);
@@ -2711,12 +2754,14 @@ function renderSubtracaoDecimal(estado, el) {
 
   const digitosB = digitosEscalados(questao.numeroB, digitos);
   for (let indice = 0; indice < digitos; indice += 1) {
+    const vazio = !digitoDecimalPreenchido(questao.numeroB, indice);
     const celula = criarCelulaOperandoB(
-      digitosB[indice] ?? 0,
+      vazio ? '' : (digitosB[indice] ?? 0),
       colunaDaGrade(indice),
       indice,
+      vazio,
     );
-    if (indice < casas && indice < casas - Number(questao.casasDecimaisB ?? casas)) {
+    if (ehZeroFantasmaDecimal(questao, 'B', indice, casas)) {
       celula.classList.add('zero-preenchimento');
     }
     el.conta.appendChild(celula);
@@ -3169,9 +3214,9 @@ function criarCelulaOperandoA(
   return celula;
 }
 
-function criarCelulaOperandoB(digito, colunaGrade, indice) {
+function criarCelulaOperandoB(digito, colunaGrade, indice, vazio = false) {
   const celula = document.createElement('div');
-  celula.className = 'celula-digito';
+  celula.className = 'celula-digito' + (vazio ? ' celula-vazia' : '');
   celula.dataset.tipo = 'operandoB';
   if (Number.isInteger(indice)) {
     celula.dataset.coluna = String(indice);
@@ -3181,7 +3226,7 @@ function criarCelulaOperandoB(digito, colunaGrade, indice) {
 
   const conteudo = document.createElement('span');
   conteudo.className = 'digito';
-  conteudo.textContent = String(digito);
+  conteudo.textContent = vazio ? '' : String(digito);
   celula.appendChild(conteudo);
   return celula;
 }
@@ -5084,7 +5129,12 @@ async function validarResposta(estado, el) {
     const decimal = ehOperacaoDecimal(questao);
     const casas = casasDecimaisMaximas(questao);
     const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
-    const digitosCalculo = decimal ? digitosSomaDecimal(questao.dificuldade, casas) : digitos;
+    const digitosCalculo = decimal
+      ? (subtracao
+        ? (estado.subtracaoDificil?.digitos
+          ?? colunasInteirasDecimais(questao.numeroA, questao.numeroB) + casas)
+        : digitosSomaDecimal(questao.dificuldade, casas))
+      : digitos;
     const caixasVaiUm = lerVaiUm(el);
     requisicao = montarRequisicao(questao, {
       resultadoDigitado,
@@ -5417,6 +5467,11 @@ if (typeof module !== 'undefined' && module.exports) {
     colunaGradeDecimal,
     colunaGradeSomaDecimal,
     colunasInteirasSubtracaoDecimal,
+    digitosParteInteiraDecimal,
+    colunasInteirasDecimais,
+    casasDecimaisDoOperando,
+    ehZeroFantasmaDecimal,
+    digitoDecimalPreenchido,
     colunaGradeSubtracaoDecimal,
     rotuloColunaDecimal,
     montarModeloSomaDificil,
