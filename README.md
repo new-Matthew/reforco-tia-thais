@@ -9,7 +9,7 @@ Jogo educativo de adição, subtração, multiplicação e divisão para crianç
 - Contas de subtração nos níveis fácil (2 dígitos), médio (3 dígitos) e difícil (4 dígitos com empréstimos encadeados), com seletor de números inteiros ou decimais.
 - Subtrações decimais com vírgula alinhada, zeros de preenchimento e empréstimos encadeados, com variação na quantidade de algarismos antes e depois da vírgula no nível difícil.
 - Multiplicação nos níveis fácil, médio e difícil, com seletor de números inteiros ou decimais, preenchimento do "vai um" e alinhamento dos fatores pela vírgula.
-- Multiplicações decimais resolvidas como inteiros, com zeros de preenchimento, controle guiado da posição da vírgula no produto e dica específica para contar as casas decimais.
+- Multiplicações decimais resolvidas como inteiros, com zeros de preenchimento e controle da vírgula liberado só depois do produto final, movendo a vírgula entre as células preenchidas pelo aluno.
 - Dica progressiva nas operações difíceis e nas operações decimais: destaca apenas os números da etapa atual, incluindo colunas decimais, divisor, dividendo parcial, produto e resto na divisão, após 3 segundos de inatividade ou quando a resposta é recusada.
 - Divisão em formato de chave nos níveis fácil (2 dígitos por 1 dígito, exata), médio (3 dígitos por 2 dígitos) e difícil (4 dígitos por 2 dígitos), com quociente, subtrações intermediárias, resto e indicação do dígito que desce a cada etapa.
 - Preenchimento dos passos de "vai um" e empréstimo.

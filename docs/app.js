@@ -3030,6 +3030,7 @@ function configurarCampoMultiplicacaoDificil(campo, alvo, contexto) {
 
   campo.addEventListener('input', () => {
     campo.value = campo.value.replace(/\D/g, '').slice(-1);
+    contexto.aoAlterar?.();
     if (campo.value === '') {
       return;
     }
@@ -3320,7 +3321,24 @@ function criarResultadoDecimalMultiplicacao(
   return celula;
 }
 
-function atualizarVirgulaResultadoMultiplicacao(estado, el, modelo) {
+function resultadoMultiplicacaoDecimalDigitado(el, modelo) {
+  if (!el || !el.conta || !modelo) {
+    return null;
+  }
+  const campos = Array.from(el.conta.querySelectorAll(
+    '.resultado-input[data-linha="resultadoSoma"]',
+  )).sort((a, b) => Number(a.dataset.coluna) - Number(b.dataset.coluna));
+  if (campos.length !== modelo.digitosSoma.length) {
+    return null;
+  }
+  const valores = campos.map((campo) => String(campo.value ?? '').trim());
+  if (valores.some((valor) => !/^\d$/.test(valor))) {
+    return null;
+  }
+  return comporResultado(valores);
+}
+
+function atualizarVirgulaResultadoMultiplicacao(estado, el, modelo, ativo) {
   if (!el || !el.conta) {
     return;
   }
@@ -3335,26 +3353,20 @@ function atualizarVirgulaResultadoMultiplicacao(estado, el, modelo) {
   );
   estado.casasDecimaisResultado = casas;
 
-  const alvo = casas >= 1
-    ? {
-      coluna: casas - 1,
-      posicao: 'esquerda',
-    }
-    : {
-      coluna: total,
-      posicao: 'direita',
-    };
+  if (!ativo || casas < 1) {
+    return;
+  }
+
   const celula = el.conta.querySelector(
     '.celula-resultado-decimal[data-linha="resultadoSoma"]'
-      + '[data-coluna="' + alvo.coluna + '"]',
+      + '[data-coluna="' + (casas - 1) + '"]',
   );
   if (!celula) {
     return;
   }
 
   const virgula = document.createElement('span');
-  virgula.className = 'virgula-resultado-escolhida virgula-resultado-'
-    + alvo.posicao;
+  virgula.className = 'virgula-resultado-escolhida virgula-resultado-esquerda';
   virgula.textContent = ',';
   virgula.setAttribute('aria-hidden', 'true');
   celula.appendChild(virgula);
@@ -3386,20 +3398,48 @@ function criarControleVirgulaMultiplicacao(estado, el, modelo) {
   botaoMais.textContent = '+';
   botaoMais.setAttribute('aria-label', 'Mover a vírgula para a direita');
 
+  const seletor = document.createElement('input');
+  seletor.type = 'range';
+  seletor.className = 'controle-virgula-seletor';
+  seletor.min = '0';
+  seletor.max = String(modelo.casasDecimais);
+  seletor.step = '1';
+  seletor.setAttribute('aria-label', 'Quantidade de casas decimais no resultado');
+
   const previa = document.createElement('span');
   previa.className = 'controle-virgula-previa';
   previa.setAttribute('aria-live', 'polite');
 
   const limite = modelo.casasDecimais;
   const atualizarVisual = () => {
-    const casas = estado.casasDecimaisResultado;
-    valor.textContent = casas === 1 ? '1 casa' : casas + ' casas';
-    previa.textContent = formatarComCasasDecimais(modelo.resultado, casas);
-    botaoMenos.disabled = casas <= 0;
-    botaoMais.disabled = casas >= limite;
-    atualizarVirgulaResultadoMultiplicacao(estado, el, modelo);
+    const digitado = resultadoMultiplicacaoDecimalDigitado(el, modelo);
+    const ativo = digitado !== null;
+    const casas = Math.max(
+      0,
+      Math.min(limite, Math.trunc(Number(estado.casasDecimaisResultado) || 0)),
+    );
+    estado.casasDecimaisResultado = casas;
+
+    controle.classList.toggle('controle-virgula-ativo', ativo);
+    controle.classList.toggle('controle-virgula-inativo', !ativo);
+    controle.setAttribute('aria-disabled', String(!ativo));
+    valor.textContent = ativo
+      ? (casas === 1 ? '1 casa' : casas + ' casas')
+      : 'Aguardando a conta';
+    seletor.value = String(casas);
+    seletor.disabled = !ativo;
+    botaoMenos.disabled = !ativo || casas <= 0;
+    botaoMais.disabled = !ativo || casas >= limite;
+    previa.hidden = !ativo;
+    previa.textContent = ativo
+      ? formatarComCasasDecimais(digitado, casas)
+      : '';
+    atualizarVirgulaResultadoMultiplicacao(estado, el, modelo, ativo);
   };
   const mover = (passo) => {
+    if (resultadoMultiplicacaoDecimalDigitado(el, modelo) === null) {
+      return;
+    }
     estado.casasDecimaisResultado = Math.max(
       0,
       Math.min(limite, estado.casasDecimaisResultado + passo),
@@ -3409,7 +3449,16 @@ function criarControleVirgulaMultiplicacao(estado, el, modelo) {
 
   botaoMenos.addEventListener('click', () => mover(-1));
   botaoMais.addEventListener('click', () => mover(1));
-  controle.append(rotulo, botaoMenos, valor, botaoMais, previa);
+  seletor.addEventListener('input', () => {
+    const casas = Number(seletor.value);
+    if (!Number.isInteger(casas)) {
+      return;
+    }
+    estado.casasDecimaisResultado = Math.max(0, Math.min(limite, casas));
+    atualizarVisual();
+  });
+  controle.append(rotulo, botaoMenos, valor, botaoMais, seletor, previa);
+  controle.atualizar = atualizarVisual;
   atualizarVisual();
   return controle;
 }
@@ -3427,6 +3476,7 @@ function renderMultiplicacaoDecimal(estado, el) {
     el,
     modelo,
     ordemFoco: modelo.ordemFoco,
+    aoAlterar: null,
   };
   estado.multiplicacaoDecimal = modelo;
   estado.multiplicacaoDificil = modelo;
@@ -3617,6 +3667,7 @@ function renderMultiplicacaoDecimal(estado, el) {
   });
 
   const controle = criarControleVirgulaMultiplicacao(estado, el, modelo);
+  contexto.aoAlterar = () => controle.atualizar();
   controle.style.gridColumn = '1 / -1';
   controle.style.gridRow = String(linhas.resultadoSoma + 1);
   el.conta.appendChild(controle);
@@ -6015,6 +6066,9 @@ if (typeof module !== 'undefined' && module.exports) {
     montarModeloMultiplicacaoDecimal,
     colunaGradeMultiplicacaoDecimal,
     formatarComCasasDecimais,
+    resultadoMultiplicacaoDecimalDigitado,
+    atualizarVirgulaResultadoMultiplicacao,
+    criarControleVirgulaMultiplicacao,
     calcularParcialMultiplicacaoDificil,
     somarParcelasMultiplicacaoDificil,
     ordemFocoMultiplicacaoDificil,

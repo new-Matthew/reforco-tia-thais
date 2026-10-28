@@ -111,6 +111,9 @@ const {
   montarModeloMultiplicacaoDecimal,
   colunaGradeMultiplicacaoDecimal,
   formatarComCasasDecimais,
+  resultadoMultiplicacaoDecimalDigitado,
+  atualizarVirgulaResultadoMultiplicacao,
+  criarControleVirgulaMultiplicacao,
   calcularParcialMultiplicacaoDificil,
   somarParcelasMultiplicacaoDificil,
   ordemFocoMultiplicacaoDificil,
@@ -657,6 +660,205 @@ test('formatarComCasasDecimais monta a prévia do produto com vírgula móvel', 
   assert.equal(formatarComCasasDecimais(5, 2), '0,05');
 });
 
+function contaComResultadosFinais(valores) {
+  const campos = valores.map((valor, coluna) => ({
+    value: valor,
+    dataset: { coluna: String(coluna) },
+  }));
+  return {
+    querySelectorAll(seletor) {
+      return seletor === '.resultado-input[data-linha="resultadoSoma"]' ? campos : [];
+    },
+  };
+}
+
+test('resultadoMultiplicacaoDecimalDigitado só devolve o produto após completar a linha final', () => {
+  const modelo = montarModeloMultiplicacaoDecimal(125, 34, 1, 1);
+
+  assert.equal(
+    resultadoMultiplicacaoDecimalDigitado(
+      { conta: contaComResultadosFinais(['0', '5', '2', '4']) },
+      modelo,
+    ),
+    4250,
+  );
+  assert.equal(
+    resultadoMultiplicacaoDecimalDigitado(
+      { conta: contaComResultadosFinais(['0', '5', '', '4']) },
+      modelo,
+    ),
+    null,
+  );
+  assert.equal(
+    resultadoMultiplicacaoDecimalDigitado(
+      { conta: contaComResultadosFinais(['0', '5', '2', 'x']) },
+      modelo,
+    ),
+    null,
+  );
+  assert.equal(resultadoMultiplicacaoDecimalDigitado(null, modelo), null);
+});
+
+function elementoFalso(tag = 'div') {
+  const classes = new Set();
+  const elemento = {
+    tag,
+    children: [],
+    listeners: {},
+    attributes: {},
+    dataset: {},
+    style: {},
+    hidden: false,
+    disabled: false,
+    value: '',
+    textContent: '',
+    className: '',
+    classList: {
+      toggle(nome, ativo) {
+        if (ativo) {
+          classes.add(nome);
+        } else {
+          classes.delete(nome);
+        }
+      },
+      contains(nome) {
+        return classes.has(nome);
+      },
+    },
+    setAttribute(nome, valor) {
+      this.attributes[nome] = String(valor);
+    },
+    addEventListener(tipo, ouvinte) {
+      (this.listeners[tipo] ||= []).push(ouvinte);
+    },
+    append(...filhos) {
+      filhos.forEach((filho) => this.children.push(filho));
+    },
+    appendChild(filho) {
+      filho.parent = this;
+      this.children.push(filho);
+      return filho;
+    },
+    remove() {
+      this.removido = true;
+    },
+  };
+  return elemento;
+}
+
+function criarControleVirgulaFalso(modelo) {
+  const documentOriginal = global.document;
+  const criados = [];
+  global.document = {
+    createElement(tag) {
+      const elemento = elementoFalso(tag);
+      criados.push(elemento);
+      return elemento;
+    },
+  };
+  const campos = modelo.digitosSoma.map((_, coluna) => {
+    const campo = elementoFalso('input');
+    campo.dataset.coluna = String(coluna);
+    return campo;
+  });
+  const celulas = {};
+  modelo.digitosSoma.forEach((_, coluna) => {
+    celulas[String(coluna)] = elementoFalso('div');
+  });
+  const conta = {
+    querySelectorAll(seletor) {
+      if (seletor === '.resultado-input[data-linha="resultadoSoma"]') {
+        return campos;
+      }
+      if (seletor === '.virgula-resultado-escolhida') {
+        return criados.filter((elemento) => elemento.className
+          .includes('virgula-resultado-escolhida') && !elemento.removido);
+      }
+      return [];
+    },
+    querySelector(seletor) {
+      if (seletor.includes('celula-resultado-decimal')) {
+        const encontrado = seletor.match(/data-coluna="(\d+)"/);
+        return encontrado ? celulas[encontrado[1]] ?? null : null;
+      }
+      return null;
+    },
+  };
+  const estado = { casasDecimaisResultado: 0 };
+  const el = { conta };
+  const controle = criarControleVirgulaMultiplicacao(estado, el, modelo);
+
+  return {
+    documentOriginal, campos, celulas, estado, controle,
+  };
+}
+
+test('controle da vírgula fica inativo até a soma final e move a vírgula entre as células', () => {
+  const modelo = montarModeloMultiplicacaoDecimal(125, 34, 1, 1);
+  const cenario = criarControleVirgulaFalso(modelo);
+
+  try {
+    const {
+      campos, celulas, estado, controle,
+    } = cenario;
+    const botaoMenos = controle.children.find((filho) => filho.textContent === '−');
+    const botaoMais = controle.children.find((filho) => filho.textContent === '+');
+    const seletor = controle.children.find(
+      (filho) => filho.className === 'controle-virgula-seletor',
+    );
+    const previa = controle.children.find(
+      (filho) => filho.className === 'controle-virgula-previa',
+    );
+
+    assert.equal(controle.attributes['aria-disabled'], 'true');
+    assert.equal(controle.classList.contains('controle-virgula-inativo'), true);
+    assert.equal(botaoMenos.disabled, true);
+    assert.equal(botaoMais.disabled, true);
+    assert.equal(seletor.disabled, true);
+    assert.equal(previa.hidden, true);
+    assert.equal(previa.textContent, '');
+    assert.equal(celulas['1'].children.length, 0);
+
+    modelo.digitosSoma.forEach((digito, coluna) => {
+      campos[coluna].value = String(digito);
+    });
+    controle.atualizar();
+
+    assert.equal(controle.attributes['aria-disabled'], 'false');
+    assert.equal(controle.classList.contains('controle-virgula-ativo'), true);
+    assert.equal(botaoMenos.disabled, true);
+    assert.equal(botaoMais.disabled, false);
+    assert.equal(seletor.disabled, false);
+    assert.equal(previa.hidden, false);
+    assert.equal(previa.textContent, '4250');
+
+    botaoMais.listeners.click[0]();
+    assert.equal(estado.casasDecimaisResultado, 1);
+    assert.equal(previa.textContent, '425,0');
+    assert.match(celulas['0'].children[0].className, /virgula-resultado-escolhida/);
+
+    botaoMais.listeners.click[0]();
+    assert.equal(estado.casasDecimaisResultado, 2);
+    assert.equal(previa.textContent, '42,50');
+    assert.equal(celulas['0'].children[0].removido, true);
+    assert.match(celulas['1'].children[0].className, /virgula-resultado-escolhida/);
+
+    seletor.value = '1';
+    seletor.listeners.input[0]();
+    assert.equal(estado.casasDecimaisResultado, 1);
+    assert.equal(previa.textContent, '425,0');
+
+    campos[3].value = '';
+    controle.atualizar();
+    assert.equal(controle.attributes['aria-disabled'], 'true');
+    assert.equal(previa.hidden, true);
+    assert.equal(seletor.disabled, true);
+    assert.equal(celulas['1'].children[0].removido, true);
+  } finally {
+    global.document = cenario.documentOriginal;
+  }
+});
+
 test('montarRequisicao envia as casas dos fatores e a posição da vírgula', () => {
   const questao = {
     id: 'id-mult-decimal',
@@ -688,6 +890,8 @@ test('estilos da multiplicação decimal reservam vírgula e controle próprio',
   assert.match(css, /\.conta-multiplicacao-decimal/);
   assert.match(css, /\.virgula-resultado-escolhida/);
   assert.match(css, /\.controle-virgula-multiplicacao/);
+  assert.match(css, /\.controle-virgula-inativo/);
+  assert.match(css, /\.controle-virgula-seletor/);
 });
 
 test('comporResultado trata as casas decimais vazias como zero alinhado', () => {
