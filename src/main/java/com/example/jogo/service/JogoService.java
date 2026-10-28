@@ -76,13 +76,16 @@ public class JogoService {
         }
         if (tipoNumero == TipoNumero.DECIMAIS
                 && operacao != Operacao.SOMA
-                && operacao != Operacao.SUBTRACAO) {
+                && operacao != Operacao.SUBTRACAO
+                && operacao != Operacao.MULTIPLICACAO) {
             throw new IllegalArgumentException(
-                    "Números decimais estão disponíveis apenas na soma e na subtração.");
+                    "Números decimais estão disponíveis na soma, subtração e multiplicação.");
         }
 
         return switch (operacao) {
-            case MULTIPLICACAO -> gerarMultiplicacao(operacao, dificuldade);
+            case MULTIPLICACAO -> tipoNumero == TipoNumero.DECIMAIS
+                    ? gerarMultiplicacaoDecimal(operacao, dificuldade)
+                    : gerarMultiplicacao(operacao, dificuldade);
             case DIVISAO -> gerarDivisao(operacao, dificuldade);
             case SOMA -> tipoNumero == TipoNumero.DECIMAIS
                     ? gerarSomaDecimal(operacao, dificuldade)
@@ -173,6 +176,17 @@ public class JogoService {
     private AvaliacaoPassos avaliarMultiplicacao(RequisicaoValidacaoDTO requisicao) {
         int numeroA = requisicao.getNumeroA();
         int numeroB = requisicao.getNumeroB();
+        if (requisicao.getTipoNumero() == TipoNumero.DECIMAIS) {
+            boolean virgulaCorreta = Objects.equals(
+                    requisicao.getCasasDecimaisResultado(),
+                    requisicao.getCasasDecimais());
+            return new AvaliacaoPassos(
+                    numeroA * numeroB,
+                    virgulaCorreta,
+                    virgulaCorreta
+                            ? null
+                            : "O resultado está certo, mas confira a posição da vírgula.");
+        }
         if (numeroA >= MENOR_MULTIPLICANDO_TRES_CASAS && numeroB >= MENOR_FATOR_DUAS_CASAS) {
             return new AvaliacaoPassos(numeroA * numeroB, true);
         }
@@ -315,9 +329,13 @@ public class JogoService {
         }
 
         if (resultadoCorreto) {
-            String mensagem = operacao == Operacao.DIVISAO
-                    ? "O resultado está certo, mas confira os passos da divisão."
-                    : "O resultado está certo, mas confira os passos do " + descreverPasso(operacao);
+            String mensagem = avaliacao.mensagemPassoIncorreto();
+            if (mensagem == null) {
+                mensagem = operacao == Operacao.DIVISAO
+                        ? "O resultado está certo, mas confira os passos da divisão."
+                        : "O resultado está certo, mas confira os passos do "
+                                + descreverPasso(operacao);
+            }
             return new RespostaValidacaoDTO(
                     false,
                     mensagem,
@@ -513,6 +531,58 @@ public class JogoService {
             aplicarPassosMultiplicacao(questao);
         }
         return questao;
+    }
+
+    private QuestaoDTO gerarMultiplicacaoDecimal(
+            Operacao operacao,
+            Dificuldade dificuldade) {
+        return gerarComTentativas(
+                "Não foi possível gerar uma multiplicação decimal.",
+                () -> {
+                    int casasA = sortearCasasMultiplicandoDecimal(dificuldade);
+                    int casasB = CASAS_DECIMAIS_MINIMAS;
+                    int inteiroA = sortearInteiroMultiplicandoDecimal(dificuldade);
+                    int inteiroB = sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA);
+                    int numeroA = inteiroA * potenciaDeDez(casasA)
+                            + sortearFracaoEscalada(casasA);
+                    int numeroB = inteiroB * potenciaDeDez(casasB)
+                            + sortearFracaoEscalada(casasB);
+                    return novaQuestaoDecimal(
+                            operacao, dificuldade, numeroA, numeroB, casasA, casasB);
+                });
+    }
+
+    private int sortearInteiroMultiplicandoDecimal(Dificuldade dificuldade) {
+        return switch (dificuldade) {
+            case FACIL -> sortear(MENOR_FATOR, MAIOR_FATOR_UMA_CASA);
+            case MEDIO -> sortear(MENOR_FATOR_DUAS_CASAS, MAIOR_FATOR_DUAS_CASAS);
+            case DIFICIL -> sortear(
+                    MENOR_MULTIPLICANDO_TRES_CASAS,
+                    MAIOR_MULTIPLICANDO_TRES_CASAS);
+        };
+    }
+
+    private int sortearCasasMultiplicandoDecimal(Dificuldade dificuldade) {
+        if (dificuldade == Dificuldade.FACIL) {
+            return CASAS_DECIMAIS_MINIMAS;
+        }
+        if (dificuldade == Dificuldade.DIFICIL) {
+            return CASAS_DECIMAIS_MAXIMAS;
+        }
+        return random.nextBoolean()
+                ? CASAS_DECIMAIS_MINIMAS
+                : CASAS_DECIMAIS_MAXIMAS;
+    }
+
+    private int sortearFracaoEscalada(int casasDecimais) {
+        if (casasDecimais == CASAS_DECIMAIS_MINIMAS) {
+            return sortear(1, 9);
+        }
+        return sortear(10, 99);
+    }
+
+    private int potenciaDeDez(int expoente) {
+        return (int) Math.pow(10, expoente);
     }
 
     private int sortearMultiplicando(Dificuldade dificuldade) {
@@ -759,21 +829,44 @@ public class JogoService {
         }
         if (requisicao.getTipoNumero() == TipoNumero.DECIMAIS) {
             if (requisicao.getOperacao() != Operacao.SOMA
-                    && requisicao.getOperacao() != Operacao.SUBTRACAO) {
+                    && requisicao.getOperacao() != Operacao.SUBTRACAO
+                    && requisicao.getOperacao() != Operacao.MULTIPLICACAO) {
                 throw new IllegalArgumentException(
-                        "Números decimais estão disponíveis apenas na soma e na subtração.");
+                        "Números decimais estão disponíveis apenas na soma, "
+                                + "subtração e multiplicação.");
             }
+            boolean multiplicacao = requisicao.getOperacao() == Operacao.MULTIPLICACAO;
             int casasDecimais = requisicao.getCasasDecimais() == null
                     ? -1
                     : requisicao.getCasasDecimais();
+            int limiteCasas = multiplicacao
+                    ? CASAS_DECIMAIS_MAXIMAS + 1
+                    : CASAS_DECIMAIS_MAXIMAS;
             if (casasDecimais < CASAS_DECIMAIS_MINIMAS
-                    || casasDecimais > CASAS_DECIMAIS_MAXIMAS) {
+                    || casasDecimais > limiteCasas) {
                 throw new IllegalArgumentException(
-                        "A quantidade de casas decimais deve ser 1 ou 2.");
+                        multiplicacao
+                                ? "A quantidade de casas decimais deve ser 1, 2 ou 3."
+                                : "A quantidade de casas decimais deve ser 1 ou 2.");
+            }
+            if (multiplicacao
+                    && requisicao.getCasasDecimaisResultado() != null
+                    && (requisicao.getCasasDecimaisResultado() < 0
+                    || requisicao.getCasasDecimaisResultado() > casasDecimais)) {
+                throw new IllegalArgumentException(
+                        "A posição da vírgula deve estar entre 0 e a quantidade "
+                                + "de casas decimais.");
             }
         }
     }
 
-    private record AvaliacaoPassos(int respostaCorreta, boolean passosCorretos) {
+    private record AvaliacaoPassos(
+            int respostaCorreta,
+            boolean passosCorretos,
+            String mensagemPassoIncorreto) {
+
+        AvaliacaoPassos(int respostaCorreta, boolean passosCorretos) {
+            this(respostaCorreta, passosCorretos, null);
+        }
     }
 }

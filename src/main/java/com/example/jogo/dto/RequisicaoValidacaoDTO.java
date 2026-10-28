@@ -36,6 +36,7 @@ public class RequisicaoValidacaoDTO {
     private List<Integer> restosParciaisDigitados;
     private TipoNumero tipoNumero;
     private Integer casasDecimais;
+    private Integer casasDecimaisResultado;
 
     public RequisicaoValidacaoDTO(
             String idQuestao,

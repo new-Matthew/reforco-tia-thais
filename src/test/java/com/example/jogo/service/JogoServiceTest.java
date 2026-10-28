@@ -141,8 +141,12 @@ class JogoServiceTest {
                 Operacao.SUBTRACAO, Dificuldade.FACIL, TipoNumero.DECIMAIS);
         assertEquals(TipoNumero.DECIMAIS, subtracao.getTipoNumero());
 
+        QuestaoDTO multiplicacao = jogoService.gerarQuestao(
+                Operacao.MULTIPLICACAO, Dificuldade.FACIL, TipoNumero.DECIMAIS);
+        assertEquals(TipoNumero.DECIMAIS, multiplicacao.getTipoNumero());
+
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
-                Operacao.MULTIPLICACAO, Dificuldade.FACIL, TipoNumero.DECIMAIS));
+                Operacao.DIVISAO, Dificuldade.FACIL, TipoNumero.DECIMAIS));
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
                 Operacao.SOMA, Dificuldade.FACIL, null));
     }
@@ -279,14 +283,117 @@ class JogoServiceTest {
         semCasas.setTipoNumero(TipoNumero.DECIMAIS);
 
         RequisicaoValidacaoDTO operacaoIncompativel = new RequisicaoValidacaoDTO(
-                "id-multiplicacao-decimal", Operacao.MULTIPLICACAO, 1275, 348, 443700,
-                null, null, 7);
+                "id-divisao-decimal", Operacao.DIVISAO, 12, 3, 4,
+                null, null, null);
         operacaoIncompativel.setTipoNumero(TipoNumero.DECIMAIS);
         operacaoIncompativel.setCasasDecimais(2);
 
         assertThrows(IllegalArgumentException.class, () -> jogoService.validar(semCasas));
         assertThrows(IllegalArgumentException.class,
                 () -> jogoService.validar(operacaoIncompativel));
+    }
+
+    @Test
+    @DisplayName("Gera multiplicações decimais em todos os níveis com fatores escalados")
+    void geraMultiplicacaoDecimalEmTodosOsNiveis() {
+        for (Dificuldade dificuldade : List.of(
+                Dificuldade.FACIL, Dificuldade.MEDIO, Dificuldade.DIFICIL)) {
+            for (int i = 0; i < 100; i++) {
+                QuestaoDTO questao = jogoService.gerarQuestao(
+                        Operacao.MULTIPLICACAO, dificuldade, TipoNumero.DECIMAIS);
+
+                assertEquals(Operacao.MULTIPLICACAO, questao.getOperacao());
+                assertEquals(dificuldade, questao.getDificuldade());
+                assertEquals(TipoNumero.DECIMAIS, questao.getTipoNumero());
+
+                int casasA = questao.getCasasDecimaisA();
+                int casasB = questao.getCasasDecimaisB();
+                assertTrue(casasA >= 1 && casasA <= 2);
+                assertEquals(1, casasB);
+
+                int inteiroA = questao.getNumeroA() / (int) Math.pow(10, casasA);
+                int inteiroB = questao.getNumeroB() / 10;
+                int minimo = switch (dificuldade) {
+                    case FACIL -> 1;
+                    case MEDIO -> 10;
+                    case DIFICIL -> 100;
+                };
+                int maximo = switch (dificuldade) {
+                    case FACIL -> 9;
+                    case MEDIO -> 99;
+                    case DIFICIL -> 999;
+                };
+                assertTrue(inteiroA >= minimo && inteiroA <= maximo);
+                assertTrue(inteiroB >= 1 && inteiroB <= 9);
+                assertTrue(questao.getNumeroA() % (int) Math.pow(10, casasA) >= 1);
+                assertTrue(questao.getNumeroB() % 10 >= 1);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Valida multiplicação decimal com o produto inteiro e a vírgula correta")
+    void validaMultiplicacaoDecimalComVirgulaCorreta() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-decimal", Operacao.MULTIPLICACAO, 25, 34, 850,
+                null, null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(2);
+        requisicao.setCasasDecimaisResultado(2);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(850, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando o produto decimal está certo mas a vírgula está errada")
+    void validaMultiplicacaoDecimalComVirgulaErrada() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-decimal-virgula", Operacao.MULTIPLICACAO, 25, 34, 850,
+                null, null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(2);
+        requisicao.setCasasDecimaisResultado(1);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(850, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("vírgula"));
+    }
+
+    @Test
+    @DisplayName("Formata o produto decimal com vírgula no feedback de erro")
+    void formataProdutoDecimalNoFeedback() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-decimal-errada", Operacao.MULTIPLICACAO, 25, 34, 800,
+                null, null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(2);
+        requisicao.setCasasDecimaisResultado(2);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("8,50"));
+    }
+
+    @Test
+    @DisplayName("Rejeita posição de vírgula fora das casas decimais da multiplicação")
+    void rejeitaPosicaoDeVirgulaInvalida() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-mult-decimal-invalida", Operacao.MULTIPLICACAO, 25, 34, 850,
+                null, null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(2);
+        requisicao.setCasasDecimaisResultado(3);
+
+        assertThrows(IllegalArgumentException.class, () -> jogoService.validar(requisicao));
     }
 
     @Test

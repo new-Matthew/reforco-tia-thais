@@ -117,10 +117,25 @@ class JogoControllerTest {
     }
 
     @Test
-    @DisplayName("Rejeita números decimais fora da soma e da subtração")
-    void rejeitaDecimaisForaDaSomaESubtracao() throws Exception {
+    @DisplayName("Retorna uma multiplicação decimal com as casas dos fatores")
+    void retornaQuestaoDeMultiplicacaoDecimal() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
                         .param("operacao", "MULTIPLICACAO")
+                        .param("dificuldade", "MEDIO")
+                        .param("tipoNumero", "DECIMAIS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("MULTIPLICACAO"))
+                .andExpect(jsonPath("$.dificuldade").value("MEDIO"))
+                .andExpect(jsonPath("$.tipoNumero").value("DECIMAIS"))
+                .andExpect(jsonPath("$.casasDecimaisA").isNumber())
+                .andExpect(jsonPath("$.casasDecimaisB").value(1));
+    }
+
+    @Test
+    @DisplayName("Rejeita números decimais fora das operações suportadas")
+    void rejeitaDecimaisForaDasOperacoesSuportadas() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "DIVISAO")
                         .param("dificuldade", "FACIL")
                         .param("tipoNumero", "DECIMAIS"))
                 .andExpect(status().isBadRequest());
@@ -172,6 +187,30 @@ class JogoControllerTest {
                 .andExpect(jsonPath("$.correto").value(true))
                 .andExpect(jsonPath("$.pontosGanhos").value(10))
                 .andExpect(jsonPath("$.respostaCorreta").value(927));
+    }
+
+    @Test
+    @DisplayName("Valida uma multiplicação decimal com a posição da vírgula")
+    void validaMultiplicacaoDecimal() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "MULTIPLICACAO",
+                  "numeroA": 25,
+                  "numeroB": 34,
+                  "resultadoDigitado": 850,
+                  "tipoNumero": "DECIMAIS",
+                  "casasDecimais": 2,
+                  "casasDecimaisResultado": 2
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(850));
     }
 
     @Test
