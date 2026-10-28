@@ -227,7 +227,18 @@ const LINHAS_MULTIPLICACAO_DIFICIL = {
 function ehMultiplicacaoDificil(questao) {
   return Boolean(questao)
     && questao.operacao === 'MULTIPLICACAO'
-    && questao.dificuldade === 'DIFICIL';
+    && questao.dificuldade === 'DIFICIL'
+    && questao.tipoNumero !== 'DECIMAIS';
+}
+
+function ehMultiplicacaoDecimal(questao) {
+  return Boolean(questao)
+    && questao.operacao === 'MULTIPLICACAO'
+    && questao.tipoNumero === 'DECIMAIS';
+}
+
+function ehMultiplicacaoGuiada(questao) {
+  return ehMultiplicacaoDificil(questao) || ehMultiplicacaoDecimal(questao);
 }
 
 /*
@@ -407,6 +418,76 @@ function montarModeloMultiplicacaoDificil(numeroA, numeroB) {
   };
 }
 
+function casasDecimaisMultiplicacao(questao) {
+  if (!ehMultiplicacaoDecimal(questao)) {
+    return 0;
+  }
+  const casasA = Math.max(0, Math.trunc(Number(questao.casasDecimaisA) || 0));
+  const casasB = Math.max(0, Math.trunc(Number(questao.casasDecimaisB) || 0));
+  return Math.max(1, casasA + casasB);
+}
+
+function digitosParteInteiraEscalada(valor, casasDecimais) {
+  const casas = Math.max(0, Math.trunc(Number(casasDecimais) || 0));
+  const inteiro = Math.floor(
+    Math.abs(Math.trunc(Number(valor) || 0)) / (10 ** casas),
+  );
+  return String(inteiro).length;
+}
+
+function montarModeloMultiplicacaoDecimal(
+  numeroA,
+  numeroB,
+  casasDecimaisA,
+  casasDecimaisB,
+) {
+  const base = montarModeloMultiplicacaoDificil(numeroA, numeroB);
+  const casasA = Math.max(0, Math.trunc(Number(casasDecimaisA) || 0));
+  const casasB = Math.max(0, Math.trunc(Number(casasDecimaisB) || 0));
+  const casasDecimais = Math.max(1, casasA + casasB);
+  const colunasInteiras = Math.max(
+    1,
+    digitosParteInteiraEscalada(base.numeroA, casasA),
+    digitosParteInteiraEscalada(base.numeroB, casasB),
+    digitosParteInteiraEscalada(base.resultado, casasDecimais),
+  );
+  const colunaVirgula = colunasInteiras + 2;
+
+  return {
+    ...base,
+    casasDecimaisA: casasA,
+    casasDecimaisB: casasB,
+    casasDecimais,
+    colunasInteiras,
+    colunaVirgula,
+    colunasGrade: colunasInteiras + 2 + casasDecimais,
+  };
+}
+
+/*
+ * Converte um algarismo (índice 0 = mais à direita) para a coluna do grid.
+ * A vírgula ocupa uma coluna própria; por isso as casas decimais ficam à
+ * direita dela e as casas inteiras à esquerda.
+ */
+function colunaGradeMultiplicacaoDecimal(indice, casasOperando, colunaVirgula) {
+  const posicao = Math.max(0, Math.trunc(Number(casasOperando) || 0))
+    - Math.trunc(Number(indice) || 0);
+  const virgula = Math.max(1, Math.trunc(Number(colunaVirgula) || 1));
+  return posicao >= 1 ? virgula + posicao : virgula + posicao - 1;
+}
+
+function formatarComCasasDecimais(valor, casasDecimais) {
+  const numero = Math.abs(Math.trunc(Number(valor) || 0));
+  const casas = Math.max(0, Math.trunc(Number(casasDecimais) || 0));
+  if (casas === 0) {
+    return String(numero);
+  }
+  const divisor = 10 ** casas;
+  const parteInteira = Math.floor(numero / divisor);
+  const parteFracionaria = numero % divisor;
+  return parteInteira + ',' + String(parteFracionaria).padStart(casas, '0');
+}
+
 function seletorCelulaOperandoDica(linha, coluna) {
   return '.celula-multiplicacao-dificil'
     + '[data-linha="' + linha + '"]'
@@ -558,7 +639,7 @@ function alvoFocoAtualMultiplicacaoDificil(el) {
 }
 
 function seletoresDicaAtualMultiplicacaoDificil(estado, el) {
-  if (!ehMultiplicacaoDificil(estado && estado.questao)) {
+  if (!ehMultiplicacaoGuiada(estado && estado.questao)) {
     return [];
   }
   const modelo = estado.multiplicacaoDificil;
@@ -567,6 +648,13 @@ function seletoresDicaAtualMultiplicacaoDificil(estado, el) {
   }
 
   const preenchidos = preenchidosNaOrdem(el, modelo.ordemFoco);
+  const todosPreenchidos = preenchidos.size >= modelo.ordemFoco.length;
+  if (ehMultiplicacaoDecimal(estado.questao)
+    && todosPreenchidos
+    && estado.casasDecimaisResultado !== modelo.casasDecimais) {
+    return ['.controle-virgula-multiplicacao'];
+  }
+
   const alvo = resolverAlvoDicaMultiplicacaoDificil(
     modelo,
     alvoFocoAtualMultiplicacaoDificil(el),
@@ -723,7 +811,9 @@ function rotuloColunaDecimal(indice, casasDecimais = CASAS_DECIMAIS_SOMA) {
     return 'resultado';
   }
   if (indice < casas) {
-    const rotulos = casas === 2 ? ['centésimos', 'décimos'] : ['décimos'];
+    const rotulos = casas === 3
+      ? ['milésimos', 'centésimos', 'décimos']
+      : (casas === 2 ? ['centésimos', 'décimos'] : ['décimos']);
     return rotulos[indice] ?? 'décimos';
   }
   return ROTULOS_COLUNA[indice - casas] ?? 'milhares';
@@ -1336,7 +1426,7 @@ function seletoresDicaAtualDivisaoDificil(estado, el) {
 }
 
 function seletoresDicaAtual(estado, el) {
-  if (ehMultiplicacaoDificil(estado && estado.questao)) {
+  if (ehMultiplicacaoGuiada(estado && estado.questao)) {
     return seletoresDicaAtualMultiplicacaoDificil(estado, el);
   }
   if (ehSomaGuiada(estado && estado.questao)) {
@@ -1993,9 +2083,17 @@ function montarRequisicao(questao, entradas) {
       : null,
   };
 
-  if (ehOperacaoDecimal(questao)) {
+  if (ehOperacaoDecimal(questao) || ehMultiplicacaoDecimal(questao)) {
     requisicao.tipoNumero = 'DECIMAIS';
-    requisicao.casasDecimais = casasDecimaisMaximas(questao);
+    requisicao.casasDecimais = ehMultiplicacaoDecimal(questao)
+      ? casasDecimaisMultiplicacao(questao)
+      : casasDecimaisMaximas(questao);
+    if (ehMultiplicacaoDecimal(questao)) {
+      const casasResultado = Number(entradas.casasDecimaisResultado);
+      requisicao.casasDecimaisResultado = Number.isInteger(casasResultado)
+        ? casasResultado
+        : null;
+    }
   }
 
   if (divisao) {
@@ -2197,6 +2295,8 @@ function iniciarInterface() {
     questaoRespondida: false,
     pedido: 0,
     multiplicacaoDificil: null,
+    multiplicacaoDecimal: null,
+    casasDecimaisResultado: 0,
     somaDificil: null,
     subtracaoDificil: null,
     divisaoDificil: null,
@@ -2308,14 +2408,18 @@ function aplicarPreferencias(estado, busca) {
     estado.dificuldade = dificuldade;
   }
   if ((tipoNumero === 'INTEIROS' || tipoNumero === 'DECIMAIS')
-    && (estado.operacao === 'SOMA' || estado.operacao === 'SUBTRACAO')) {
+    && (estado.operacao === 'SOMA'
+      || estado.operacao === 'SUBTRACAO'
+      || estado.operacao === 'MULTIPLICACAO')) {
     estado.tipoNumero = tipoNumero;
   }
   return estado;
 }
 
 function atualizarTipoNumero(estado, el) {
-  const disponivel = estado.operacao === 'SOMA' || estado.operacao === 'SUBTRACAO';
+  const disponivel = estado.operacao === 'SOMA'
+    || estado.operacao === 'SUBTRACAO'
+    || estado.operacao === 'MULTIPLICACAO';
   if (el.grupoTipoNumero) {
     el.grupoTipoNumero.hidden = !disponivel;
   }
@@ -2442,7 +2546,9 @@ async function carregarQuestao(estado, el) {
     let url = API_BASE + '/proxima-questao?operacao='
       + encodeURIComponent(estado.operacao)
       + '&dificuldade=' + encodeURIComponent(estado.dificuldade);
-    if (estado.operacao === 'SOMA' || estado.operacao === 'SUBTRACAO') {
+    if (estado.operacao === 'SOMA'
+      || estado.operacao === 'SUBTRACAO'
+      || estado.operacao === 'MULTIPLICACAO') {
       url += '&tipoNumero=' + encodeURIComponent(estado.tipoNumero);
     }
     const resposta = await fetch(url);
@@ -2457,6 +2563,8 @@ async function carregarQuestao(estado, el) {
     estado.questao = await resposta.json();
     estado.emprestimos = new Set();
     estado.multiplicacaoDificil = null;
+    estado.multiplicacaoDecimal = null;
+    estado.casasDecimaisResultado = 0;
     estado.somaDificil = null;
     estado.subtracaoDificil = null;
     estado.divisaoDificil = null;
@@ -2473,6 +2581,8 @@ async function carregarQuestao(estado, el) {
     }
     estado.questao = null;
     estado.multiplicacaoDificil = null;
+    estado.multiplicacaoDecimal = null;
+    estado.casasDecimaisResultado = 0;
     estado.somaDificil = null;
     estado.subtracaoDificil = null;
     estado.divisaoDificil = null;
@@ -2508,6 +2618,7 @@ function renderConta(estado, el) {
   const questao = estado.questao;
   const divisao = questao.operacao === 'DIVISAO';
   const multiplicacaoDificil = ehMultiplicacaoDificil(questao);
+  const multiplicacaoDecimal = ehMultiplicacaoDecimal(questao);
   const subtracaoDificil = ehSubtracaoDificil(questao);
   const somaDecimal = ehSomaDecimal(questao);
   const subtracaoDecimal = ehSubtracaoDecimal(questao);
@@ -2533,13 +2644,23 @@ function renderConta(estado, el) {
       : null);
   el.conta.classList.toggle('conta-divisao', divisao);
   el.conta.classList.toggle('conta-multiplicacao-dificil', multiplicacaoDificil);
+  el.conta.classList.toggle('conta-multiplicacao-decimal', multiplicacaoDecimal);
   el.conta.classList.toggle('conta-subtracao-dificil', subtracaoDificil);
   el.conta.classList.toggle('conta-subtracao-decimal', subtracaoDecimal);
-  el.conta.classList.toggle('conta-decimal', somaDecimal || subtracaoDecimal);
+  el.conta.classList.toggle(
+    'conta-decimal',
+    somaDecimal || subtracaoDecimal || multiplicacaoDecimal,
+  );
   if (divisao) {
+    estado.multiplicacaoDecimal = null;
     renderDivisao(estado, el);
     return;
   }
+  if (multiplicacaoDecimal) {
+    renderMultiplicacaoDecimal(estado, el);
+    return;
+  }
+  estado.multiplicacaoDecimal = null;
   if (multiplicacaoDificil) {
     renderMultiplicacaoDificil(estado, el);
     return;
@@ -3106,6 +3227,399 @@ function renderMultiplicacaoDificil(estado, el) {
       contexto,
     ));
   });
+
+  modelo.ordemFoco.forEach((alvo, indice) => {
+    const campo = el.conta.querySelector(seletorCampoMultiplicacaoDificil(alvo));
+    if (campo) {
+      campo.tabIndex = indice + 1;
+    }
+  });
+
+  const primeiro = modelo.ordemFoco[0];
+  if (primeiro) {
+    setTimeout(() => {
+      if (!el.conta.contains(document.activeElement)) {
+        focarItemOrdem(el, primeiro);
+      }
+    }, 0);
+  }
+}
+
+function criarCelulaOperandoMultiplicacaoDecimal(
+  indice,
+  digito,
+  casasOperando,
+  linha,
+  modelo,
+  nomeLinha,
+) {
+  const celula = criarCelulaEstaticaMultiplicacaoDificil(
+    indice,
+    digito,
+    linha,
+    0,
+    nomeLinha,
+  );
+  celula.style.gridColumn = String(colunaGradeMultiplicacaoDecimal(
+    indice,
+    casasOperando,
+    modelo.colunaVirgula,
+  ));
+  return celula;
+}
+
+function criarZeroDecimalMultiplicacao(posicao, linha, modelo) {
+  const zero = document.createElement('span');
+  zero.className = 'zero-fantasma-multiplicacao zero-fantasma-decimal';
+  zero.textContent = '0';
+  zero.setAttribute('aria-hidden', 'true');
+  zero.style.gridColumn = String(modelo.colunaVirgula + posicao);
+  zero.style.gridRow = String(linha);
+  return zero;
+}
+
+function criarResultadoDecimalMultiplicacao(
+  coluna,
+  linha,
+  nomeLinha,
+  contexto,
+  comVirgula,
+) {
+  const { modelo } = contexto;
+  const campo = criarCampoResultadoMultiplicacaoDificil(
+    coluna,
+    linha,
+    nomeLinha,
+    contexto,
+  );
+  campo.setAttribute(
+    'aria-label',
+    'Resultado da multiplicação: '
+      + rotuloColunaDecimal(coluna, modelo.casasDecimais),
+  );
+  const colunaGrade = colunaGradeMultiplicacaoDecimal(
+    coluna,
+    modelo.casasDecimais,
+    modelo.colunaVirgula,
+  );
+
+  if (!comVirgula) {
+    campo.style.gridColumn = String(colunaGrade);
+    return campo;
+  }
+
+  const celula = document.createElement('div');
+  celula.className = 'celula-resultado-decimal';
+  celula.dataset.linha = nomeLinha;
+  celula.dataset.coluna = String(coluna);
+  celula.style.gridColumn = String(colunaGrade);
+  celula.style.gridRow = String(linha);
+  campo.style.gridColumn = '';
+  campo.style.gridRow = '';
+  celula.appendChild(campo);
+  return celula;
+}
+
+function atualizarVirgulaResultadoMultiplicacao(estado, el, modelo) {
+  if (!el || !el.conta) {
+    return;
+  }
+  el.conta
+    .querySelectorAll('.virgula-resultado-escolhida')
+    .forEach((virgula) => virgula.remove());
+
+  const total = modelo.casasDecimais;
+  const casas = Math.max(
+    0,
+    Math.min(total, Math.trunc(Number(estado.casasDecimaisResultado) || 0)),
+  );
+  estado.casasDecimaisResultado = casas;
+
+  const alvo = casas >= 1
+    ? {
+      coluna: casas - 1,
+      posicao: 'esquerda',
+    }
+    : {
+      coluna: total,
+      posicao: 'direita',
+    };
+  const celula = el.conta.querySelector(
+    '.celula-resultado-decimal[data-linha="resultadoSoma"]'
+      + '[data-coluna="' + alvo.coluna + '"]',
+  );
+  if (!celula) {
+    return;
+  }
+
+  const virgula = document.createElement('span');
+  virgula.className = 'virgula-resultado-escolhida virgula-resultado-'
+    + alvo.posicao;
+  virgula.textContent = ',';
+  virgula.setAttribute('aria-hidden', 'true');
+  celula.appendChild(virgula);
+}
+
+function criarControleVirgulaMultiplicacao(estado, el, modelo) {
+  const controle = document.createElement('div');
+  controle.className = 'controle-virgula-multiplicacao';
+  controle.setAttribute('role', 'group');
+  controle.setAttribute('aria-label', 'Posição da vírgula no resultado');
+
+  const rotulo = document.createElement('span');
+  rotulo.className = 'controle-virgula-rotulo';
+  rotulo.textContent = 'Vírgula';
+
+  const botaoMenos = document.createElement('button');
+  botaoMenos.type = 'button';
+  botaoMenos.className = 'controle-virgula-btn';
+  botaoMenos.textContent = '−';
+  botaoMenos.setAttribute('aria-label', 'Mover a vírgula para a esquerda');
+
+  const valor = document.createElement('output');
+  valor.className = 'controle-virgula-valor';
+  valor.setAttribute('aria-live', 'polite');
+
+  const botaoMais = document.createElement('button');
+  botaoMais.type = 'button';
+  botaoMais.className = 'controle-virgula-btn';
+  botaoMais.textContent = '+';
+  botaoMais.setAttribute('aria-label', 'Mover a vírgula para a direita');
+
+  const previa = document.createElement('span');
+  previa.className = 'controle-virgula-previa';
+  previa.setAttribute('aria-live', 'polite');
+
+  const limite = modelo.casasDecimais;
+  const atualizarVisual = () => {
+    const casas = estado.casasDecimaisResultado;
+    valor.textContent = casas === 1 ? '1 casa' : casas + ' casas';
+    previa.textContent = formatarComCasasDecimais(modelo.resultado, casas);
+    botaoMenos.disabled = casas <= 0;
+    botaoMais.disabled = casas >= limite;
+    atualizarVirgulaResultadoMultiplicacao(estado, el, modelo);
+  };
+  const mover = (passo) => {
+    estado.casasDecimaisResultado = Math.max(
+      0,
+      Math.min(limite, estado.casasDecimaisResultado + passo),
+    );
+    atualizarVisual();
+  };
+
+  botaoMenos.addEventListener('click', () => mover(-1));
+  botaoMais.addEventListener('click', () => mover(1));
+  controle.append(rotulo, botaoMenos, valor, botaoMais, previa);
+  atualizarVisual();
+  return controle;
+}
+
+function renderMultiplicacaoDecimal(estado, el) {
+  const questao = estado.questao;
+  const modelo = montarModeloMultiplicacaoDecimal(
+    questao.numeroA,
+    questao.numeroB,
+    questao.casasDecimaisA,
+    questao.casasDecimaisB,
+  );
+  const linhas = modelo.linhas;
+  const contexto = {
+    el,
+    modelo,
+    ordemFoco: modelo.ordemFoco,
+  };
+  estado.multiplicacaoDecimal = modelo;
+  estado.multiplicacaoDificil = modelo;
+
+  el.conta.innerHTML = '';
+  el.conta.style.setProperty('--colunas-inteiras', String(modelo.colunasInteiras));
+  el.conta.style.setProperty('--casas-decimais', String(modelo.casasDecimais));
+  el.conta.style.setProperty('--colunas', String(modelo.colunasGrade - 2));
+
+  Object.entries(modelo.carriesUnidade).forEach(([coluna]) => {
+    const caixa = criarCaixaTransporteMultiplicacaoDificil(
+      Number(coluna),
+      linhas.carryUnidade,
+      'carryUnidade',
+      contexto,
+    );
+    caixa.style.gridColumn = String(colunaGradeMultiplicacaoDecimal(
+      Number(coluna),
+      modelo.casasDecimais,
+      modelo.colunaVirgula,
+    ));
+    caixa.setAttribute(
+      'aria-label',
+      'Vai um da multiplicação: '
+        + rotuloColunaDecimal(Number(coluna), modelo.casasDecimais),
+    );
+    el.conta.appendChild(caixa);
+  });
+  Object.entries(modelo.carriesDezena).forEach(([coluna]) => {
+    const caixa = criarCaixaTransporteMultiplicacaoDificil(
+      Number(coluna),
+      linhas.carryDezena,
+      'carryDezena',
+      contexto,
+    );
+    caixa.style.gridColumn = String(colunaGradeMultiplicacaoDecimal(
+      Number(coluna),
+      modelo.casasDecimais,
+      modelo.colunaVirgula,
+    ));
+    caixa.setAttribute(
+      'aria-label',
+      'Vai um da multiplicação: '
+        + rotuloColunaDecimal(Number(coluna), modelo.casasDecimais),
+    );
+    el.conta.appendChild(caixa);
+  });
+
+  const sinal = document.createElement('span');
+  sinal.className = 'sinal';
+  sinal.textContent = '×';
+  sinal.style.gridColumn = '1';
+  sinal.style.gridRow = String(linhas.operandoB);
+  el.conta.appendChild(sinal);
+
+  modelo.digitosA.forEach((digito, indice) => {
+    el.conta.appendChild(criarCelulaOperandoMultiplicacaoDecimal(
+      indice,
+      digito,
+      modelo.casasDecimaisA,
+      linhas.operandoA,
+      modelo,
+      'operandoA',
+    ));
+  });
+  for (let posicao = modelo.casasDecimaisA + 1;
+    posicao <= modelo.casasDecimais;
+    posicao += 1) {
+    el.conta.appendChild(criarZeroDecimalMultiplicacao(
+      posicao,
+      linhas.operandoA,
+      modelo,
+    ));
+  }
+
+  modelo.digitosB.forEach((digito, indice) => {
+    el.conta.appendChild(criarCelulaOperandoMultiplicacaoDecimal(
+      indice,
+      digito,
+      modelo.casasDecimaisB,
+      linhas.operandoB,
+      modelo,
+      'operandoB',
+    ));
+  });
+  for (let posicao = modelo.casasDecimaisB + 1;
+    posicao <= modelo.casasDecimais;
+    posicao += 1) {
+    el.conta.appendChild(criarZeroDecimalMultiplicacao(
+      posicao,
+      linhas.operandoB,
+      modelo,
+    ));
+  }
+
+  el.conta.appendChild(criarVirgulaDecimal(modelo.colunaVirgula, linhas.operandoA));
+  el.conta.appendChild(criarVirgulaDecimal(modelo.colunaVirgula, linhas.operandoB));
+
+  el.conta.appendChild(criarLinhaMultiplicacaoDificil(
+    linhas.linhaParcial,
+    modelo.colunasGrade - 1,
+  ));
+
+  Object.entries(modelo.carriesSoma).forEach(([coluna]) => {
+    const caixa = criarCaixaTransporteMultiplicacaoDificil(
+      Number(coluna),
+      linhas.carrySoma,
+      'carrySoma',
+      contexto,
+    );
+    caixa.style.gridColumn = String(colunaGradeMultiplicacaoDecimal(
+      Number(coluna),
+      modelo.casasDecimais,
+      modelo.colunaVirgula,
+    ));
+    caixa.setAttribute(
+      'aria-label',
+      'Vai um da soma final: '
+        + rotuloColunaDecimal(Number(coluna), modelo.casasDecimais),
+    );
+    el.conta.appendChild(caixa);
+  });
+
+  const colunaZeroUnidade = colunaZeroFantasmaParcelaUnidade(
+    modelo.digitosUnidade,
+    modelo.colunas,
+  );
+  if (colunaZeroUnidade !== null) {
+    const zero = criarZeroFantasmaMultiplicacaoDificil(
+      colunaZeroUnidade,
+      linhas.resultadoUnidade,
+      modelo.colunas,
+    );
+    zero.style.gridColumn = String(colunaGradeMultiplicacaoDecimal(
+      colunaZeroUnidade,
+      modelo.casasDecimais,
+      modelo.colunaVirgula,
+    ));
+    el.conta.appendChild(zero);
+  }
+  modelo.digitosUnidade.forEach((_, coluna) => {
+    el.conta.appendChild(criarResultadoDecimalMultiplicacao(
+      coluna,
+      linhas.resultadoUnidade,
+      'resultadoUnidade',
+      contexto,
+      false,
+    ));
+  });
+
+  const zeroDezena = criarZeroFantasmaMultiplicacaoDificil(
+    0,
+    linhas.resultadoDezena,
+    modelo.colunas,
+  );
+  zeroDezena.style.gridColumn = String(colunaGradeMultiplicacaoDecimal(
+    0,
+    modelo.casasDecimais,
+    modelo.colunaVirgula,
+  ));
+  el.conta.appendChild(zeroDezena);
+  modelo.digitosDezena.forEach((_, coluna) => {
+    if (coluna === 0) {
+      return;
+    }
+    el.conta.appendChild(criarResultadoDecimalMultiplicacao(
+      coluna,
+      linhas.resultadoDezena,
+      'resultadoDezena',
+      contexto,
+      false,
+    ));
+  });
+
+  el.conta.appendChild(criarLinhaMultiplicacaoDificil(
+    linhas.linhaFinal,
+    modelo.colunasGrade - 1,
+  ));
+
+  modelo.digitosSoma.forEach((_, coluna) => {
+    el.conta.appendChild(criarResultadoDecimalMultiplicacao(
+      coluna,
+      linhas.resultadoSoma,
+      'resultadoSoma',
+      contexto,
+      true,
+    ));
+  });
+
+  const controle = criarControleVirgulaMultiplicacao(estado, el, modelo);
+  controle.style.gridColumn = '1 / -1';
+  controle.style.gridRow = String(linhas.resultadoSoma + 1);
+  el.conta.appendChild(controle);
 
   modelo.ordemFoco.forEach((alvo, indice) => {
     const campo = el.conta.querySelector(seletorCampoMultiplicacaoDificil(alvo));
@@ -4929,7 +5443,11 @@ function atualizarDica(estado, el) {
       ? 'Alinhe os números pela vírgula e some da direita para a esquerda. Complete as casas decimais com zero quando precisar e suba o 1 ao passar de 9.'
       : 'Some os números que estão um embaixo do outro, da direita para a esquerda: se passar de 9, deixe o último número embaixo e suba o 1.';
   } else if (estado.questao.operacao === 'MULTIPLICACAO') {
-    if (estado.questao.dificuldade === 'DIFICIL') {
+    if (ehMultiplicacaoDecimal(estado.questao)) {
+      const casas = casasDecimaisMultiplicacao(estado.questao);
+      el.dica.textContent = 'Multiplique como se não houvesse vírgula, complete as casas decimais com zero e conte as casas dos dois fatores. Depois, use os botões da vírgula para marcar '
+        + casas + (casas === 1 ? ' casa decimal' : ' casas decimais') + ' no resultado.';
+    } else if (estado.questao.dificuldade === 'DIFICIL') {
       el.dica.textContent = 'Multiplique primeiro pela unidade do número de baixo, depois pela dezena (deslocando uma casa). No fim, some as duas parcelas da direita para a esquerda.';
     } else if (estado.questao.dificuldade === 'MEDIO') {
       el.dica.textContent = 'Multiplique o número de baixo pelo de cima (da direita para a esquerda): se passar de 9, deixe a unidade embaixo e suba o outro número para somar no vizinho';
@@ -5148,21 +5666,21 @@ async function validarResposta(estado, el) {
     }
   } else {
     const multiplicacao = questao.operacao === 'MULTIPLICACAO';
-    const multiplicacaoDificil = ehMultiplicacaoDificil(questao);
+    const multiplicacaoGuiada = ehMultiplicacaoGuiada(questao);
     const resultadoDigitado = comporResultado(
-      multiplicacaoDificil
+      multiplicacaoGuiada
         ? lerResultadosLinha(el, 'resultadoSoma')
         : lerResultados(el),
     );
     if (resultadoDigitado === null) {
       mostrarAviso(
         el,
-        multiplicacaoDificil
+        multiplicacaoGuiada
           ? 'Complete a soma final antes de conferir. ✏️'
           : 'Escreva o resultado nas caixas antes de conferir. ✏️',
       );
       const unidades = el.conta.querySelector(
-        multiplicacaoDificil
+        multiplicacaoGuiada
           ? '.resultado-input[data-linha="resultadoSoma"][data-coluna="0"]'
           : '.resultado-input[data-coluna="0"]',
       );
@@ -5196,9 +5714,10 @@ async function validarResposta(estado, el) {
       emprestados: subtracao
         ? montarArrayEmprestimos(estado.emprestimos, digitosCalculo)
         : null,
-      vaiUmMultiplicacao: multiplicacao && !multiplicacaoDificil
+      vaiUmMultiplicacao: multiplicacao && !multiplicacaoGuiada
         ? lerVaiUmMultiplicacao(caixasVaiUm)
         : null,
+      casasDecimaisResultado: estado.casasDecimaisResultado,
     });
   }
 
@@ -5489,6 +6008,13 @@ if (typeof module !== 'undefined' && module.exports) {
     resultadoDezenaMultiplicacao,
     multiplicacaoPrecisaCentena,
     ehMultiplicacaoDificil,
+    ehMultiplicacaoDecimal,
+    ehMultiplicacaoGuiada,
+    casasDecimaisMultiplicacao,
+    digitosParteInteiraEscalada,
+    montarModeloMultiplicacaoDecimal,
+    colunaGradeMultiplicacaoDecimal,
+    formatarComCasasDecimais,
     calcularParcialMultiplicacaoDificil,
     somarParcelasMultiplicacaoDificil,
     ordemFocoMultiplicacaoDificil,

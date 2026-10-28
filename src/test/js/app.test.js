@@ -104,6 +104,13 @@ const {
   resultadoDezenaMultiplicacao,
   multiplicacaoPrecisaCentena,
   ehMultiplicacaoDificil,
+  ehMultiplicacaoDecimal,
+  ehMultiplicacaoGuiada,
+  casasDecimaisMultiplicacao,
+  digitosParteInteiraEscalada,
+  montarModeloMultiplicacaoDecimal,
+  colunaGradeMultiplicacaoDecimal,
+  formatarComCasasDecimais,
   calcularParcialMultiplicacaoDificil,
   somarParcelasMultiplicacaoDificil,
   ordemFocoMultiplicacaoDificil,
@@ -458,7 +465,7 @@ test('aplicarPreferencias ignora valores desconhecidos', () => {
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
 });
 
-test('aplicarPreferencias lê o tipo de número na soma e na subtração', () => {
+test('aplicarPreferencias lê o tipo de número na soma, subtração e multiplicação', () => {
   const estado = { operacao: 'SOMA', dificuldade: 'FACIL' };
   aplicarPreferencias(estado, '?operacao=SOMA&dificuldade=MEDIO&tipoNumero=DECIMAIS');
   assert.equal(estado.tipoNumero, 'DECIMAIS');
@@ -475,7 +482,7 @@ test('aplicarPreferencias lê o tipo de número na soma e na subtração', () =>
     multiplicacao,
     '?operacao=MULTIPLICACAO&dificuldade=MEDIO&tipoNumero=DECIMAIS',
   );
-  assert.equal(multiplicacao.tipoNumero, undefined);
+  assert.equal(multiplicacao.tipoNumero, 'DECIMAIS');
 });
 
 test('atualizarSegmentado marca o botão do tipo de número selecionado', () => {
@@ -516,7 +523,7 @@ test('atualizarSegmentado marca o botão do tipo de número selecionado', () => 
   assert.equal(botoes[1].ariaPressed, 'true');
 });
 
-test('atualizarTipoNumero exibe o seletor na soma e na subtração', () => {
+test('atualizarTipoNumero exibe o seletor na soma, subtração e multiplicação', () => {
   const criarEl = () => ({
     grupoTipoNumero: { hidden: true },
     seletorTipoNumero: {
@@ -537,7 +544,11 @@ test('atualizarTipoNumero exibe o seletor na soma e na subtração', () => {
 
   const multiplicacao = criarEl();
   atualizarTipoNumero({ operacao: 'MULTIPLICACAO', tipoNumero: 'DECIMAIS' }, multiplicacao);
-  assert.equal(multiplicacao.grupoTipoNumero.hidden, true);
+  assert.equal(multiplicacao.grupoTipoNumero.hidden, false);
+
+  const divisao = criarEl();
+  atualizarTipoNumero({ operacao: 'DIVISAO', tipoNumero: 'DECIMAIS' }, divisao);
+  assert.equal(divisao.grupoTipoNumero.hidden, true);
 });
 
 test('montarRequisicao envia tipo e casas decimais nas operações decimais', () => {
@@ -574,6 +585,109 @@ test('montarRequisicao envia tipo e casas decimais nas operações decimais', ()
   assert.equal(subtracao.tipoNumero, 'DECIMAIS');
   assert.equal(subtracao.casasDecimais, 2);
   assert.equal(subtracao.resultadoDigitado, 927);
+});
+
+test('ehMultiplicacaoDecimal e ehMultiplicacaoGuiada reconhecem a multiplicação com vírgula', () => {
+  const decimal = { operacao: 'MULTIPLICACAO', dificuldade: 'DIFICIL', tipoNumero: 'DECIMAIS' };
+  const inteiroDificil = { operacao: 'MULTIPLICACAO', dificuldade: 'DIFICIL' };
+  const inteiroMedio = { operacao: 'MULTIPLICACAO', dificuldade: 'MEDIO' };
+
+  assert.equal(ehMultiplicacaoDecimal(decimal), true);
+  assert.equal(ehMultiplicacaoGuiada(decimal), true);
+  assert.equal(ehMultiplicacaoDificil(decimal), false);
+  assert.equal(ehMultiplicacaoDecimal(inteiroDificil), false);
+  assert.equal(ehMultiplicacaoGuiada(inteiroDificil), true);
+  assert.equal(ehMultiplicacaoGuiada(inteiroMedio), false);
+  assert.equal(ehMultiplicacaoDecimal(null), false);
+});
+
+test('casasDecimaisMultiplicacao soma as casas dos dois fatores', () => {
+  assert.equal(casasDecimaisMultiplicacao({
+    operacao: 'MULTIPLICACAO',
+    tipoNumero: 'DECIMAIS',
+    casasDecimaisA: 1,
+    casasDecimaisB: 1,
+  }), 2);
+  assert.equal(casasDecimaisMultiplicacao({
+    operacao: 'MULTIPLICACAO',
+    tipoNumero: 'DECIMAIS',
+    casasDecimaisA: 2,
+    casasDecimaisB: 1,
+  }), 3);
+  assert.equal(casasDecimaisMultiplicacao({ operacao: 'MULTIPLICACAO' }), 0);
+});
+
+test('digitosParteInteiraEscalada desconta as casas decimais do valor', () => {
+  assert.equal(digitosParteInteiraEscalada(125, 1), 2);
+  assert.equal(digitosParteInteiraEscalada(1250, 2), 2);
+  assert.equal(digitosParteInteiraEscalada(25, 2), 1);
+  assert.equal(digitosParteInteiraEscalada(0, 2), 1);
+});
+
+test('montarModeloMultiplicacaoDecimal alinha 12,5 por 3,4 e mantém o produto inteiro', () => {
+  const modelo = montarModeloMultiplicacaoDecimal(125, 34, 1, 1);
+
+  assert.equal(modelo.numeroA, 125);
+  assert.equal(modelo.numeroB, 34);
+  assert.equal(modelo.resultado, 4250);
+  assert.equal(modelo.casasDecimaisA, 1);
+  assert.equal(modelo.casasDecimaisB, 1);
+  assert.equal(modelo.casasDecimais, 2);
+  assert.equal(modelo.colunasInteiras, 2);
+  assert.equal(modelo.colunaVirgula, 4);
+  assert.equal(modelo.colunasGrade, 6);
+  assert.deepEqual(modelo.digitosSoma, [0, 5, 2, 4]);
+});
+
+test('colunaGradeMultiplicacaoDecimal posiciona fatores e produto pela vírgula', () => {
+  assert.deepEqual(
+    [0, 1, 2].map((indice) => colunaGradeMultiplicacaoDecimal(indice, 1, 4)),
+    [5, 3, 2],
+  );
+  assert.deepEqual(
+    [0, 1, 2, 3].map((indice) => colunaGradeMultiplicacaoDecimal(indice, 2, 4)),
+    [6, 5, 3, 2],
+  );
+});
+
+test('formatarComCasasDecimais monta a prévia do produto com vírgula móvel', () => {
+  assert.equal(formatarComCasasDecimais(4250, 0), '4250');
+  assert.equal(formatarComCasasDecimais(4250, 1), '425,0');
+  assert.equal(formatarComCasasDecimais(4250, 2), '42,50');
+  assert.equal(formatarComCasasDecimais(5, 2), '0,05');
+});
+
+test('montarRequisicao envia as casas dos fatores e a posição da vírgula', () => {
+  const questao = {
+    id: 'id-mult-decimal',
+    operacao: 'MULTIPLICACAO',
+    tipoNumero: 'DECIMAIS',
+    casasDecimaisA: 1,
+    casasDecimaisB: 1,
+    numeroA: 125,
+    numeroB: 34,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 4250,
+    vaiUmMultiplicacao: null,
+    casasDecimaisResultado: 2,
+  });
+
+  assert.equal(requisicao.tipoNumero, 'DECIMAIS');
+  assert.equal(requisicao.casasDecimais, 2);
+  assert.equal(requisicao.casasDecimaisResultado, 2);
+  assert.equal(requisicao.resultadoDigitado, 4250);
+});
+
+test('estilos da multiplicação decimal reservam vírgula e controle próprio', () => {
+  const css = fs.readFileSync(
+    path.join(__dirname, '../../main/resources/static/style.css'),
+    'utf8',
+  );
+
+  assert.match(css, /\.conta-multiplicacao-decimal/);
+  assert.match(css, /\.virgula-resultado-escolhida/);
+  assert.match(css, /\.controle-virgula-multiplicacao/);
 });
 
 test('comporResultado trata as casas decimais vazias como zero alinhado', () => {
@@ -2876,6 +2990,10 @@ test('helpers da soma decimal calculam casas, colunas e a coluna da vírgula', (
   assert.equal(rotuloColunaDecimal(0, 2), 'centésimos');
   assert.equal(rotuloColunaDecimal(1, 2), 'décimos');
   assert.equal(rotuloColunaDecimal(2, 2), 'unidades');
+  assert.equal(rotuloColunaDecimal(0, 3), 'milésimos');
+  assert.equal(rotuloColunaDecimal(1, 3), 'centésimos');
+  assert.equal(rotuloColunaDecimal(2, 3), 'décimos');
+  assert.equal(rotuloColunaDecimal(3, 3), 'unidades');
 });
 
 test('digitosEscalados separa parte inteira e decimal sem perder zeros', () => {

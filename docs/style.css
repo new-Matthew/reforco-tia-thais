@@ -856,6 +856,139 @@ h1 {
   margin: 0;
 }
 
+/* ------------------- Multiplicação decimal (armada) -------------------- */
+
+.conta.conta-decimal.conta-multiplicacao-decimal {
+  align-content: start;
+  gap: 4px 2px;
+  padding: 22px 12px 18px;
+}
+
+.conta-multiplicacao-decimal .celula-multiplicacao-dificil {
+  min-height: 40px;
+  font-size: clamp(1.5rem, 3.4vw, 2rem);
+}
+
+.conta-multiplicacao-decimal .resultado-input-dificil {
+  height: 44px;
+  font-size: clamp(1.25rem, 2.8vw, 1.6rem);
+}
+
+.conta-multiplicacao-decimal .caixa-vai-um-dificil {
+  height: 28px;
+  max-width: 36px;
+  font-size: 0.9rem;
+}
+
+.conta-multiplicacao-decimal .linha-multiplicacao-dificil {
+  border-top-width: 3px;
+  margin: 0;
+}
+
+.conta-multiplicacao-decimal .zero-fantasma-decimal {
+  font-size: clamp(1.4rem, 3vw, 1.8rem);
+}
+
+.celula-resultado-decimal {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.celula-resultado-decimal .resultado-input {
+  width: 100%;
+}
+
+.virgula-resultado-escolhida {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  color: var(--tema-cor-escura);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.55rem, 3.2vw, 2rem);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 0 #fff;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.virgula-resultado-esquerda {
+  left: -0.34em;
+}
+
+.virgula-resultado-direita {
+  right: -0.34em;
+}
+
+.controle-virgula-multiplicacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 2px dashed color-mix(in srgb, var(--tema-cor) 55%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tema-cor-clara) 18%, #ffffff);
+  color: var(--tema-texto);
+}
+
+.controle-virgula-rotulo {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.controle-virgula-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid color-mix(in srgb, var(--tema-cor-escura) 40%, transparent);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--tema-cor-escura);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.controle-virgula-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.controle-virgula-btn:not(:disabled):hover,
+.controle-virgula-btn:focus-visible {
+  border-color: var(--tema-cor);
+  outline: 3px solid var(--tema-foco);
+  outline-offset: 1px;
+}
+
+.controle-virgula-valor {
+  min-width: 62px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.controle-virgula-previa {
+  min-width: 84px;
+  color: var(--tema-cor-escura);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.2rem, 2.8vw, 1.55rem);
+  font-weight: 700;
+  text-align: center;
+}
+
 /* --------------------- Subtração difícil (empréstimos) ------------------ */
 
 .conta.conta-subtracao-dificil:not(.conta-decimal) {
@@ -1772,6 +1905,25 @@ h1 {
     grid-template-columns: minmax(28px, auto) repeat(var(--colunas, 3), minmax(36px, 1fr));
   }
 
+  .controle-virgula-multiplicacao {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 7px 8px;
+  }
+
+  .controle-virgula-rotulo {
+    flex-basis: 100%;
+    text-align: center;
+  }
+
+  .controle-virgula-valor {
+    min-width: 54px;
+  }
+
+  .controle-virgula-previa {
+    min-width: 72px;
+  }
+
   .conta.conta-decimal {
     --largura-virgula: 10px;
     grid-template-columns:
@@ -1970,6 +2122,7 @@ body[data-tema="laranja"] .apoio-mais {
 .celula-multiplicacao-dificil.dica-ativa,
 .resultado-input-dificil.dica-ativa,
 .caixa-vai-um-dificil.dica-ativa,
+.controle-virgula-multiplicacao.dica-ativa,
 .celula-digito.dica-ativa-carry,
 .resultado-input.dica-ativa-carry,
 .caixa-vai-um.dica-ativa-carry,
