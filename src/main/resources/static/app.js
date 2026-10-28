@@ -587,12 +587,26 @@ function ehSomaDecimal(questao) {
     && questao.tipoNumero === 'DECIMAIS';
 }
 
+function ehSubtracaoDecimal(questao) {
+  return Boolean(questao)
+    && questao.operacao === 'SUBTRACAO'
+    && questao.tipoNumero === 'DECIMAIS';
+}
+
+function ehOperacaoDecimal(questao) {
+  return ehSomaDecimal(questao) || ehSubtracaoDecimal(questao);
+}
+
 function ehSomaGuiada(questao) {
   return ehSomaDificil(questao) || ehSomaDecimal(questao);
 }
 
+function ehSubtracaoGuiada(questao) {
+  return ehSubtracaoDificil(questao) || ehSubtracaoDecimal(questao);
+}
+
 function casasDecimaisMaximas(questao) {
-  return ehSomaDecimal(questao) ? CASAS_DECIMAIS_SOMA : 0;
+  return ehOperacaoDecimal(questao) ? CASAS_DECIMAIS_SOMA : 0;
 }
 
 function digitosEscalados(valor, quantidade) {
@@ -623,19 +637,43 @@ function colunasInteirasSomaDecimal(dificuldade) {
   return digitosDosOperandos(dificuldade, 'SOMA') + 1;
 }
 
+function colunaGradeDecimal(indice, colunasInteiras, casasDecimais) {
+  const casas = Math.max(1, Math.trunc(Number(casasDecimais) || CASAS_DECIMAIS_SOMA));
+  const inteiras = Math.max(1, Math.trunc(Number(colunasInteiras) || 1));
+  const colunaVirgula = inteiras + 2;
+
+  if (indice < casas) {
+    return colunaVirgula + casas - indice;
+  }
+  return inteiras + 1 - (indice - casas);
+}
+
 function colunaGradeSomaDecimal(
   indice,
   dificuldade,
   casasDecimais = CASAS_DECIMAIS_SOMA,
 ) {
-  const casas = Math.max(1, Math.trunc(Number(casasDecimais) || CASAS_DECIMAIS_SOMA));
-  const colunasInteiras = colunasInteirasSomaDecimal(dificuldade);
-  const colunaVirgula = colunasInteiras + 2;
+  return colunaGradeDecimal(
+    indice,
+    colunasInteirasSomaDecimal(dificuldade),
+    casasDecimais,
+  );
+}
 
-  if (indice < casas) {
-    return colunaVirgula + casas - indice;
-  }
-  return colunasInteiras + 1 - (indice - casas);
+function colunasInteirasSubtracaoDecimal(dificuldade) {
+  return digitosDosOperandos(dificuldade, 'SUBTRACAO');
+}
+
+function colunaGradeSubtracaoDecimal(
+  indice,
+  dificuldade,
+  casasDecimais = CASAS_DECIMAIS_SOMA,
+) {
+  return colunaGradeDecimal(
+    indice,
+    colunasInteirasSubtracaoDecimal(dificuldade),
+    casasDecimais,
+  );
 }
 
 function rotuloColunaDecimal(indice, casasDecimais = CASAS_DECIMAIS_SOMA) {
@@ -888,6 +926,36 @@ function montarModeloSubtracaoDificil(numeroA, numeroB, dificuldade = 'DIFICIL')
   };
 }
 
+function montarModeloSubtracaoDecimal(
+  numeroA,
+  numeroB,
+  dificuldade,
+  casasDecimais = CASAS_DECIMAIS_SOMA,
+) {
+  const a = Math.abs(Math.trunc(Number(numeroA) || 0));
+  const b = Math.abs(Math.trunc(Number(numeroB) || 0));
+  const casas = Math.max(1, Math.trunc(Number(casasDecimais) || CASAS_DECIMAIS_SOMA));
+  const digitos = digitosSomaDecimal(dificuldade, casas);
+  const passos = calcularEmprestimos(a, b);
+  const colunasQueEmprestam = new Set();
+  passos.forEach((passo, coluna) => {
+    if (passo === 1) {
+      colunasQueEmprestam.add(coluna + 1);
+    }
+  });
+
+  return {
+    numeroA: a,
+    numeroB: b,
+    resultado: a - b,
+    digitos,
+    casasDecimais: casas,
+    passos,
+    colunasQueEmprestam,
+    ordemFoco: ordemFocoSubtracaoDificil(digitos),
+  };
+}
+
 function seletorResultadoSubtracao(coluna) {
   return '.resultado-input[data-coluna="' + coluna + '"]';
 }
@@ -978,7 +1046,7 @@ function seletoresDicaSubtracaoDificil(modelo, alvo, emprestimos) {
 }
 
 function seletoresDicaAtualSubtracaoDificil(estado, el) {
-  if (!ehSubtracaoDificil(estado && estado.questao)) {
+  if (!ehSubtracaoGuiada(estado && estado.questao)) {
     return [];
   }
   const modelo = estado.subtracaoDificil;
@@ -1183,7 +1251,7 @@ function seletoresDicaAtual(estado, el) {
   if (ehSomaGuiada(estado && estado.questao)) {
     return seletoresDicaAtualSomaDificil(estado, el);
   }
-  if (ehSubtracaoDificil(estado && estado.questao)) {
+  if (ehSubtracaoGuiada(estado && estado.questao)) {
     return seletoresDicaAtualSubtracaoDificil(estado, el);
   }
   if (ehDivisaoDificil(estado && estado.questao)) {
@@ -1834,7 +1902,7 @@ function montarRequisicao(questao, entradas) {
       : null,
   };
 
-  if (ehSomaDecimal(questao)) {
+  if (ehOperacaoDecimal(questao)) {
     requisicao.tipoNumero = 'DECIMAIS';
     requisicao.casasDecimais = casasDecimaisMaximas(questao);
   }
@@ -2149,14 +2217,14 @@ function aplicarPreferencias(estado, busca) {
     estado.dificuldade = dificuldade;
   }
   if ((tipoNumero === 'INTEIROS' || tipoNumero === 'DECIMAIS')
-    && estado.operacao === 'SOMA') {
+    && (estado.operacao === 'SOMA' || estado.operacao === 'SUBTRACAO')) {
     estado.tipoNumero = tipoNumero;
   }
   return estado;
 }
 
 function atualizarTipoNumero(estado, el) {
-  const disponivel = estado.operacao === 'SOMA';
+  const disponivel = estado.operacao === 'SOMA' || estado.operacao === 'SUBTRACAO';
   if (el.grupoTipoNumero) {
     el.grupoTipoNumero.hidden = !disponivel;
   }
@@ -2283,7 +2351,7 @@ async function carregarQuestao(estado, el) {
     let url = API_BASE + '/proxima-questao?operacao='
       + encodeURIComponent(estado.operacao)
       + '&dificuldade=' + encodeURIComponent(estado.dificuldade);
-    if (estado.operacao === 'SOMA') {
+    if (estado.operacao === 'SOMA' || estado.operacao === 'SUBTRACAO') {
       url += '&tipoNumero=' + encodeURIComponent(estado.tipoNumero);
     }
     const resposta = await fetch(url);
@@ -2351,6 +2419,7 @@ function renderConta(estado, el) {
   const multiplicacaoDificil = ehMultiplicacaoDificil(questao);
   const subtracaoDificil = ehSubtracaoDificil(questao);
   const somaDecimal = ehSomaDecimal(questao);
+  const subtracaoDecimal = ehSubtracaoDecimal(questao);
   estado.somaDificil = somaDecimal
     ? montarModeloSomaDecimal(
       questao.numeroA,
@@ -2363,11 +2432,19 @@ function renderConta(estado, el) {
       : null);
   estado.subtracaoDificil = subtracaoDificil
     ? montarModeloSubtracaoDificil(questao.numeroA, questao.numeroB, questao.dificuldade)
-    : null;
+    : (subtracaoDecimal
+      ? montarModeloSubtracaoDecimal(
+        questao.numeroA,
+        questao.numeroB,
+        questao.dificuldade,
+        casasDecimaisMaximas(questao),
+      )
+      : null);
   el.conta.classList.toggle('conta-divisao', divisao);
   el.conta.classList.toggle('conta-multiplicacao-dificil', multiplicacaoDificil);
   el.conta.classList.toggle('conta-subtracao-dificil', subtracaoDificil);
-  el.conta.classList.toggle('conta-soma-decimal', somaDecimal);
+  el.conta.classList.toggle('conta-subtracao-decimal', subtracaoDecimal);
+  el.conta.classList.toggle('conta-decimal', somaDecimal || subtracaoDecimal);
   if (divisao) {
     renderDivisao(estado, el);
     return;
@@ -2378,6 +2455,10 @@ function renderConta(estado, el) {
   }
   if (somaDecimal) {
     renderSomaDecimal(estado, el);
+    return;
+  }
+  if (subtracaoDecimal) {
+    renderSubtracaoDecimal(estado, el);
     return;
   }
 
@@ -2582,6 +2663,104 @@ function renderSomaDecimal(estado, el) {
       contexto,
       rotuloColunaDecimal(indice, casas),
     ));
+  }
+}
+
+function renderSubtracaoDecimal(estado, el) {
+  const questao = estado.questao;
+  const casas = casasDecimaisMaximas(questao);
+  const digitos = digitosSomaDecimal(questao.dificuldade, casas);
+  const colunasInteiras = colunasInteirasSubtracaoDecimal(questao.dificuldade);
+  const totalColunas = 1 + colunasInteiras + 1 + casas;
+  const colunaVirgula = colunasInteiras + 2;
+  const modelo = estado.subtracaoDificil ?? montarModeloSubtracaoDecimal(
+    questao.numeroA,
+    questao.numeroB,
+    questao.dificuldade,
+    casas,
+  );
+  const ordemFoco = modelo.ordemFoco;
+  const colunaDaGrade = (indice) => colunaGradeSubtracaoDecimal(
+    indice,
+    questao.dificuldade,
+    casas,
+  );
+
+  el.conta.innerHTML = '';
+  el.conta.style.setProperty('--colunas-inteiras', String(colunasInteiras));
+  el.conta.style.setProperty('--casas-decimais', String(casas));
+
+  const digitosA = digitosEscalados(questao.numeroA, digitos);
+  for (let indice = 0; indice < digitos; indice += 1) {
+    const celula = criarCelulaOperandoA(
+      indice,
+      digitosA[indice] ?? 0,
+      colunaDaGrade(indice),
+      indice >= 1,
+      estado,
+      el,
+      rotuloColunaDecimal(indice - 1, casas),
+    );
+    if (indice < casas && indice < casas - Number(questao.casasDecimaisA ?? casas)) {
+      celula.classList.add('zero-preenchimento');
+    }
+    el.conta.appendChild(celula);
+  }
+
+  el.conta.appendChild(criarSinalConta(false, true));
+
+  const digitosB = digitosEscalados(questao.numeroB, digitos);
+  for (let indice = 0; indice < digitos; indice += 1) {
+    const celula = criarCelulaOperandoB(
+      digitosB[indice] ?? 0,
+      colunaDaGrade(indice),
+      indice,
+    );
+    if (indice < casas && indice < casas - Number(questao.casasDecimaisB ?? casas)) {
+      celula.classList.add('zero-preenchimento');
+    }
+    el.conta.appendChild(celula);
+  }
+
+  el.conta.appendChild(criarVirgulaDecimal(colunaVirgula, 2));
+  el.conta.appendChild(criarVirgulaDecimal(colunaVirgula, 3));
+  el.conta.appendChild(criarVirgulaDecimal(colunaVirgula, 5));
+
+  const linha = document.createElement('div');
+  linha.className = 'linha';
+  linha.style.gridColumn = '2 / ' + (totalColunas + 1);
+  linha.style.gridRow = '4';
+  el.conta.appendChild(linha);
+
+  const contexto = {
+    el,
+    ordemFoco,
+    colunas: digitos,
+    soma: false,
+    somaDecimal: false,
+    multiplicacao: false,
+    subtracaoDificil: true,
+    multiplicacaoFlexivel: false,
+  };
+  for (let indice = 0; indice < digitos; indice += 1) {
+    el.conta.appendChild(criarCampoResultado(
+      indice,
+      colunaDaGrade(indice),
+      contexto,
+      rotuloColunaDecimal(indice, casas),
+    ));
+  }
+
+  atualizarEmprestimos(estado, el);
+
+  if (ordemFoco.length > 0) {
+    const primeiro = ordemFoco[0];
+    setTimeout(() => {
+      const modalAberto = el.modalNome && !el.modalNome.hidden;
+      if (!modalAberto && !el.conta.contains(document.activeElement)) {
+        focarItemOrdem(el, primeiro);
+      }
+    }, 0);
   }
 }
 
@@ -2921,7 +3100,15 @@ function criarCaixaVaiUmMultiplicacao(colunaGrade, el, ordemFoco) {
   return caixa;
 }
 
-function criarCelulaOperandoA(indice, digito, colunaGrade, podeEmprestar, estado, el) {
+function criarCelulaOperandoA(
+  indice,
+  digito,
+  colunaGrade,
+  podeEmprestar,
+  estado,
+  el,
+  rotuloEmprestimo,
+) {
   const celula = podeEmprestar
     ? document.createElement('button')
     : document.createElement('div');
@@ -2966,7 +3153,8 @@ function criarCelulaOperandoA(indice, digito, colunaGrade, podeEmprestar, estado
     celula.setAttribute('aria-pressed', 'false');
     celula.setAttribute(
       'aria-label',
-      'Pedir emprestado para a coluna das ' + (ROTULOS_COLUNA[indice - 1] ?? 'unidades'),
+      'Pedir emprestado para a coluna das '
+        + (rotuloEmprestimo ?? ROTULOS_COLUNA[indice - 1] ?? 'unidades'),
     );
     celula.addEventListener('click', () => {
       if (estado.emprestimos.has(indice)) {
@@ -4628,7 +4816,9 @@ function atualizarEmprestimos(estado, el) {
       }
 
       if (celula.tagName === 'BUTTON') {
-        const destino = ROTULOS_COLUNA[indice - 1] ?? 'unidades';
+        const destino = ehSubtracaoDecimal(questao)
+          ? rotuloColunaDecimal(indice - 1, casasDecimaisMaximas(questao))
+          : (ROTULOS_COLUNA[indice - 1] ?? 'unidades');
         const rotulo = 'Emprestar para a coluna das ' + destino
           + (empresta ? ' (emprestando 1)' : '');
         celula.setAttribute('aria-label', rotulo);
@@ -4663,8 +4853,14 @@ function atualizarDica(estado, el) {
     } else {
       el.dica.textContent = 'Dica: procure quantas vezes o divisor cabe no dividendo. Escreva o quociente embaixo do divisor, multiplique e subtraia para encontrar o resto.';
     }
-  } else if (estado.questao.dificuldade === 'DIFICIL') {
-    el.dica.textContent = 'Dica: resolva da direita para a esquerda. Se o número de cima for menor, toque no vizinho da esquerda para pedir emprestado: ele diminui 1 e a coluna atual ganha 10. Empréstimos podem se encadear por várias colunas.';
+  } else if (estado.questao.operacao === 'SUBTRACAO') {
+    if (ehSubtracaoDecimal(estado.questao)) {
+      el.dica.textContent = 'Alinhe os números pela vírgula e subtraia da direita para a esquerda. Complete as casas decimais com zero quando precisar e peça emprestado ao vizinho quando o número de cima for menor.';
+    } else if (estado.questao.dificuldade === 'DIFICIL') {
+      el.dica.textContent = 'Dica: resolva da direita para a esquerda. Se o número de cima for menor, toque no vizinho da esquerda para pedir emprestado: ele diminui 1 e a coluna atual ganha 10. Empréstimos podem se encadear por várias colunas.';
+    } else {
+      el.dica.textContent = 'Dica: se o número de cima for menor, toque no número da esquerda para pedir emprestado. Ele diminui 1 e o vizinho ganha 10.';
+    }
   } else {
     el.dica.textContent = 'Dica: se o número de cima for menor, toque no número da esquerda para pedir emprestado. Ele diminui 1 e o vizinho ganha 10.';
   }
@@ -4885,10 +5081,10 @@ async function validarResposta(estado, el) {
 
     const soma = questao.operacao === 'SOMA';
     const subtracao = questao.operacao === 'SUBTRACAO';
-    const somaDecimal = ehSomaDecimal(questao);
+    const decimal = ehOperacaoDecimal(questao);
     const casas = casasDecimaisMaximas(questao);
     const digitos = digitosDosOperandos(questao.dificuldade, questao.operacao);
-    const digitosCalculo = somaDecimal ? digitosSomaDecimal(questao.dificuldade, casas) : digitos;
+    const digitosCalculo = decimal ? digitosSomaDecimal(questao.dificuldade, casas) : digitos;
     const caixasVaiUm = lerVaiUm(el);
     requisicao = montarRequisicao(questao, {
       resultadoDigitado,
@@ -4899,7 +5095,9 @@ async function validarResposta(estado, el) {
           calcularVaiUm(questao.numeroA, questao.numeroB),
         )
         : null,
-      emprestados: subtracao ? montarArrayEmprestimos(estado.emprestimos, digitos) : null,
+      emprestados: subtracao
+        ? montarArrayEmprestimos(estado.emprestimos, digitosCalculo)
+        : null,
       vaiUmMultiplicacao: multiplicacao && !multiplicacaoDificil
         ? lerVaiUmMultiplicacao(caixasVaiUm)
         : null,
@@ -5207,13 +5405,19 @@ if (typeof module !== 'undefined' && module.exports) {
     seletoresDicaAtualMultiplicacaoDificil,
     ehSomaDificil,
     ehSomaDecimal,
+    ehSubtracaoDecimal,
+    ehOperacaoDecimal,
     ehSomaGuiada,
+    ehSubtracaoGuiada,
     casasDecimaisMaximas,
     digitosEscalados,
     digitosSomaDecimal,
     quantidadeCaixasVaiUmDecimal,
     colunasInteirasSomaDecimal,
+    colunaGradeDecimal,
     colunaGradeSomaDecimal,
+    colunasInteirasSubtracaoDecimal,
+    colunaGradeSubtracaoDecimal,
     rotuloColunaDecimal,
     montarModeloSomaDificil,
     montarModeloSomaDecimal,
@@ -5226,6 +5430,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ehSubtracaoDificil,
     ordemFocoSubtracaoDificil,
     montarModeloSubtracaoDificil,
+    montarModeloSubtracaoDecimal,
     seletoresDicaSubtracaoDificil,
     resolverAlvoDicaSubtracaoDificil,
     alvoDoCampoResultadoSubtracao,
@@ -5318,6 +5523,7 @@ if (typeof module !== 'undefined' && module.exports) {
     comporResultado,
     montarRequisicao,
     aplicarPreferencias,
+    atualizarTipoNumero,
     atualizarSegmentado,
     podeIniciarQuestao,
     podeValidarResposta,

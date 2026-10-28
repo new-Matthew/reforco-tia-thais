@@ -88,6 +88,7 @@ const {
   comporResultado,
   montarRequisicao,
   aplicarPreferencias,
+  atualizarTipoNumero,
   atualizarSegmentado,
   podeIniciarQuestao,
   podeValidarResposta,
@@ -117,13 +118,19 @@ const {
   seletoresDicaAtualMultiplicacaoDificil,
   ehSomaDificil,
   ehSomaDecimal,
+  ehSubtracaoDecimal,
+  ehOperacaoDecimal,
   ehSomaGuiada,
+  ehSubtracaoGuiada,
   casasDecimaisMaximas,
   digitosEscalados,
   digitosSomaDecimal,
   quantidadeCaixasVaiUmDecimal,
   colunasInteirasSomaDecimal,
+  colunaGradeDecimal,
   colunaGradeSomaDecimal,
+  colunasInteirasSubtracaoDecimal,
+  colunaGradeSubtracaoDecimal,
   rotuloColunaDecimal,
   montarModeloSomaDificil,
   montarModeloSomaDecimal,
@@ -136,6 +143,7 @@ const {
   ehSubtracaoDificil,
   ordemFocoSubtracaoDificil,
   montarModeloSubtracaoDificil,
+  montarModeloSubtracaoDecimal,
   seletoresDicaSubtracaoDificil,
   resolverAlvoDicaSubtracaoDificil,
   alvoDoCampoResultadoSubtracao,
@@ -430,7 +438,7 @@ test('aplicarPreferencias ignora valores desconhecidos', () => {
   assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
 });
 
-test('aplicarPreferencias lê o tipo de número apenas quando a operação é soma', () => {
+test('aplicarPreferencias lê o tipo de número na soma e na subtração', () => {
   const estado = { operacao: 'SOMA', dificuldade: 'FACIL' };
   aplicarPreferencias(estado, '?operacao=SOMA&dificuldade=MEDIO&tipoNumero=DECIMAIS');
   assert.equal(estado.tipoNumero, 'DECIMAIS');
@@ -440,7 +448,14 @@ test('aplicarPreferencias lê o tipo de número apenas quando a operação é so
     subtracao,
     '?operacao=SUBTRACAO&dificuldade=MEDIO&tipoNumero=DECIMAIS',
   );
-  assert.equal(subtracao.tipoNumero, undefined);
+  assert.equal(subtracao.tipoNumero, 'DECIMAIS');
+
+  const multiplicacao = { operacao: 'SOMA', dificuldade: 'FACIL' };
+  aplicarPreferencias(
+    multiplicacao,
+    '?operacao=MULTIPLICACAO&dificuldade=MEDIO&tipoNumero=DECIMAIS',
+  );
+  assert.equal(multiplicacao.tipoNumero, undefined);
 });
 
 test('atualizarSegmentado marca o botão do tipo de número selecionado', () => {
@@ -481,7 +496,31 @@ test('atualizarSegmentado marca o botão do tipo de número selecionado', () => 
   assert.equal(botoes[1].ariaPressed, 'true');
 });
 
-test('montarRequisicao envia tipo e casas decimais apenas na soma decimal', () => {
+test('atualizarTipoNumero exibe o seletor na soma e na subtração', () => {
+  const criarEl = () => ({
+    grupoTipoNumero: { hidden: true },
+    seletorTipoNumero: {
+      id: 'seletor-tipo-numero',
+      querySelectorAll() {
+        return [];
+      },
+    },
+  });
+
+  const soma = criarEl();
+  atualizarTipoNumero({ operacao: 'SOMA', tipoNumero: 'INTEIROS' }, soma);
+  assert.equal(soma.grupoTipoNumero.hidden, false);
+
+  const subtracao = criarEl();
+  atualizarTipoNumero({ operacao: 'SUBTRACAO', tipoNumero: 'DECIMAIS' }, subtracao);
+  assert.equal(subtracao.grupoTipoNumero.hidden, false);
+
+  const multiplicacao = criarEl();
+  atualizarTipoNumero({ operacao: 'MULTIPLICACAO', tipoNumero: 'DECIMAIS' }, multiplicacao);
+  assert.equal(multiplicacao.grupoTipoNumero.hidden, true);
+});
+
+test('montarRequisicao envia tipo e casas decimais nas operações decimais', () => {
   const questao = {
     id: 'id-decimal',
     operacao: 'SOMA',
@@ -501,6 +540,20 @@ test('montarRequisicao envia tipo e casas decimais apenas na soma decimal', () =
   assert.equal(requisicao.tipoNumero, 'DECIMAIS');
   assert.equal(requisicao.casasDecimais, 2);
   assert.equal(requisicao.resultadoDigitado, 1623);
+
+  const subtracao = montarRequisicao(
+    { ...questao, operacao: 'SUBTRACAO' },
+    {
+      resultadoDigitado: 927,
+      vaiUm: null,
+      emprestados: [1, 0, 1, 0],
+      vaiUmMultiplicacao: null,
+    },
+  );
+
+  assert.equal(subtracao.tipoNumero, 'DECIMAIS');
+  assert.equal(subtracao.casasDecimais, 2);
+  assert.equal(subtracao.resultadoDigitado, 927);
 });
 
 test('comporResultado trata as casas decimais vazias como zero alinhado', () => {
@@ -2615,6 +2668,120 @@ test('ehSomaDecimal e ehSomaGuiada identificam a soma com vírgula', () => {
   assert.equal(ehSomaGuiada(inteiroDificil), true);
   assert.equal(ehSomaDecimal({ operacao: 'SUBTRACAO', tipoNumero: 'DECIMAIS' }), false);
   assert.equal(ehSomaDecimal(null), false);
+});
+
+test('ehSubtracaoDecimal e ehSubtracaoGuiada reconhecem a subtração com vírgula', () => {
+  const decimal = { operacao: 'SUBTRACAO', dificuldade: 'MEDIO', tipoNumero: 'DECIMAIS' };
+  const inteiroDificil = { operacao: 'SUBTRACAO', dificuldade: 'DIFICIL' };
+  const inteiroMedio = { operacao: 'SUBTRACAO', dificuldade: 'MEDIO' };
+
+  assert.equal(ehSubtracaoDecimal(decimal), true);
+  assert.equal(ehSubtracaoGuiada(decimal), true);
+  assert.equal(ehSubtracaoDecimal(inteiroDificil), false);
+  assert.equal(ehSubtracaoGuiada(inteiroDificil), true);
+  assert.equal(ehSubtracaoGuiada(inteiroMedio), false);
+  assert.equal(ehSubtracaoDecimal({ operacao: 'SOMA', tipoNumero: 'DECIMAIS' }), false);
+  assert.equal(ehSubtracaoDecimal(null), false);
+});
+
+test('ehOperacaoDecimal identifica apenas soma e subtração decimais', () => {
+  assert.equal(ehOperacaoDecimal({ operacao: 'SOMA', tipoNumero: 'DECIMAIS' }), true);
+  assert.equal(ehOperacaoDecimal({ operacao: 'SUBTRACAO', tipoNumero: 'DECIMAIS' }), true);
+  assert.equal(ehOperacaoDecimal({ operacao: 'SUBTRACAO', tipoNumero: 'INTEIROS' }), false);
+  assert.equal(ehOperacaoDecimal({ operacao: 'MULTIPLICACAO', tipoNumero: 'DECIMAIS' }), false);
+  assert.equal(ehOperacaoDecimal(null), false);
+});
+
+test('helpers da subtração decimal alinham as colunas pela vírgula', () => {
+  assert.equal(casasDecimaisMaximas({ operacao: 'SUBTRACAO', tipoNumero: 'DECIMAIS' }), 2);
+  assert.equal(colunasInteirasSubtracaoDecimal('FACIL'), 2);
+  assert.equal(colunasInteirasSubtracaoDecimal('MEDIO'), 3);
+  assert.equal(colunasInteirasSubtracaoDecimal('DIFICIL'), 4);
+  assert.deepEqual(
+    [0, 1, 2, 3].map((indice) => colunaGradeSubtracaoDecimal(indice, 'FACIL', 2)),
+    [6, 5, 3, 2],
+  );
+  assert.equal(
+    colunaGradeDecimal(0, 2, 2),
+    colunaGradeSubtracaoDecimal(0, 'FACIL', 2),
+  );
+});
+
+test('montarModeloSubtracaoDecimal prepara resultado e empréstimos', () => {
+  const modelo = montarModeloSubtracaoDecimal(1275, 348, 'FACIL', 2);
+
+  assert.equal(modelo.numeroA, 1275);
+  assert.equal(modelo.numeroB, 348);
+  assert.equal(modelo.resultado, 927);
+  assert.equal(modelo.digitos, 4);
+  assert.equal(modelo.casasDecimais, 2);
+  assert.deepEqual(modelo.passos, [1, 0, 1, 0]);
+  assert.deepEqual(Array.from(modelo.colunasQueEmprestam), [1, 3]);
+  assert.deepEqual(modelo.ordemFoco, [
+    { tipo: 'resultado', coluna: 0 },
+    { tipo: 'resultado', coluna: 1 },
+    { tipo: 'resultado', coluna: 2 },
+    { tipo: 'resultado', coluna: 3 },
+  ]);
+});
+
+test('dica da subtração decimal mapeia centésimos e décimos', () => {
+  const modelo = montarModeloSubtracaoDecimal(1275, 348, 'FACIL', 2);
+
+  assert.deepEqual(
+    seletoresDicaSubtracaoDificil(modelo, { tipo: 'resultado', coluna: 0 }),
+    [
+      '.resultado-input[data-coluna="0"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="0"]',
+      '.celula-digito[data-tipo="operandoB"][data-coluna="0"]',
+    ],
+  );
+  assert.deepEqual(
+    seletoresDicaSubtracaoDificil(
+      modelo,
+      { tipo: 'resultado', coluna: 1 },
+      new Set([1, 3]),
+    ),
+    [
+      '.resultado-input[data-coluna="1"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
+      '.celula-digito[data-tipo="operandoB"][data-coluna="1"]',
+    ],
+  );
+});
+
+test('seletoresDicaAtual direciona a dica para a subtração decimal', () => {
+  const modelo = montarModeloSubtracaoDecimal(1275, 348, 'FACIL', 2);
+  const el = {
+    conta: {
+      querySelector() {
+        return null;
+      },
+    },
+  };
+  const estado = {
+    questao: {
+      operacao: 'SUBTRACAO',
+      dificuldade: 'FACIL',
+      tipoNumero: 'DECIMAIS',
+    },
+    subtracaoDificil: modelo,
+    emprestimos: new Set([1, 3]),
+    questaoRespondida: false,
+  };
+
+  assert.deepEqual(
+    seletoresDicaAtualSubtracaoDificil(estado, el),
+    seletoresDicaSubtracaoDificil(
+      modelo,
+      modelo.ordemFoco[0],
+      estado.emprestimos,
+    ),
+  );
+  assert.deepEqual(
+    seletoresDicaAtual(estado, el),
+    seletoresDicaAtualSubtracaoDificil(estado, el),
+  );
 });
 
 test('helpers da soma decimal calculam casas, colunas e a coluna da vírgula', () => {
