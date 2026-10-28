@@ -171,6 +171,21 @@ test('temaDaOperacao mapeia cada operação para sua cor temática', () => {
   assert.equal(temaDaOperacao('DIVISAO'), 'laranja');
 });
 
+test('lousa da subtração decimal mantém colunas compactas e sem trilhas flexíveis', () => {
+  const css = fs.readFileSync(
+    path.join(__dirname, '../../main/resources/static/style.css'),
+    'utf8',
+  );
+
+  assert.match(css, /--largura-virgula:\s*16px/);
+  assert.match(css, /repeat\(var\(--colunas-inteiras, 3\), minmax\(34px, 48px\)\)/);
+  assert.match(css, /repeat\(var\(--casas-decimais, 2\), minmax\(28px, 36px\)\)/);
+  assert.doesNotMatch(
+    css,
+    /\.conta\.conta-decimal\s*\{[^}]*?repeat\([^}]*?1fr/,
+  );
+});
+
 test('tema rosa da subtração está definido no CSS com o tom pink bubblegum', () => {
   const css = fs.readFileSync(
     path.join(__dirname, '../../main/resources/static/style.css'),
@@ -2805,6 +2820,7 @@ test('dica da subtração decimal mapeia centésimos e décimos', () => {
     ),
     [
       '.resultado-input[data-coluna="1"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="1"]',
       '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
       '.celula-digito[data-tipo="operandoB"][data-coluna="1"]',
     ],
@@ -3142,6 +3158,7 @@ test('dica da subtração difícil destaca o novo valor emprestado em âmbar', (
     ),
     [
       '.resultado-input[data-coluna="1"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="1"]',
       '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
       '.celula-digito[data-tipo="operandoB"][data-coluna="1"]',
     ],
@@ -3176,6 +3193,7 @@ test('dica da subtração difícil mantém o empréstimo encadeado na coluna atu
     ),
     [
       '.resultado-input[data-coluna="1"]',
+      '.celula-digito[data-tipo="operandoA"][data-coluna="1"]',
       '.celula-digito[data-tipo="operandoA"][data-coluna="1"] .valor-emprestado',
       '.celula-digito[data-tipo="operandoB"][data-coluna="1"]',
     ],
@@ -3192,7 +3210,15 @@ test('dica da subtração difícil não avança para a próxima coluna', () => {
       new Set([1, 2, 3]),
     );
 
-    assert.equal(seletores.length, 3);
+    assert.equal(seletores.includes('.resultado-input[data-coluna="' + coluna + '"]'), true);
+    assert.equal(
+      seletores.includes('.celula-digito[data-tipo="operandoA"][data-coluna="' + coluna + '"]'),
+      true,
+    );
+    assert.equal(
+      seletores.includes('.celula-digito[data-tipo="operandoB"][data-coluna="' + coluna + '"]'),
+      true,
+    );
     assert.equal(seletores.every((seletor) => typeof seletor === 'string'), true);
     assert.equal(
       seletores.every((seletor) => seletor.includes('[data-coluna="' + coluna + '"]')),
@@ -3271,6 +3297,69 @@ test('alvoIncorretoSubtracaoDificil encontra o primeiro empréstimo ausente', ()
   assert.equal(alvoIncorretoSubtracaoDificil(modelo, el, new Set([1, 2, 3])), null);
 });
 
+test('alvoIncorretoSubtracaoDificil prioriza a coluna focada na dezena', () => {
+  const modelo = montarModeloSubtracaoDificil(5321, 1478);
+  const valores = {
+    '.resultado-input[data-coluna="0"]': '4',
+    '.resultado-input[data-coluna="1"]': '5',
+    '.resultado-input[data-coluna="2"]': '8',
+    '.resultado-input[data-coluna="3"]': '3',
+  };
+  const el = {
+    conta: {
+      querySelector(seletor) {
+        return Object.prototype.hasOwnProperty.call(valores, seletor)
+          ? { value: valores[seletor] }
+          : null;
+      },
+    },
+  };
+
+  assert.deepEqual(
+    alvoIncorretoSubtracaoDificil(
+      modelo,
+      el,
+      new Set([1, 2, 3]),
+      { tipo: 'resultado', coluna: 1 },
+    ),
+    { tipo: 'resultado', coluna: 1 },
+  );
+  assert.deepEqual(
+    alvoIncorretoSubtracaoDificil(
+      modelo,
+      el,
+      new Set([1, 2, 3]),
+      { tipo: 'resultado', coluna: 2 },
+    ),
+    { tipo: 'resultado', coluna: 0 },
+  );
+});
+
+test('alvoIncorretoSubtracaoDificil identifica empréstimo ausente na coluna focada', () => {
+  const modelo = montarModeloSubtracaoDecimal(829040, 299343, 'DIFICIL', 2);
+  const resultados = {};
+  modelo.ordemFoco.forEach((alvo) => {
+    resultados['.resultado-input[data-coluna="' + alvo.coluna + '"]'] = String(
+      valorEsperadoSubtracaoDificil(modelo, alvo),
+    );
+  });
+  const el = {
+    conta: {
+      querySelector(seletor) {
+        return Object.prototype.hasOwnProperty.call(resultados, seletor)
+          ? { value: resultados[seletor] }
+          : null;
+      },
+    },
+  };
+
+  const dezena = { tipo: 'resultado', coluna: 3 };
+  assert.deepEqual(
+    alvoIncorretoSubtracaoDificil(modelo, el, new Set([1, 2, 3, 5]), dezena),
+    dezena,
+  );
+});
+
 test('alvoDoCampoResultadoSubtracao lê o campo de resultado', () => {
   assert.deepEqual(
     alvoDoCampoResultadoSubtracao({ dataset: { tipo: 'resultado', coluna: '2' } }),
@@ -3291,8 +3380,53 @@ test('resolverAlvoDicaSubtracaoDificil usa a mesma ordem de foco da soma', () =>
   );
   assert.deepEqual(
     resolverAlvoDicaSubtracaoDificil(modelo, primeiro, new Set(['resultado:0'])),
+    primeiro,
+  );
+  assert.deepEqual(
+    resolverAlvoDicaSubtracaoDificil(modelo, null, new Set(['resultado:0'])),
     segundo,
   );
+});
+
+test('resolverAlvoDicaSubtracaoDificil mantém o foco exato na dezena', () => {
+  const modelo = montarModeloSubtracaoDecimal(829040, 299343, 'DIFICIL', 2);
+  const dezena = modelo.ordemFoco[3];
+  const preenchidos = new Set(modelo.ordemFoco.map((alvo) => 'resultado:' + alvo.coluna));
+
+  assert.deepEqual(dezena, { tipo: 'resultado', coluna: 3 });
+  assert.deepEqual(
+    resolverAlvoDicaSubtracaoDificil(modelo, dezena, preenchidos),
+    dezena,
+  );
+  assert.deepEqual(
+    resolverAlvoDicaSubtracaoDificil(modelo, null, new Set(['resultado:0', 'resultado:1'])),
+    modelo.ordemFoco[2],
+  );
+});
+
+test('dica da subtração decimal de quatro algarismos não pula a dezena', () => {
+  const modelo = montarModeloSubtracaoDecimal(829040, 299343, 'DIFICIL', 2);
+
+  assert.equal(modelo.colunasInteiras, 4);
+  assert.equal(modelo.digitos, 6);
+  assert.deepEqual(
+    modelo.ordemFoco.map((alvo) => alvo.coluna),
+    [0, 1, 2, 3, 4, 5],
+  );
+  assert.equal(colunaGradeDecimal(3, 4, 2), 4);
+  assert.equal(colunaGradeDecimal(2, 4, 2), 5);
+
+  const seletores = seletoresDicaSubtracaoDificil(
+    modelo,
+    { tipo: 'resultado', coluna: 3 },
+    new Set([3]),
+  );
+  assert.deepEqual(seletores, [
+    '.resultado-input[data-coluna="3"]',
+    '.celula-digito[data-tipo="operandoA"][data-coluna="3"]',
+    '.celula-digito[data-tipo="operandoA"][data-coluna="3"] .valor-emprestado',
+    '.celula-digito[data-tipo="operandoB"][data-coluna="3"]',
+  ]);
 });
 
 test('seletoresDicaAtual direciona a dica para a subtração difícil', () => {
