@@ -130,15 +130,97 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Mantém inteiros como padrão e rejeita decimais fora da soma")
+    @DisplayName("Mantém inteiros como padrão e aceita decimais na soma e subtração")
     void validaTipoNumeroNaGeracao() {
         QuestaoDTO questao = jogoService.gerarQuestao(Operacao.SOMA, Dificuldade.FACIL);
         assertEquals(TipoNumero.INTEIROS, questao.getTipoNumero());
 
+        QuestaoDTO subtracao = jogoService.gerarQuestao(
+                Operacao.SUBTRACAO, Dificuldade.FACIL, TipoNumero.DECIMAIS);
+        assertEquals(TipoNumero.DECIMAIS, subtracao.getTipoNumero());
+
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
-                Operacao.SUBTRACAO, Dificuldade.FACIL, TipoNumero.DECIMAIS));
+                Operacao.MULTIPLICACAO, Dificuldade.FACIL, TipoNumero.DECIMAIS));
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
                 Operacao.SOMA, Dificuldade.FACIL, null));
+    }
+
+    @Test
+    @DisplayName("Gera subtrações decimais com casas diferentes e empréstimos válidos")
+    void geraSubtracaoDecimalComCasasDiferentesEEmprestimos() {
+        for (Dificuldade dificuldade : List.of(
+                Dificuldade.FACIL, Dificuldade.MEDIO, Dificuldade.DIFICIL)) {
+            for (int i = 0; i < 100; i++) {
+                QuestaoDTO questao = jogoService.gerarQuestao(
+                        Operacao.SUBTRACAO, dificuldade, TipoNumero.DECIMAIS);
+
+                assertEquals(Operacao.SUBTRACAO, questao.getOperacao());
+                assertEquals(dificuldade, questao.getDificuldade());
+                assertEquals(TipoNumero.DECIMAIS, questao.getTipoNumero());
+
+                int casasA = questao.getCasasDecimaisA();
+                int casasB = questao.getCasasDecimaisB();
+                assertTrue(casasA == 1 || casasA == 2);
+                assertTrue(casasB == 1 || casasB == 2);
+                assertTrue(casasA != casasB);
+
+                int inteiroA = questao.getNumeroA() / 100;
+                int inteiroB = questao.getNumeroB() / 100;
+                assertTrue(inteiroA >= dificuldade.getValorMinimo()
+                        && inteiroA <= dificuldade.getValorMaximo());
+                assertTrue(inteiroB >= dificuldade.getValorMinimo()
+                        && inteiroB <= dificuldade.getValorMaximo());
+                assertTrue(questao.getNumeroA() > questao.getNumeroB());
+                assertTrue(jogoService.exigeEmprestimo(
+                        questao.getNumeroA(), questao.getNumeroB()));
+
+                if (dificuldade == Dificuldade.DIFICIL) {
+                    List<Integer> passos = jogoService.calcularEmprestimos(
+                            questao.getNumeroA(), questao.getNumeroB());
+                    boolean encadeados = false;
+                    for (int coluna = 0; coluna + 1 < passos.size(); coluna++) {
+                        if (passos.get(coluna) == 1 && passos.get(coluna + 1) == 1) {
+                            encadeados = true;
+                            break;
+                        }
+                    }
+                    assertTrue(encadeados,
+                            "A subtração decimal difícil deve encadear empréstimos.");
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Valida subtração decimal com alinhamento de duas casas")
+    void validaSubtracaoDecimalComCasasAlinhadas() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-subtracao-decimal", Operacao.SUBTRACAO, 1275, 348, 927,
+                null, List.of(1, 0, 1, 0), null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(2);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(927, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Formata a resposta de subtração decimal com vírgula no feedback")
+    void formataRespostaSubtracaoDecimalNoFeedback() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-subtracao-decimal-errado", Operacao.SUBTRACAO, 1275, 348, 900,
+                null, List.of(1, 0, 1, 0), null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(2);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("9,27"));
     }
 
     @Test
@@ -182,8 +264,8 @@ class JogoServiceTest {
         semCasas.setTipoNumero(TipoNumero.DECIMAIS);
 
         RequisicaoValidacaoDTO operacaoIncompativel = new RequisicaoValidacaoDTO(
-                "id-subtracao-decimal", Operacao.SUBTRACAO, 1275, 348, 927,
-                null, List.of(1, 0, 1, 0), null);
+                "id-multiplicacao-decimal", Operacao.MULTIPLICACAO, 1275, 348, 443700,
+                null, null, 7);
         operacaoIncompativel.setTipoNumero(TipoNumero.DECIMAIS);
         operacaoIncompativel.setCasasDecimais(2);
 

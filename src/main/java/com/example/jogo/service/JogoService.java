@@ -73,9 +73,11 @@ public class JogoService {
         if (tipoNumero == null) {
             throw new IllegalArgumentException("O tipo de número é obrigatório.");
         }
-        if (tipoNumero == TipoNumero.DECIMAIS && operacao != Operacao.SOMA) {
+        if (tipoNumero == TipoNumero.DECIMAIS
+                && operacao != Operacao.SOMA
+                && operacao != Operacao.SUBTRACAO) {
             throw new IllegalArgumentException(
-                    "Números decimais estão disponíveis apenas na soma.");
+                    "Números decimais estão disponíveis apenas na soma e na subtração.");
         }
 
         return switch (operacao) {
@@ -84,7 +86,9 @@ public class JogoService {
             case SOMA -> tipoNumero == TipoNumero.DECIMAIS
                     ? gerarSomaDecimal(operacao, dificuldade)
                     : gerarSoma(operacao, dificuldade);
-            case SUBTRACAO -> gerarSubtracao(operacao, dificuldade);
+            case SUBTRACAO -> tipoNumero == TipoNumero.DECIMAIS
+                    ? gerarSubtracaoDecimal(operacao, dificuldade)
+                    : gerarSubtracao(operacao, dificuldade);
         };
     }
 
@@ -443,6 +447,34 @@ public class JogoService {
                 });
     }
 
+    private QuestaoDTO gerarSubtracaoDecimal(Operacao operacao, Dificuldade dificuldade) {
+        int minimo = dificuldade.getValorMinimo();
+        int maximo = dificuldade.getValorMaximo();
+
+        return gerarComTentativas(
+                "Não foi possível gerar uma subtração decimal com empréstimo.",
+                () -> {
+                    int inteiroA = sortear(minimo, maximo);
+                    int inteiroB = sortear(minimo, maximo);
+                    boolean primeiraComUmaCasa = random.nextBoolean();
+                    int casasA = primeiraComUmaCasa
+                            ? CASAS_DECIMAIS_MINIMAS
+                            : CASAS_DECIMAIS_MAXIMAS;
+                    int casasB = primeiraComUmaCasa
+                            ? CASAS_DECIMAIS_MAXIMAS
+                            : CASAS_DECIMAIS_MINIMAS;
+                    int numeroA = inteiroA * ESCALA_DECIMAL + sortearFracaoDecimal(casasA);
+                    int numeroB = inteiroB * ESCALA_DECIMAL + sortearFracaoDecimal(casasB);
+                    boolean emprestimosValidos = dificuldade == Dificuldade.DIFICIL
+                            ? exigeEmprestimoEncadeado(numeroA, numeroB)
+                            : exigeEmprestimo(numeroA, numeroB);
+                    return numeroA > numeroB && emprestimosValidos
+                            ? novaQuestaoDecimal(
+                                    operacao, dificuldade, numeroA, numeroB, casasA, casasB)
+                            : null;
+                });
+    }
+
     private boolean exigeEmprestimoEncadeado(int numeroA, int numeroB) {
         List<Integer> passos = calcularEmprestimos(numeroA, numeroB);
 
@@ -710,9 +742,10 @@ public class JogoService {
             throw new IllegalArgumentException("O resultado digitado é obrigatório.");
         }
         if (requisicao.getTipoNumero() == TipoNumero.DECIMAIS) {
-            if (requisicao.getOperacao() != Operacao.SOMA) {
+            if (requisicao.getOperacao() != Operacao.SOMA
+                    && requisicao.getOperacao() != Operacao.SUBTRACAO) {
                 throw new IllegalArgumentException(
-                        "Números decimais estão disponíveis apenas na soma.");
+                        "Números decimais estão disponíveis apenas na soma e na subtração.");
             }
             int casasDecimais = requisicao.getCasasDecimais() == null
                     ? -1
