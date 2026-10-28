@@ -33,14 +33,14 @@ body[data-tema="verde"] {
   --tema-foco: rgba(16, 185, 129, 0.28);
 }
 
-body[data-tema="azul"] {
-  --tema-cor: #60a5fa;
-  --tema-cor-clara: #bfdbfe;
-  --tema-cor-escura: #2563eb;
-  --tema-texto: #062a5e;
-  --tema-halo: rgba(96, 165, 250, 0.42);
-  --tema-borda: rgba(147, 197, 253, 0.55);
-  --tema-foco: rgba(96, 165, 250, 0.3);
+body[data-tema="rosa"] {
+  --tema-cor: #ff69b4;
+  --tema-cor-clara: #ffb3dd;
+  --tema-cor-escura: #c2185b;
+  --tema-texto: #4a0d2e;
+  --tema-halo: rgba(255, 105, 180, 0.42);
+  --tema-borda: rgba(255, 179, 221, 0.55);
+  --tema-foco: rgba(255, 105, 180, 0.3);
 }
 
 body[data-tema="roxo"] {

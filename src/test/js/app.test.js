@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   TEMAS_POR_OPERACAO,
@@ -151,9 +153,19 @@ const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test('temaDaOperacao mapeia cada operação para sua cor temática', () => {
   assert.equal(temaDaOperacao('SOMA'), 'verde');
-  assert.equal(temaDaOperacao('SUBTRACAO'), 'azul');
+  assert.equal(temaDaOperacao('SUBTRACAO'), 'rosa');
   assert.equal(temaDaOperacao('MULTIPLICACAO'), 'roxo');
   assert.equal(temaDaOperacao('DIVISAO'), 'laranja');
+});
+
+test('tema rosa da subtração está definido no CSS com o tom pink bubblegum', () => {
+  const css = fs.readFileSync(
+    path.join(__dirname, '../../main/resources/static/style.css'),
+    'utf8',
+  );
+
+  assert.match(css, /body\[data-tema="rosa"\]\s*\{/);
+  assert.match(css, /--tema-cor:\s*#ff69b4/);
 });
 
 test('temaDaOperacao usa o tema verde como padrão para operações desconhecidas', () => {
@@ -179,8 +191,8 @@ test('aplicarTemaOperacao grava o tema no data attribute da raiz', () => {
 });
 
 test('aplicarTemaOperacao não falha quando a raiz não tem dataset', () => {
-  assert.equal(aplicarTemaOperacao('SUBTRACAO', {}), 'azul');
-  assert.equal(aplicarTemaOperacao('SUBTRACAO', null), 'azul');
+  assert.equal(aplicarTemaOperacao('SUBTRACAO', {}), 'rosa');
+  assert.equal(aplicarTemaOperacao('SUBTRACAO', null), 'rosa');
 });
 
 test('normalizarPasso converte campos vazios e inválidos em zero', () => {

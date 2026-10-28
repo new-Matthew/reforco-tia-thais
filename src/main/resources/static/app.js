@@ -130,7 +130,7 @@ const ROTULOS_DIVISAO = {
 
 const TEMAS_POR_OPERACAO = {
   SOMA: 'verde',
-  SUBTRACAO: 'azul',
+  SUBTRACAO: 'rosa',
   MULTIPLICACAO: 'roxo',
   DIVISAO: 'laranja',
 };
