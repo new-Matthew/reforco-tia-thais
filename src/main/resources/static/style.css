@@ -593,13 +593,15 @@ h1 {
 }
 
 .conta.conta-decimal {
+  --largura-virgula: 16px;
   grid-template-columns:
-    minmax(30px, auto)
-    repeat(var(--colunas-inteiras, 3), minmax(36px, 52px))
-    var(--largura-virgula, 18px)
-    repeat(var(--casas-decimais, 2), minmax(36px, 52px));
-  gap: 6px 4px;
-  padding: 32px 14px 16px;
+    minmax(26px, auto)
+    repeat(var(--colunas-inteiras, 3), minmax(34px, 48px))
+    var(--largura-virgula, 16px)
+    repeat(var(--casas-decimais, 2), minmax(34px, 48px));
+  align-content: start;
+  gap: 6px 2px;
+  padding: 30px 10px 14px;
 }
 
 .conta-decimal .celula-digito {
@@ -608,6 +610,11 @@ h1 {
 
 .conta-decimal .resultado-input {
   height: 54px;
+}
+
+.conta .celula-digito,
+.conta .resultado-input {
+  min-width: 0;
 }
 
 .virgula-decimal {
@@ -852,9 +859,10 @@ h1 {
 /* --------------------- Subtração difícil (empréstimos) ------------------ */
 
 .conta.conta-subtracao-dificil:not(.conta-decimal) {
-  grid-template-columns: minmax(30px, auto) repeat(var(--colunas, 4), minmax(42px, 62px));
-  gap: 8px 6px;
-  padding: 36px 18px 20px;
+  grid-template-columns: minmax(26px, auto) repeat(var(--colunas, 4), minmax(38px, 56px));
+  align-content: start;
+  gap: 8px 4px;
+  padding: 34px 12px 18px;
 }
 
 .conta-subtracao-dificil .celula-digito {
@@ -1765,13 +1773,14 @@ h1 {
   }
 
   .conta.conta-decimal {
+    --largura-virgula: 10px;
     grid-template-columns:
-      minmax(24px, auto)
-      repeat(var(--colunas-inteiras, 3), minmax(30px, 1fr))
-      var(--largura-virgula, 12px)
-      repeat(var(--casas-decimais, 2), minmax(30px, 1fr));
-    gap: 6px 2px;
-    padding: 30px 10px 16px;
+      minmax(22px, auto)
+      repeat(var(--colunas-inteiras, 3), minmax(28px, 36px))
+      var(--largura-virgula, 10px)
+      repeat(var(--casas-decimais, 2), minmax(28px, 36px));
+    gap: 6px 1px;
+    padding: 28px 8px 12px;
   }
 
   .conta.conta-divisao {
@@ -1809,10 +1818,10 @@ h1 {
     height: 42px;
   }
 
-  .conta-subtracao-dificil {
-    grid-template-columns: minmax(24px, auto) repeat(var(--colunas, 4), minmax(32px, 1fr));
-    gap: 7px 4px;
-    padding: 34px 10px 16px;
+  .conta-subtracao-dificil:not(.conta-decimal) {
+    grid-template-columns: minmax(22px, auto) repeat(var(--colunas, 4), minmax(30px, 40px));
+    gap: 7px 3px;
+    padding: 32px 8px 14px;
   }
 
   .conta-subtracao-dificil .valor-emprestado,
