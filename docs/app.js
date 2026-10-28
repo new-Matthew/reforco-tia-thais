@@ -1033,25 +1033,52 @@ function valorEsperadoSubtracaoDificil(modelo, alvo) {
   return Math.floor(modelo.resultado / (10 ** alvo.coluna)) % 10;
 }
 
-function alvoIncorretoSubtracaoDificil(modelo, el, emprestimos) {
-  if (!modelo || !el || !el.conta) {
+function valorDoCampoResultadoSubtracao(el, alvo) {
+  if (!el || !el.conta || !alvo) {
     return null;
   }
+  const campo = el.conta.querySelector(seletorResultadoSubtracao(alvo.coluna));
+  if (!campo) {
+    return null;
+  }
+  return String(campo.value ?? '').trim();
+}
 
-  for (const alvo of modelo.ordemFoco) {
-    const campo = el.conta.querySelector(seletorResultadoSubtracao(alvo.coluna));
-    if (!campo) {
-      continue;
-    }
-    const valor = String(campo.value ?? '').trim();
-    if (valor === '' || Number(valor) !== valorEsperadoSubtracaoDificil(modelo, alvo)) {
-      return alvo;
-    }
+function alvoIncorretoSubtracaoDificil(modelo, el, emprestimos, alvoFoco) {
+  if (!modelo || !el || !el.conta) {
+    return null;
   }
 
   const ativos = emprestimos instanceof Set
     ? emprestimos
     : new Set(emprestimos ?? []);
+  const colunaFoco = Number(alvoFoco && alvoFoco.coluna);
+  const focoValido = Number.isInteger(colunaFoco)
+    && colunaFoco >= 0
+    && colunaFoco < modelo.digitos;
+
+  if (focoValido) {
+    const alvo = { tipo: 'resultado', coluna: colunaFoco };
+    const valor = valorDoCampoResultadoSubtracao(el, alvo);
+    if (valor !== null
+      && (valor === '' || Number(valor) !== valorEsperadoSubtracaoDificil(modelo, alvo))) {
+      return alvo;
+    }
+    if ((modelo.passos[colunaFoco] === 1) !== ativos.has(colunaFoco + 1)) {
+      return alvo;
+    }
+  }
+
+  for (const alvo of modelo.ordemFoco) {
+    const valor = valorDoCampoResultadoSubtracao(el, alvo);
+    if (valor === null) {
+      continue;
+    }
+    if (valor === '' || Number(valor) !== valorEsperadoSubtracaoDificil(modelo, alvo)) {
+      return alvo;
+    }
+  }
+
   for (let coluna = 0; coluna < modelo.passos.length; coluna += 1) {
     const esperado = modelo.passos[coluna] === 1;
     const ativo = ativos.has(coluna + 1);
@@ -1064,7 +1091,20 @@ function alvoIncorretoSubtracaoDificil(modelo, el, emprestimos) {
 }
 
 function resolverAlvoDicaSubtracaoDificil(modelo, alvoFoco, preenchidos) {
-  return resolverAlvoDicaSomaDificil(modelo, alvoFoco, preenchidos);
+  if (!modelo || !Array.isArray(modelo.ordemFoco) || modelo.ordemFoco.length === 0) {
+    return null;
+  }
+
+  const chaveFoco = chaveAlvoFoco(alvoFoco);
+  if (chaveFoco && modelo.ordemFoco.some((alvo) => chaveAlvoFoco(alvo) === chaveFoco)) {
+    return alvoFoco;
+  }
+
+  const ocupados = preenchidos instanceof Set
+    ? preenchidos
+    : new Set(preenchidos ?? []);
+  return primeiroItemVazioOrdem(modelo.ordemFoco, ocupados)
+    ?? modelo.ordemFoco[modelo.ordemFoco.length - 1];
 }
 
 function seletoresDicaSubtracaoDificil(modelo, alvo, emprestimos) {
@@ -1079,13 +1119,15 @@ function seletoresDicaSubtracaoDificil(modelo, alvo, emprestimos) {
   const ativos = emprestimos instanceof Set
     ? emprestimos
     : new Set(emprestimos ?? []);
-  return [
+  const seletores = [
     seletorResultadoSubtracao(coluna),
-    ativos.has(coluna)
-      ? seletorValorEmprestadoSubtracao(coluna)
-      : seletorCelulaSubtracao('operandoA', coluna),
-    seletorCelulaSubtracao('operandoB', coluna),
+    seletorCelulaSubtracao('operandoA', coluna),
   ];
+  if (ativos.has(coluna)) {
+    seletores.push(seletorValorEmprestadoSubtracao(coluna));
+  }
+  seletores.push(seletorCelulaSubtracao('operandoB', coluna));
+  return seletores;
 }
 
 function seletoresDicaAtualSubtracaoDificil(estado, el) {
@@ -1097,15 +1139,21 @@ function seletoresDicaAtualSubtracaoDificil(estado, el) {
     return [];
   }
 
+  const alvoFoco = alvoFocoAtualSubtracaoDificil(el);
   const preenchidos = preenchidosNaOrdem(el, modelo.ordemFoco);
   let alvo = resolverAlvoDicaSubtracaoDificil(
     modelo,
-    alvoFocoAtualSubtracaoDificil(el),
+    alvoFoco,
     preenchidos,
   );
 
   if (estado.questaoRespondida) {
-    alvo = alvoIncorretoSubtracaoDificil(modelo, el, estado.emprestimos) ?? alvo;
+    alvo = alvoIncorretoSubtracaoDificil(
+      modelo,
+      el,
+      estado.emprestimos,
+      alvoFoco,
+    ) ?? alvo;
   }
 
   return seletoresDicaSubtracaoDificil(modelo, alvo, estado.emprestimos);
