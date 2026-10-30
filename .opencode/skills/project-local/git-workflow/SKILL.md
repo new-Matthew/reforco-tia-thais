@@ -11,7 +11,8 @@ Every change must strictly follow the isolation, validation, and Conventional Co
 
 1. Direct changes or commits on the `main` branch are strictly prohibited.
 2. Merging into `main` without passing tests is strictly prohibited.
-3. Language requirement: All commit messages must be strictly in English.
+3. No remote push: The agent must never push changes to the remote repository (git push). All git actions must remain strictly local so the user can review and push manually.
+4. Language requirement: All commit messages must be strictly in English.
 
 ## EXECUTION STEPS
 
@@ -60,4 +61,4 @@ For every task, report:
 
 - Created branch name.
 - Executed commands.
-- Test status and merge result.
+- Test status and merge result into main.
