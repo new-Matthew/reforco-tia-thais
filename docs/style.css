@@ -1001,15 +1001,6 @@ h1 {
   opacity: 0.42;
 }
 
-.controle-virgula-previa {
-  min-width: 84px;
-  color: var(--tema-cor-escura);
-  font-family: 'Fredoka', 'Nunito', sans-serif;
-  font-size: clamp(1.2rem, 2.8vw, 1.55rem);
-  font-weight: 700;
-  text-align: center;
-}
-
 /* --------------------- Subtração difícil (empréstimos) ------------------ */
 
 .conta.conta-subtracao-dificil:not(.conta-decimal) {
@@ -1944,10 +1935,6 @@ h1 {
   .controle-virgula-seletor {
     width: 100%;
     max-width: 180px;
-  }
-
-  .controle-virgula-previa {
-    min-width: 72px;
   }
 
   .conta.conta-decimal {
