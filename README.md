@@ -1,6 +1,6 @@
 # Reforço Escolar — Tia Thaís
 
-Jogo educativo de adição, subtração, multiplicação e divisão para crianças, com lousa interativa, correção automática, progressão de nível e contato comercial via WhatsApp.
+Jogo educativo de adição, subtração, multiplicação, divisão e frações para crianças, com lousa interativa, correção automática, progressão de nível e contato comercial via WhatsApp.
 
 ## Funcionalidades
 
@@ -10,7 +10,8 @@ Jogo educativo de adição, subtração, multiplicação e divisão para crianç
 - Subtrações decimais com vírgula alinhada, zeros de preenchimento e empréstimos encadeados, com variação na quantidade de algarismos antes e depois da vírgula no nível difícil.
 - Multiplicação nos níveis fácil, médio e difícil, com seletor de números inteiros ou decimais, preenchimento do "vai um" e alinhamento dos fatores pela vírgula.
 - Multiplicações decimais resolvidas como inteiros, com zeros de preenchimento e controle da vírgula liberado só depois do produto final, movendo a vírgula entre as células preenchidas pelo aluno sem revelar o produto pronto.
-- Dica progressiva nas operações difíceis e nas operações decimais: destaca apenas os números da etapa atual, incluindo colunas decimais, divisor, dividendo parcial, produto e resto na divisão, após 3 segundos de inatividade ou quando a resposta é recusada.
+- Frações no nível fácil: soma de frações próprias com denominadores iguais (3 a 10), barras coloridas para representar os numeradores e resposta digitada em numerador e denominador separados, sem simplificação automática.
+- Dica progressiva nas operações difíceis, nas operações decimais e nas frações: destaca apenas os números da etapa atual, incluindo colunas decimais, divisor, dividendo parcial, produto, resto na divisão e campos/barras das frações, após 3 segundos de inatividade ou quando a resposta é recusada.
 - Divisão em formato de chave nos níveis fácil (2 dígitos por 1 dígito, exata), médio (3 dígitos por 2 dígitos) e difícil (4 dígitos por 2 dígitos), com quociente, subtrações intermediárias, resto e indicação do dígito que desce a cada etapa.
 - Divisões decimais nos níveis fácil, médio e difícil, com um passo guiado para igualar as casas decimais, acrescentar zeros e eliminar as vírgulas antes de abrir a conta inteira equivalente.
 - Preenchimento dos passos de "vai um" e empréstimo.

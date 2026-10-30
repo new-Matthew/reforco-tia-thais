@@ -82,6 +82,7 @@ const CASAS_DECIMAIS_SOMA = 2;
 const NIVEIS_DIFICULDADE_SUBTRACAO = ['FACIL', 'MEDIO', 'DIFICIL'];
 const NIVEIS_DIFICULDADE_MULTIPLICACAO = ['FACIL', 'MEDIO', 'DIFICIL'];
 const NIVEIS_DIFICULDADE_DIVISAO = ['FACIL', 'MEDIO', 'DIFICIL'];
+const NIVEIS_DIFICULDADE_FRACOES = ['FACIL'];
 const ROTULOS_DIFICULDADE = { FACIL: 'Fácil', MEDIO: 'Médio', DIFICIL: 'Difícil' };
 const ORDEM_CAMPOS_DIVISAO = ['quociente', 'subtracao', 'resto'];
 const ORDEM_CAMPOS_DIVISAO_MEDIA = [
@@ -133,6 +134,7 @@ const TEMAS_POR_OPERACAO = {
   SUBTRACAO: 'rosa',
   MULTIPLICACAO: 'roxo',
   DIVISAO: 'laranja',
+  FRACOES: 'turquesa',
 };
 
 const TEMA_OPERACAO_PADRAO = 'verde';
@@ -1429,6 +1431,9 @@ function seletoresDicaAtualDivisaoDificil(estado, el) {
 }
 
 function seletoresDicaAtual(estado, el) {
+  if (ehFracao(estado && estado.questao)) {
+    return seletoresDicaAtualFracao(estado, el);
+  }
   if (ehDivisaoDecimal(estado && estado.questao)
     && !divisaoDecimalEquivalente(estado.questao)) {
     return [];
@@ -1474,6 +1479,9 @@ function niveisDificuldade(operacao) {
   }
   if (operacao === 'DIVISAO') {
     return NIVEIS_DIFICULDADE_DIVISAO;
+  }
+  if (operacao === 'FRACOES') {
+    return NIVEIS_DIFICULDADE_FRACOES;
   }
   return NIVEIS_DIFICULDADE;
 }
@@ -1583,6 +1591,52 @@ function preencherAte(valores, quantidade) {
     passos.push(0);
   }
   return passos;
+}
+
+function ehFracao(questao) {
+  return Boolean(questao) && questao.operacao === 'FRACOES';
+}
+
+function rotuloBarraFracao(numerador, denominador) {
+  return numerador + ' de ' + denominador
+    + (denominador === 1 ? ' parte preenchida' : ' partes preenchidas');
+}
+
+function seletoresDicaFracao(alvo) {
+  const mapa = {
+    numerador: ['.fracao-campo-numerador', '.fracao-barra-parcela'],
+    denominador: ['.fracao-campo-denominador', '.fracao-barra-resultado'],
+    numeradorErro: ['.fracao-campo-numerador', '.fracao-barra-resultado'],
+    denominadorErro: ['.fracao-campo-denominador', '.fracao-barra-resultado'],
+  };
+  return mapa[alvo] ?? [];
+}
+
+function seletoresDicaAtualFracao(estado, el) {
+  const questao = estado && estado.questao;
+  if (!ehFracao(questao) || !el || !el.conta) {
+    return [];
+  }
+  const campoNumerador = el.conta.querySelector('.fracao-campo-numerador');
+  const campoDenominador = el.conta.querySelector('.fracao-campo-denominador');
+  const textoNumerador = String(campoNumerador?.value ?? '').trim();
+  const textoDenominador = String(campoDenominador?.value ?? '').trim();
+  const numerador = textoNumerador === '' ? null : Number(textoNumerador);
+  const denominador = textoDenominador === '' ? null : Number(textoDenominador);
+
+  let alvo = null;
+  if (estado.questaoRespondida) {
+    if (numerador !== questao.numeroA + questao.numeroB) {
+      alvo = 'numeradorErro';
+    } else if (denominador !== questao.denominador) {
+      alvo = 'denominadorErro';
+    }
+  } else if (numerador === null) {
+    alvo = 'numerador';
+  } else if (denominador === null) {
+    alvo = 'denominador';
+  }
+  return seletoresDicaFracao(alvo);
 }
 
 function ehDivisaoDecimal(questao) {
@@ -2100,6 +2154,7 @@ function montarRequisicao(questao, entradas) {
   const subtracao = questao.operacao === 'SUBTRACAO';
   const multiplicacao = questao.operacao === 'MULTIPLICACAO';
   const divisao = questao.operacao === 'DIVISAO';
+  const fracao = ehFracao(questao);
   const requisicao = {
     idQuestao: questao.id,
     operacao: questao.operacao,
@@ -2112,6 +2167,11 @@ function montarRequisicao(questao, entradas) {
       ? (entradas.vaiUmMultiplicacao ?? null)
       : null,
   };
+
+  if (fracao) {
+    requisicao.denominador = Number(questao.denominador);
+    requisicao.denominadorResultado = entradas.denominadorResultado ?? null;
+  }
 
   if (ehOperacaoDecimal(questao)
     || ehMultiplicacaoDecimal(questao)
@@ -2435,15 +2495,11 @@ function aplicarPreferencias(estado, busca) {
   const tipoNumero = parametros.get('tipoNumero');
 
   if (operacao === 'SOMA' || operacao === 'SUBTRACAO' || operacao === 'MULTIPLICACAO'
-    || operacao === 'DIVISAO') {
+    || operacao === 'DIVISAO' || operacao === 'FRACOES') {
     estado.operacao = operacao;
   }
-  const aceitaDificil = estado.operacao === 'SOMA'
-    || estado.operacao === 'SUBTRACAO'
-    || estado.operacao === 'MULTIPLICACAO'
-    || estado.operacao === 'DIVISAO';
-  if (dificuldade === 'FACIL' || dificuldade === 'MEDIO'
-    || (dificuldade === 'DIFICIL' && aceitaDificil)) {
+  const niveisDisponiveis = niveisDificuldade(estado.operacao);
+  if (dificuldade && niveisDisponiveis.includes(dificuldade)) {
     estado.dificuldade = dificuldade;
   }
   if ((tipoNumero === 'INTEIROS' || tipoNumero === 'DECIMAIS')
@@ -2665,6 +2721,7 @@ function esconderPlaceholder(el) {
 function renderConta(estado, el) {
   const questao = estado.questao;
   const divisao = questao.operacao === 'DIVISAO';
+  const fracao = ehFracao(questao);
   const multiplicacaoDificil = ehMultiplicacaoDificil(questao);
   const multiplicacaoDecimal = ehMultiplicacaoDecimal(questao);
   const subtracaoDificil = ehSubtracaoDificil(questao);
@@ -2693,6 +2750,7 @@ function renderConta(estado, el) {
   const divisaoDecimalGuiada = ehDivisaoDecimal(questao)
     && !divisaoDecimalEquivalente(questao);
   el.conta.classList.toggle('conta-divisao', divisao);
+  el.conta.classList.toggle('conta-fracao', fracao);
   el.conta.classList.toggle('conta-divisao-decimal', divisaoDecimalGuiada);
   el.conta.classList.toggle('conta-multiplicacao-dificil', multiplicacaoDificil);
   el.conta.classList.toggle('conta-multiplicacao-decimal', multiplicacaoDecimal);
@@ -2702,6 +2760,11 @@ function renderConta(estado, el) {
     'conta-decimal',
     somaDecimal || subtracaoDecimal || multiplicacaoDecimal,
   );
+  if (fracao) {
+    estado.multiplicacaoDecimal = null;
+    renderFracao(estado, el);
+    return;
+  }
   if (divisao) {
     estado.multiplicacaoDecimal = null;
     if (divisaoDecimalGuiada) {
@@ -4266,6 +4329,203 @@ function renderDivisaoDecimalGuia(estado, el) {
   el.conta.appendChild(guia);
 }
 
+function criarBarraFracao(numerador, denominador, classes, rotulo) {
+  const total = Math.max(1, Number(denominador) || 1);
+  const barra = document.createElement('div');
+  barra.className = 'fracao-barra ' + (classes || '');
+  barra.style.setProperty('--partes', String(total));
+  barra.setAttribute('role', 'img');
+  barra.setAttribute(
+    'aria-label',
+    rotulo || rotuloBarraFracao(Math.max(0, Number(numerador) || 0), total),
+  );
+
+  for (let indice = 0; indice < total; indice += 1) {
+    const parte = document.createElement('span');
+    parte.className = 'fracao-parte'
+      + (indice < Number(numerador) ? ' preenchida' : '');
+    parte.style.setProperty('--indice', String(indice));
+    parte.setAttribute('aria-hidden', 'true');
+    barra.appendChild(parte);
+  }
+  return barra;
+}
+
+function criarBlocoFracao(numerador, denominador, resposta) {
+  const bloco = document.createElement('div');
+  bloco.className = 'fracao-bloco' + (resposta ? ' fracao-bloco-resposta' : '');
+
+  if (resposta) {
+    const campoNumerador = document.createElement('input');
+    campoNumerador.type = 'text';
+    campoNumerador.className = 'fracao-campo fracao-campo-numerador';
+    campoNumerador.inputMode = 'numeric';
+    campoNumerador.autocomplete = 'off';
+    campoNumerador.maxLength = 2;
+    campoNumerador.setAttribute('aria-label', 'Numerador da resposta');
+    campoNumerador.setAttribute('placeholder', '?');
+
+    const linha = document.createElement('span');
+    linha.className = 'fracao-linha fracao-linha-resposta';
+    linha.setAttribute('aria-hidden', 'true');
+
+    const campoDenominador = document.createElement('input');
+    campoDenominador.type = 'text';
+    campoDenominador.className = 'fracao-campo fracao-campo-denominador';
+    campoDenominador.inputMode = 'numeric';
+    campoDenominador.autocomplete = 'off';
+    campoDenominador.maxLength = 2;
+    campoDenominador.setAttribute('aria-label', 'Denominador da resposta');
+    campoDenominador.setAttribute('placeholder', '?');
+
+    bloco.append(campoNumerador, linha, campoDenominador);
+    return bloco;
+  }
+
+  const valorNumerador = document.createElement('span');
+  valorNumerador.className = 'fracao-numerador';
+  valorNumerador.textContent = String(numerador);
+  const linha = document.createElement('span');
+  linha.className = 'fracao-linha';
+  linha.setAttribute('aria-hidden', 'true');
+  const valorDenominador = document.createElement('span');
+  valorDenominador.className = 'fracao-denominador';
+  valorDenominador.textContent = String(denominador);
+  bloco.setAttribute(
+    'aria-label',
+    numerador + ' sobre ' + denominador,
+  );
+  bloco.append(valorNumerador, linha, valorDenominador);
+  return bloco;
+}
+
+function configurarCampoFracao(campo, aoEnter) {
+  campo.addEventListener('input', () => {
+    campo.value = campo.value.replace(/\D/g, '').slice(0, Number(campo.maxLength));
+  });
+  campo.addEventListener('keydown', (evento) => {
+    if (evento.key !== 'Enter') {
+      return;
+    }
+    evento.preventDefault();
+    aoEnter();
+  });
+}
+
+function renderFracao(estado, el) {
+  const questao = estado.questao;
+  el.conta.innerHTML = '';
+
+  const lousa = document.createElement('div');
+  lousa.className = 'fracao-lousa';
+
+  const cabecalho = document.createElement('div');
+  cabecalho.className = 'fracao-cabecalho';
+  const titulo = document.createElement('h3');
+  titulo.className = 'fracao-titulo';
+  titulo.textContent = 'Some as frações';
+  const selo = document.createElement('span');
+  selo.className = 'fracao-selo';
+  selo.textContent = 'Denominadores iguais';
+  cabecalho.append(titulo, selo);
+
+  const exercicio = document.createElement('div');
+  exercicio.className = 'fracao-exercicio';
+
+  const parcelaA = document.createElement('div');
+  parcelaA.className = 'fracao-parcela';
+  parcelaA.append(
+    criarBlocoFracao(questao.numeroA, questao.denominador, false),
+    criarBarraFracao(questao.numeroA, questao.denominador, 'fracao-barra-parcela'),
+  );
+
+  const operadorSoma = document.createElement('span');
+  operadorSoma.className = 'fracao-operador';
+  operadorSoma.textContent = '+';
+  operadorSoma.setAttribute('aria-hidden', 'true');
+
+  const parcelaB = document.createElement('div');
+  parcelaB.className = 'fracao-parcela';
+  parcelaB.append(
+    criarBlocoFracao(questao.numeroB, questao.denominador, false),
+    criarBarraFracao(questao.numeroB, questao.denominador, 'fracao-barra-parcela'),
+  );
+
+  const operadorIgual = document.createElement('span');
+  operadorIgual.className = 'fracao-operador';
+  operadorIgual.textContent = '=';
+  operadorIgual.setAttribute('aria-hidden', 'true');
+
+  const resultado = document.createElement('div');
+  resultado.className = 'fracao-resultado';
+  const blocoResposta = criarBlocoFracao(0, 0, true);
+  const barraResultado = criarBarraFracao(
+    0,
+    questao.denominador,
+    'fracao-barra-resultado',
+    'Barra do resultado aguardando resposta',
+  );
+  const incognita = document.createElement('span');
+  incognita.className = 'fracao-incognita';
+  incognita.textContent = '?';
+  incognita.setAttribute('aria-hidden', 'true');
+  barraResultado.appendChild(incognita);
+  resultado.append(blocoResposta, barraResultado);
+
+  exercicio.append(parcelaA, operadorSoma, parcelaB, operadorIgual, resultado);
+
+  const nota = document.createElement('p');
+  nota.className = 'fracao-nota';
+  nota.textContent = 'As partes coloridas mostram o numerador. Some as partes e mantenha o mesmo denominador.';
+
+  lousa.append(cabecalho, exercicio, nota);
+  el.conta.appendChild(lousa);
+
+  const campoNumerador = el.conta.querySelector('.fracao-campo-numerador');
+  const campoDenominador = el.conta.querySelector('.fracao-campo-denominador');
+  configurarCampoFracao(campoNumerador, () => campoDenominador.focus());
+  configurarCampoFracao(campoDenominador, () => {
+    if (!el.btnValidar.disabled) {
+      el.btnValidar.click();
+    }
+  });
+
+  if (!estado.questaoRespondida && campoNumerador) {
+    window.setTimeout(() => campoNumerador.focus(), 0);
+  }
+}
+
+function animarFracaoCorreta(questao, el) {
+  const lousa = el.conta.querySelector('.fracao-lousa');
+  const barra = el.conta.querySelector('.fracao-barra-resultado');
+  const total = Math.max(1, Number(questao.denominador) || 1);
+  const preenchidas = Number(questao.numeroA) + Number(questao.numeroB);
+
+  if (lousa) {
+    lousa.classList.add('fracao-acerto');
+  }
+  if (barra) {
+    barra.classList.add('fracao-uniao');
+    barra.querySelectorAll('.fracao-parte').forEach((parte, indice) => {
+      parte.classList.toggle('preenchida', indice < preenchidas);
+      parte.style.setProperty('--indice', String(indice));
+    });
+    const incognita = barra.querySelector('.fracao-incognita');
+    if (incognita) {
+      incognita.hidden = true;
+    }
+    barra.setAttribute('aria-label', rotuloBarraFracao(preenchidas, total));
+  }
+
+  const reduzirMovimento = typeof window !== 'undefined'
+    && window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduzirMovimento) {
+    return Promise.resolve();
+  }
+  return new Promise((resolver) => window.setTimeout(resolver, 700));
+}
+
 function renderDivisao(estado, el) {
   if (ehDivisaoDificil(estado.questao)) {
     renderDivisaoDificil(estado, el);
@@ -5703,7 +5963,9 @@ function atualizarDica(estado, el) {
   if (!estado.questao) {
     return;
   }
-  if (estado.questao.operacao === 'SOMA') {
+  if (estado.questao.operacao === 'FRACOES') {
+    el.dica.textContent = 'Some os numeradores e mantenha o mesmo denominador. As partes coloridas das barras mostram quantas partes cada fração tem.';
+  } else if (estado.questao.operacao === 'SOMA') {
     el.dica.textContent = ehSomaDecimal(estado.questao)
       ? 'Alinhe os números pela vírgula e some da direita para a esquerda. Complete as casas decimais com zero quando precisar e suba o 1 ao passar de 9.'
       : 'Some os números que estão um embaixo do outro, da direita para a esquerda: se passar de 9, deixe o último número embaixo e suba o 1.';
@@ -5782,7 +6044,26 @@ async function validarResposta(estado, el) {
   const questao = estado.questao;
   let requisicao;
 
-  if (questao.operacao === 'DIVISAO') {
+  if (questao.operacao === 'FRACOES') {
+    const numerador = lerCampoInteiro(el, '.fracao-campo-numerador');
+    const denominador = lerCampoInteiro(el, '.fracao-campo-denominador');
+
+    if (numerador === null) {
+      mostrarAviso(el, 'Escreva o numerador da resposta antes de conferir. ✏️');
+      el.conta.querySelector('.fracao-campo-numerador')?.focus();
+      return;
+    }
+    if (denominador === null || denominador <= 0) {
+      mostrarAviso(el, 'Escreva o denominador da resposta antes de conferir. ✏️');
+      el.conta.querySelector('.fracao-campo-denominador')?.focus();
+      return;
+    }
+
+    requisicao = montarRequisicao(questao, {
+      resultadoDigitado: numerador,
+      denominadorResultado: denominador,
+    });
+  } else if (questao.operacao === 'DIVISAO') {
     if (ehDivisaoDificil(questao)) {
       const dados = estado.divisaoDificil
         ?? { ...montarModeloDivisaoDificil(questao), etapa: 1 };
@@ -6007,6 +6288,10 @@ async function validarResposta(estado, el) {
 
     const dados = await resposta.json();
     estado.questaoRespondida = true;
+    if (ehFracao(questao) && dados.correto) {
+      estado.dicaProgressiva?.parar();
+      await animarFracaoCorreta(questao, el);
+    }
     const resolucao = atualizarPlacar(estado, el, dados);
     abrirFeedback(el, dados, resolucao, estado.jogador);
     if (dados.correto) {
@@ -6120,9 +6405,13 @@ function atualizarBarraProgresso(estado, el, resolucao) {
       const rotulo = ROTULOS_DIFICULDADE[resolucao.dificuldade] ?? resolucao.dificuldade;
       el.progressoLegenda.textContent = 'Nível ' + rotulo + ' desbloqueado!';
     } else if (resolucao && resolucao.nivelMaximo) {
-      el.progressoLegenda.textContent = 'Nível máximo alcançado! Continue praticando.';
+      el.progressoLegenda.textContent = estado.operacao === 'FRACOES'
+        ? 'Rodada concluída! Continue praticando as frações.'
+        : 'Nível máximo alcançado! Continue praticando.';
     } else {
-      el.progressoLegenda.textContent = 'Acerte ' + META_NIVEL + ' seguidas para subir de nível!';
+      el.progressoLegenda.textContent = estado.operacao === 'FRACOES'
+        ? 'Acerte ' + META_NIVEL + ' seguidas para concluir a rodada!'
+        : 'Acerte ' + META_NIVEL + ' seguidas para subir de nível!';
     }
   }
   if (el.progresso) {
@@ -6339,6 +6628,10 @@ if (typeof module !== 'undefined' && module.exports) {
     seletoresDicaAtual,
     ehDivisaoDificil,
     ehDivisaoDecimal,
+    ehFracao,
+    rotuloBarraFracao,
+    seletoresDicaFracao,
+    seletoresDicaAtualFracao,
     divisaoDecimalEquivalente,
     casasDecimaisDivisao,
     ehDivisaoLongaGuiada,
