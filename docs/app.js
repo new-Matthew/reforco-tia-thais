@@ -694,6 +694,9 @@ function ehSubtracaoGuiada(questao) {
 }
 
 function casasDecimaisMaximas(questao) {
+  if (ehDivisaoDecimal(questao)) {
+    return casasDecimaisDivisao(questao);
+  }
   return ehOperacaoDecimal(questao) ? CASAS_DECIMAIS_SOMA : 0;
 }
 
@@ -1426,6 +1429,10 @@ function seletoresDicaAtualDivisaoDificil(estado, el) {
 }
 
 function seletoresDicaAtual(estado, el) {
+  if (ehDivisaoDecimal(estado && estado.questao)
+    && !divisaoDecimalEquivalente(estado.questao)) {
+    return [];
+  }
   if (ehMultiplicacaoGuiada(estado && estado.questao)) {
     return seletoresDicaAtualMultiplicacaoDificil(estado, el);
   }
@@ -1578,6 +1585,29 @@ function preencherAte(valores, quantidade) {
   return passos;
 }
 
+function ehDivisaoDecimal(questao) {
+  return Boolean(questao)
+    && questao.operacao === 'DIVISAO'
+    && questao.tipoNumero === 'DECIMAIS';
+}
+
+function divisaoDecimalEquivalente(questao) {
+  return ehDivisaoDecimal(questao) && Boolean(questao.divisaoEquivalente);
+}
+
+function casasDecimaisDivisao(questao) {
+  if (!ehDivisaoDecimal(questao)) {
+    return 0;
+  }
+  return Math.max(1, Math.min(
+    CASAS_DECIMAIS_SOMA,
+    Math.max(
+      Number(questao.casasDecimaisA) || 0,
+      Number(questao.casasDecimaisB) || 0,
+    ),
+  ));
+}
+
 function ehDivisaoLonga(questao) {
   if (!questao || questao.operacao !== 'DIVISAO') {
     return false;
@@ -1589,7 +1619,7 @@ function ehDivisaoLonga(questao) {
     && dividendo >= 100
     && dividendo <= 9999
     && divisor >= 10
-    && divisor <= 99
+    && divisor <= 999
     && Math.floor(dividendo / divisor) >= 10;
 }
 
@@ -2083,7 +2113,9 @@ function montarRequisicao(questao, entradas) {
       : null,
   };
 
-  if (ehOperacaoDecimal(questao) || ehMultiplicacaoDecimal(questao)) {
+  if (ehOperacaoDecimal(questao)
+    || ehMultiplicacaoDecimal(questao)
+    || ehDivisaoDecimal(questao)) {
     requisicao.tipoNumero = 'DECIMAIS';
     requisicao.casasDecimais = ehMultiplicacaoDecimal(questao)
       ? casasDecimaisMultiplicacao(questao)
@@ -2093,6 +2125,10 @@ function montarRequisicao(questao, entradas) {
       requisicao.casasDecimaisResultado = Number.isInteger(casasResultado)
         ? casasResultado
         : null;
+    }
+    if (ehDivisaoDecimal(questao)) {
+      requisicao.dividendoEquivalente = Number(questao.dividendoEquivalente);
+      requisicao.divisorEquivalente = Number(questao.divisorEquivalente);
     }
   }
 
@@ -2123,7 +2159,9 @@ function podeValidarResposta(estado) {
   return Boolean(estado.questao)
     && !estado.carregando
     && !estado.validando
-    && !estado.questaoRespondida;
+    && !estado.questaoRespondida
+    && !(ehDivisaoDecimal(estado.questao)
+      && !divisaoDecimalEquivalente(estado.questao));
 }
 
 function normalizarNomeJogador(valor) {
@@ -2300,6 +2338,7 @@ function iniciarInterface() {
     somaDificil: null,
     subtracaoDificil: null,
     divisaoDificil: null,
+    divisaoDecimal: null,
     dicaProgressiva: null,
     avisoServidor: criarAvisoServidor(el),
   };
@@ -2410,7 +2449,8 @@ function aplicarPreferencias(estado, busca) {
   if ((tipoNumero === 'INTEIROS' || tipoNumero === 'DECIMAIS')
     && (estado.operacao === 'SOMA'
       || estado.operacao === 'SUBTRACAO'
-      || estado.operacao === 'MULTIPLICACAO')) {
+      || estado.operacao === 'MULTIPLICACAO'
+      || estado.operacao === 'DIVISAO')) {
     estado.tipoNumero = tipoNumero;
   }
   return estado;
@@ -2419,7 +2459,8 @@ function aplicarPreferencias(estado, busca) {
 function atualizarTipoNumero(estado, el) {
   const disponivel = estado.operacao === 'SOMA'
     || estado.operacao === 'SUBTRACAO'
-    || estado.operacao === 'MULTIPLICACAO';
+    || estado.operacao === 'MULTIPLICACAO'
+    || estado.operacao === 'DIVISAO';
   if (el.grupoTipoNumero) {
     el.grupoTipoNumero.hidden = !disponivel;
   }
@@ -2471,8 +2512,12 @@ function atualizarControles(estado, el) {
   if (el.btnRecarregar) {
     el.btnRecarregar.disabled = ocupado;
   }
+  const aguardandoIgualdadeDecimal = ehDivisaoDecimal(estado.questao)
+    && !divisaoDecimalEquivalente(estado.questao);
   if (el.btnValidar) {
-    el.btnValidar.disabled = desabilitarResposta || !estado.questao;
+    el.btnValidar.disabled = desabilitarResposta
+      || !estado.questao
+      || aguardandoIgualdadeDecimal;
   }
   if (el.conta) {
     el.conta.querySelectorAll('button, input').forEach((controle) => {
@@ -2548,7 +2593,8 @@ async function carregarQuestao(estado, el) {
       + '&dificuldade=' + encodeURIComponent(estado.dificuldade);
     if (estado.operacao === 'SOMA'
       || estado.operacao === 'SUBTRACAO'
-      || estado.operacao === 'MULTIPLICACAO') {
+      || estado.operacao === 'MULTIPLICACAO'
+      || estado.operacao === 'DIVISAO') {
       url += '&tipoNumero=' + encodeURIComponent(estado.tipoNumero);
     }
     const resposta = await fetch(url);
@@ -2568,6 +2614,7 @@ async function carregarQuestao(estado, el) {
     estado.somaDificil = null;
     estado.subtracaoDificil = null;
     estado.divisaoDificil = null;
+    estado.divisaoDecimal = null;
     estado.progresso = calcularProgresso(estado.sequencia);
     esconderPlaceholder(el);
     atualizarBarraProgresso(estado, el);
@@ -2586,6 +2633,7 @@ async function carregarQuestao(estado, el) {
     estado.somaDificil = null;
     estado.subtracaoDificil = null;
     estado.divisaoDificil = null;
+    estado.divisaoDecimal = null;
     mostrarPlaceholder(
       el,
       'Não consegui carregar a questão. O servidor está rodando na porta 8080?',
@@ -2642,7 +2690,10 @@ function renderConta(estado, el) {
     : (subtracaoDificil
       ? montarModeloSubtracaoDificil(questao.numeroA, questao.numeroB, questao.dificuldade)
       : null);
+  const divisaoDecimalGuiada = ehDivisaoDecimal(questao)
+    && !divisaoDecimalEquivalente(questao);
   el.conta.classList.toggle('conta-divisao', divisao);
+  el.conta.classList.toggle('conta-divisao-decimal', divisaoDecimalGuiada);
   el.conta.classList.toggle('conta-multiplicacao-dificil', multiplicacaoDificil);
   el.conta.classList.toggle('conta-multiplicacao-decimal', multiplicacaoDecimal);
   el.conta.classList.toggle('conta-subtracao-dificil', subtracaoDificil);
@@ -2653,6 +2704,10 @@ function renderConta(estado, el) {
   );
   if (divisao) {
     estado.multiplicacaoDecimal = null;
+    if (divisaoDecimalGuiada) {
+      renderDivisaoDecimalGuia(estado, el);
+      return;
+    }
     renderDivisao(estado, el);
     return;
   }
@@ -4042,6 +4097,173 @@ function criarOperandoDivisao(valor, nome, rotulo, classeRotulo) {
   numero.setAttribute('aria-label', rotulo + ' ' + valor);
   operando.append(criarRotuloDivisao(rotulo, classeRotulo), numero);
   return operando;
+}
+
+function criarPassoDivisaoDecimal(numero, texto, concluido, ativo) {
+  const passo = document.createElement('div');
+  passo.className = 'divisao-decimal-passo'
+    + (concluido ? ' concluido' : '')
+    + (ativo ? ' ativo' : '');
+  const marcador = document.createElement('span');
+  marcador.className = 'divisao-decimal-passo-numero';
+  marcador.textContent = concluido ? '✓' : String(numero);
+  marcador.setAttribute('aria-hidden', 'true');
+  const rotulo = document.createElement('span');
+  rotulo.className = 'divisao-decimal-passo-texto';
+  rotulo.textContent = texto;
+  passo.append(marcador, rotulo);
+  return passo;
+}
+
+function criarOperandoDivisaoDecimal(valor, rotulo, casasAlvo, semVirgula) {
+  const operando = document.createElement('div');
+  operando.className = 'divisao-decimal-operando';
+  const etiqueta = document.createElement('span');
+  etiqueta.className = 'divisao-decimal-operando-rotulo';
+  etiqueta.textContent = rotulo;
+  const numero = document.createElement('span');
+  numero.className = 'divisao-decimal-operando-valor';
+  numero.textContent = semVirgula
+    ? String(valor)
+    : formatarComCasasDecimais(valor, casasAlvo);
+  operando.append(etiqueta, numero);
+  return operando;
+}
+
+function renderDivisaoDecimalGuia(estado, el) {
+  const questao = estado.questao;
+  const casasOriginaisA = Math.max(1, Number(questao.casasDecimaisA) || 1);
+  const casasOriginaisB = Math.max(1, Number(questao.casasDecimaisB) || 1);
+  const alvo = Math.max(casasOriginaisA, casasOriginaisB);
+
+  if (!estado.divisaoDecimal || estado.divisaoDecimal.questaoId !== questao.id) {
+    estado.divisaoDecimal = {
+      questaoId: questao.id,
+      casasA: casasOriginaisA,
+      casasB: casasOriginaisB,
+      alvo,
+      equivalenciaVisivel: false,
+    };
+  }
+
+  const dados = estado.divisaoDecimal;
+  const valorA = questao.numeroA * (10 ** (dados.casasA - casasOriginaisA));
+  const valorB = questao.numeroB * (10 ** (dados.casasB - casasOriginaisB));
+  const casasIguais = dados.casasA === alvo && dados.casasB === alvo;
+  const faltaA = alvo - dados.casasA;
+
+  el.conta.innerHTML = '';
+  const guia = document.createElement('div');
+  guia.className = 'divisao-decimal-guia';
+
+  const titulo = document.createElement('h3');
+  titulo.className = 'divisao-decimal-titulo';
+  titulo.textContent = 'Vamos preparar a divisão';
+
+  const instrucao = document.createElement('p');
+  instrucao.className = 'divisao-decimal-instrucao';
+  instrucao.textContent = 'Iguale as casas decimais e elimine a vírgula para dividir.';
+
+  const passos = document.createElement('div');
+  passos.className = 'divisao-decimal-passos';
+  passos.append(
+    criarPassoDivisaoDecimal(1, 'Iguale as casas decimais', casasIguais, !casasIguais),
+    criarPassoDivisaoDecimal(2, 'Elimine as vírgulas', dados.equivalenciaVisivel, casasIguais && !dados.equivalenciaVisivel),
+    criarPassoDivisaoDecimal(3, 'Resolva a conta inteira', false, dados.equivalenciaVisivel),
+  );
+
+  const conta = document.createElement('div');
+  conta.className = 'divisao-decimal-conta';
+  conta.append(
+    criarOperandoDivisaoDecimal(
+      valorA,
+      'Dividendo',
+      dados.casasA,
+      dados.equivalenciaVisivel,
+    ),
+    criarOperandoDivisaoDecimal(
+      valorB,
+      'Divisor',
+      dados.casasB,
+      dados.equivalenciaVisivel,
+    ),
+  );
+  const sinal = document.createElement('span');
+  sinal.className = 'divisao-decimal-sinal';
+  sinal.textContent = '÷';
+  sinal.setAttribute('aria-hidden', 'true');
+  conta.insertBefore(sinal, conta.children[1]);
+
+  const acoes = document.createElement('div');
+  acoes.className = 'divisao-decimal-acoes';
+
+  if (!casasIguais) {
+    const btnZero = document.createElement('button');
+    btnZero.type = 'button';
+    btnZero.className = 'divisao-decimal-btn';
+    const alvoZero = faltaA > 0 ? 'dividendo' : 'divisor';
+    btnZero.textContent = 'Acrescentar zero no ' + alvoZero;
+    btnZero.addEventListener('click', () => {
+      if (faltaA > 0) {
+        dados.casasA = Math.min(alvo, dados.casasA + 1);
+      } else {
+        dados.casasB = Math.min(alvo, dados.casasB + 1);
+      }
+      renderDivisaoDecimalGuia(estado, el);
+      estado.dicaProgressiva?.reiniciar();
+    });
+    acoes.appendChild(btnZero);
+  }
+
+  const btnVirgulas = document.createElement('button');
+  btnVirgulas.type = 'button';
+  btnVirgulas.className = 'divisao-decimal-btn divisao-decimal-btn-principal';
+  btnVirgulas.textContent = 'Eliminar as vírgulas';
+  btnVirgulas.disabled = !casasIguais || dados.equivalenciaVisivel;
+  btnVirgulas.addEventListener('click', () => {
+    dados.equivalenciaVisivel = true;
+    renderDivisaoDecimalGuia(estado, el);
+    estado.dicaProgressiva?.reiniciar();
+  });
+  acoes.appendChild(btnVirgulas);
+
+  if (dados.equivalenciaVisivel) {
+    const equivalente = document.createElement('p');
+    equivalente.className = 'divisao-decimal-equivalente';
+    equivalente.textContent = 'Agora a conta é ' + valorA + ' ÷ ' + valorB
+      + '. As vírgulas sumiram!';
+
+    const btnAbrir = document.createElement('button');
+    btnAbrir.type = 'button';
+    btnAbrir.className = 'divisao-decimal-btn divisao-decimal-btn-abrir';
+    btnAbrir.textContent = 'Abrir a conta';
+    btnAbrir.addEventListener('click', () => {
+      const original = estado.questao;
+      estado.questao = {
+        ...original,
+        numeroA: Number(original.dividendoEquivalente),
+        numeroB: Number(original.divisorEquivalente),
+        tipoNumero: 'DECIMAIS',
+        divisaoEquivalente: true,
+      };
+      estado.divisaoDecimal = null;
+      renderConta(estado, el);
+      atualizarDica(estado, el);
+      atualizarControles(estado, el);
+      estado.dicaProgressiva?.reiniciar();
+    });
+
+    guia.append(titulo, instrucao, passos, conta, equivalente, acoes, btnAbrir);
+  } else {
+    const nota = document.createElement('p');
+    nota.className = 'divisao-decimal-nota';
+    nota.textContent = casasIguais
+      ? 'As casas decimais já estão iguais. Agora elimine as vírgulas.'
+      : 'Complete o número que tem menos casas com zero para igualar.';
+    guia.append(titulo, instrucao, passos, conta, nota, acoes);
+  }
+
+  el.conta.appendChild(guia);
 }
 
 function renderDivisao(estado, el) {
@@ -5500,7 +5722,9 @@ function atualizarDica(estado, el) {
         + ' por ' + estado.questao.numeroB + ' vezes dá o mesmo resultado.';
     }
   } else if (estado.questao.operacao === 'DIVISAO') {
-    if (estado.questao.dificuldade === 'DIFICIL') {
+    if (ehDivisaoDecimal(estado.questao) && !divisaoDecimalEquivalente(estado.questao)) {
+      el.dica.textContent = 'Iguale as casas decimais e elimine a vírgula para dividir. Acrescente zeros quando um número tiver menos casas que o outro.';
+    } else if (estado.questao.dificuldade === 'DIFICIL') {
       el.dica.textContent = 'Dica: resolva etapa por etapa. Ajuste o dígito do quociente com os botões + e −, confira o produto, subtraia e desça o próximo algarismo. Se ficar parado, os dígitos ativos recebem destaque em amarelo.';
     } else if (estado.questao.dificuldade === 'MEDIO') {
       el.dica.textContent = 'Dica: ajuste a dezena do quociente com os botões + e −; o produto aparece sozinho. Subtraia, abaixe o próximo número e repita com a unidade.';
@@ -6114,6 +6338,9 @@ if (typeof module !== 'undefined' && module.exports) {
     seletoresDicaAtualSubtracaoDificil,
     seletoresDicaAtual,
     ehDivisaoDificil,
+    ehDivisaoDecimal,
+    divisaoDecimalEquivalente,
+    casasDecimaisDivisao,
     ehDivisaoLongaGuiada,
     calcularEtapasDivisaoLonga,
     montarModeloDivisaoLonga,
