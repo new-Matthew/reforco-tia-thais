@@ -46,6 +46,9 @@ const {
   ehDivisaoLonga,
   ehDivisaoMedia,
   ehDivisaoDificil,
+  ehDivisaoDecimal,
+  divisaoDecimalEquivalente,
+  casasDecimaisDivisao,
   calcularEtapasDivisaoLonga,
   montarModeloDivisaoLonga,
   montarModeloDivisaoDificil,
@@ -526,7 +529,7 @@ test('atualizarSegmentado marca o botão do tipo de número selecionado', () => 
   assert.equal(botoes[1].ariaPressed, 'true');
 });
 
-test('atualizarTipoNumero exibe o seletor na soma, subtração e multiplicação', () => {
+test('atualizarTipoNumero exibe o seletor em todas as operações', () => {
   const criarEl = () => ({
     grupoTipoNumero: { hidden: true },
     seletorTipoNumero: {
@@ -551,7 +554,7 @@ test('atualizarTipoNumero exibe o seletor na soma, subtração e multiplicação
 
   const divisao = criarEl();
   atualizarTipoNumero({ operacao: 'DIVISAO', tipoNumero: 'DECIMAIS' }, divisao);
-  assert.equal(divisao.grupoTipoNumero.hidden, true);
+  assert.equal(divisao.grupoTipoNumero.hidden, false);
 });
 
 test('montarRequisicao envia tipo e casas decimais nas operações decimais', () => {
@@ -878,6 +881,68 @@ test('montarRequisicao envia as casas dos fatores e a posição da vírgula', ()
   assert.equal(requisicao.resultadoDigitado, 4250);
 });
 
+test('ehDivisaoDecimal reconhece a divisão com vírgula e a equivalência inteira', () => {
+  const questao = {
+    operacao: 'DIVISAO',
+    tipoNumero: 'DECIMAIS',
+    casasDecimaisA: 2,
+    casasDecimaisB: 1,
+  };
+
+  assert.equal(ehDivisaoDecimal(questao), true);
+  assert.equal(divisaoDecimalEquivalente(questao), false);
+  assert.equal(casasDecimaisDivisao(questao), 2);
+  assert.equal(divisaoDecimalEquivalente({ ...questao, divisaoEquivalente: true }), true);
+  assert.equal(casasDecimaisDivisao({ operacao: 'DIVISAO', tipoNumero: 'INTEIROS' }), 0);
+});
+
+test('montarRequisicao envia os números equivalentes da divisão decimal', () => {
+  const questao = {
+    id: 'id-div-decimal',
+    operacao: 'DIVISAO',
+    tipoNumero: 'DECIMAIS',
+    casasDecimaisA: 2,
+    casasDecimaisB: 1,
+    numeroA: 1250,
+    numeroB: 5,
+    dividendoEquivalente: 1250,
+    divisorEquivalente: 50,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 25,
+    subtracaoDigitada: 1250,
+    restoDigitado: 0,
+  });
+
+  assert.equal(requisicao.tipoNumero, 'DECIMAIS');
+  assert.equal(requisicao.casasDecimais, 2);
+  assert.equal(requisicao.dividendoEquivalente, 1250);
+  assert.equal(requisicao.divisorEquivalente, 50);
+  assert.equal(requisicao.resultadoDigitado, 25);
+});
+
+test('aplicarPreferencias aceita divisão decimal pela URL', () => {
+  const estado = aplicarPreferencias(
+    { operacao: 'SOMA', dificuldade: 'FACIL', tipoNumero: 'INTEIROS' },
+    '?operacao=DIVISAO&dificuldade=DIFICIL&tipoNumero=DECIMAIS',
+  );
+
+  assert.equal(estado.operacao, 'DIVISAO');
+  assert.equal(estado.dificuldade, 'DIFICIL');
+  assert.equal(estado.tipoNumero, 'DECIMAIS');
+});
+
+test('estilos da divisão decimal usam o cartão guiado do tema laranja', () => {
+  const css = fs.readFileSync(
+    path.join(__dirname, '../../main/resources/static/style.css'),
+    'utf8',
+  );
+
+  assert.match(css, /\.divisao-decimal-guia/);
+  assert.match(css, /\.divisao-decimal-passos/);
+  assert.match(css, /\.conta\.conta-divisao-decimal/);
+});
+
 test('estilos da multiplicação decimal reservam vírgula e controle próprio', () => {
   const css = fs.readFileSync(
     path.join(__dirname, '../../main/resources/static/style.css'),
@@ -959,6 +1024,16 @@ test('podeValidarResposta exige questão ativa e bloqueia resposta duplicada', (
   assert.equal(podeValidarResposta({ ...base, questaoRespondida: true }), false);
   assert.equal(podeValidarResposta({ ...base, carregando: true }), false);
   assert.equal(podeValidarResposta({ ...base, validando: true }), false);
+
+  const divisaoDecimal = {
+    ...base,
+    questao: { id: 'q-dec', operacao: 'DIVISAO', tipoNumero: 'DECIMAIS' },
+  };
+  assert.equal(podeValidarResposta(divisaoDecimal), false);
+  assert.equal(podeValidarResposta({
+    ...divisaoDecimal,
+    questao: { ...divisaoDecimal.questao, divisaoEquivalente: true },
+  }), true);
 });
 
 test('normalizarNomeJogador remove espaços extras e limita o tamanho', () => {
@@ -1873,9 +1948,10 @@ test('comporQuocienteDivisaoMedia junta os dois dígitos do quociente', () => {
   assert.equal(comporQuocienteDivisaoMedia(4.5, 6), null);
 });
 
-test('ehDivisaoLonga identifica divisões de três e quatro dígitos por dois dígitos', () => {
+test('ehDivisaoLonga identifica divisões longas com divisor de dois ou três dígitos', () => {
   assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 793, numeroB: 17 }), true);
   assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 6898, numeroB: 15 }), true);
+  assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 8004, numeroB: 360 }), true);
   assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 36, numeroB: 4 }), false);
   assert.equal(ehDivisaoLonga({ operacao: 'DIVISAO', numeroA: 105, numeroB: 99 }), false);
   assert.equal(ehDivisaoLonga({ operacao: 'SOMA', numeroA: 793, numeroB: 17 }), false);
