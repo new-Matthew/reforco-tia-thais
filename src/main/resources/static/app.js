@@ -3406,10 +3406,6 @@ function criarControleVirgulaMultiplicacao(estado, el, modelo) {
   seletor.step = '1';
   seletor.setAttribute('aria-label', 'Quantidade de casas decimais no resultado');
 
-  const previa = document.createElement('span');
-  previa.className = 'controle-virgula-previa';
-  previa.setAttribute('aria-live', 'polite');
-
   const limite = modelo.casasDecimais;
   const atualizarVisual = () => {
     const digitado = resultadoMultiplicacaoDecimalDigitado(el, modelo);
@@ -3430,10 +3426,6 @@ function criarControleVirgulaMultiplicacao(estado, el, modelo) {
     seletor.disabled = !ativo;
     botaoMenos.disabled = !ativo || casas <= 0;
     botaoMais.disabled = !ativo || casas >= limite;
-    previa.hidden = !ativo;
-    previa.textContent = ativo
-      ? formatarComCasasDecimais(digitado, casas)
-      : '';
     atualizarVirgulaResultadoMultiplicacao(estado, el, modelo, ativo);
   };
   const mover = (passo) => {
@@ -3457,7 +3449,7 @@ function criarControleVirgulaMultiplicacao(estado, el, modelo) {
     estado.casasDecimaisResultado = Math.max(0, Math.min(limite, casas));
     atualizarVisual();
   });
-  controle.append(rotulo, botaoMenos, valor, botaoMais, seletor, previa);
+  controle.append(rotulo, botaoMenos, valor, botaoMais, seletor);
   controle.atualizar = atualizarVisual;
   atualizarVisual();
   return controle;

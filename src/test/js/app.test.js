@@ -806,17 +806,16 @@ test('controle da vírgula fica inativo até a soma final e move a vírgula entr
     const seletor = controle.children.find(
       (filho) => filho.className === 'controle-virgula-seletor',
     );
-    const previa = controle.children.find(
-      (filho) => filho.className === 'controle-virgula-previa',
-    );
 
     assert.equal(controle.attributes['aria-disabled'], 'true');
     assert.equal(controle.classList.contains('controle-virgula-inativo'), true);
     assert.equal(botaoMenos.disabled, true);
     assert.equal(botaoMais.disabled, true);
     assert.equal(seletor.disabled, true);
-    assert.equal(previa.hidden, true);
-    assert.equal(previa.textContent, '');
+    assert.equal(
+      controle.children.some((filho) => filho.className === 'controle-virgula-previa'),
+      false,
+    );
     assert.equal(celulas['1'].children.length, 0);
 
     modelo.digitosSoma.forEach((digito, coluna) => {
@@ -829,29 +828,27 @@ test('controle da vírgula fica inativo até a soma final e move a vírgula entr
     assert.equal(botaoMenos.disabled, true);
     assert.equal(botaoMais.disabled, false);
     assert.equal(seletor.disabled, false);
-    assert.equal(previa.hidden, false);
-    assert.equal(previa.textContent, '4250');
+    assert.equal(
+      controle.children.map((filho) => String(filho.textContent ?? '')).join(' ').includes('4250'),
+      false,
+    );
 
     botaoMais.listeners.click[0]();
     assert.equal(estado.casasDecimaisResultado, 1);
-    assert.equal(previa.textContent, '425,0');
     assert.match(celulas['0'].children[0].className, /virgula-resultado-escolhida/);
 
     botaoMais.listeners.click[0]();
     assert.equal(estado.casasDecimaisResultado, 2);
-    assert.equal(previa.textContent, '42,50');
     assert.equal(celulas['0'].children[0].removido, true);
     assert.match(celulas['1'].children[0].className, /virgula-resultado-escolhida/);
 
     seletor.value = '1';
     seletor.listeners.input[0]();
     assert.equal(estado.casasDecimaisResultado, 1);
-    assert.equal(previa.textContent, '425,0');
 
     campos[3].value = '';
     controle.atualizar();
     assert.equal(controle.attributes['aria-disabled'], 'true');
-    assert.equal(previa.hidden, true);
     assert.equal(seletor.disabled, true);
     assert.equal(celulas['1'].children[0].removido, true);
   } finally {
@@ -892,6 +889,7 @@ test('estilos da multiplicação decimal reservam vírgula e controle próprio',
   assert.match(css, /\.controle-virgula-multiplicacao/);
   assert.match(css, /\.controle-virgula-inativo/);
   assert.match(css, /\.controle-virgula-seletor/);
+  assert.doesNotMatch(css, /\.controle-virgula-previa/);
 });
 
 test('comporResultado trata as casas decimais vazias como zero alinhado', () => {
