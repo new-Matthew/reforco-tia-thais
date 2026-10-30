@@ -1248,6 +1248,115 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Gera somas de frações próprias com denominadores iguais")
+    void geraSomaDeFracoesProprias() {
+        Set<Integer> denominadores = new HashSet<>();
+
+        for (int i = 0; i < 300; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(
+                    Operacao.FRACOES, Dificuldade.FACIL);
+
+            assertEquals(Operacao.FRACOES, questao.getOperacao());
+            assertEquals(Dificuldade.FACIL, questao.getDificuldade());
+            assertEquals(TipoNumero.INTEIROS, questao.getTipoNumero());
+            assertTrue(questao.getDenominador() >= 3 && questao.getDenominador() <= 10);
+            assertTrue(questao.getNumeroA() >= 1);
+            assertTrue(questao.getNumeroB() >= 1);
+            assertTrue(questao.getNumeroA() < questao.getDenominador());
+            assertTrue(questao.getNumeroB() < questao.getDenominador());
+            assertTrue(questao.getNumeroA() + questao.getNumeroB()
+                    < questao.getDenominador());
+            denominadores.add(questao.getDenominador());
+        }
+
+        assertTrue(denominadores.size() > 1);
+    }
+
+    @Test
+    @DisplayName("Restringe frações ao nível fácil e a números inteiros")
+    void rejeitaFracoesForaDoNivelFacilOuComDecimais() {
+        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
+                Operacao.FRACOES, Dificuldade.MEDIO));
+        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
+                Operacao.FRACOES, Dificuldade.DIFICIL));
+        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
+                Operacao.FRACOES, Dificuldade.FACIL, TipoNumero.DECIMAIS));
+    }
+
+    @Test
+    @DisplayName("Valida soma de frações com numerador e denominador corretos")
+    void validaSomaDeFracoesCorreta() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracao(1, 3, 4, 6, 6));
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+        assertEquals(4, resposta.getRespostaCorreta());
+        assertEquals("4/6", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando o denominador da fração está errado")
+    void daAcertoParcialQuandoDenominadorDaFracaoEstaErrado() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracao(1, 3, 4, 6, 5));
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("denominador"));
+        assertEquals("4/6", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Zera os pontos quando o numerador da fração está errado")
+    void zeraPontosQuandoNumeradorDaFracaoEstaErrado() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracao(1, 3, 3, 6, 6));
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("4/6"));
+    }
+
+    @Test
+    @DisplayName("Rejeita fração sem denominadores válidos")
+    void rejeitaFracaoSemDenominadoresValidos() {
+        RequisicaoValidacaoDTO semDenominador = requisicaoFracao(1, 3, 4, 6, 6);
+        semDenominador.setDenominador(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(semDenominador));
+
+        RequisicaoValidacaoDTO semDenominadorResultado = requisicaoFracao(1, 3, 4, 6, 6);
+        semDenominadorResultado.setDenominadorResultado(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(semDenominadorResultado));
+
+        RequisicaoValidacaoDTO denominadorInvalido = requisicaoFracao(1, 3, 4, 6, 0);
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(denominadorInvalido));
+    }
+
+    private RequisicaoValidacaoDTO requisicaoFracao(
+            int numeradorA,
+            int numeradorB,
+            int numeradorResultado,
+            int denominador,
+            int denominadorResultado) {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-fracao",
+                Operacao.FRACOES,
+                numeradorA,
+                numeradorB,
+                numeradorResultado,
+                null,
+                null,
+                null);
+        requisicao.setDenominador(denominador);
+        requisicao.setDenominadorResultado(denominadorResultado);
+        return requisicao;
+    }
+
+    @Test
     @DisplayName("Rejeita requisição de validação nula ou com campos obrigatórios ausentes")
     void rejeitaRequisicaoInvalida() {
         assertThrows(IllegalArgumentException.class, () -> jogoService.validar(null));

@@ -4,5 +4,6 @@ public enum Operacao {
     SOMA,
     SUBTRACAO,
     MULTIPLICACAO,
-    DIVISAO
+    DIVISAO,
+    FRACOES
 }

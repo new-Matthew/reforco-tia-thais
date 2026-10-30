@@ -48,6 +48,9 @@ public class JogoService {
     private static final int CASAS_DECIMAIS_MAXIMAS = 2;
     private static final int DIGITOS_INTEIROS_DECIMAIS_DIFICIL_MINIMOS = 3;
 
+    private static final int FRACAO_DENOMINADOR_MINIMO = 3;
+    private static final int FRACAO_DENOMINADOR_MAXIMO = 10;
+
     private final Random random;
 
     public JogoService() {
@@ -75,6 +78,15 @@ public class JogoService {
         if (tipoNumero == null) {
             throw new IllegalArgumentException("O tipo de número é obrigatório.");
         }
+        if (operacao == Operacao.FRACOES) {
+            if (tipoNumero == TipoNumero.DECIMAIS) {
+                throw new IllegalArgumentException("Frações não usam números decimais.");
+            }
+            if (dificuldade != Dificuldade.FACIL) {
+                throw new IllegalArgumentException(
+                        "A soma de frações está disponível no nível fácil.");
+            }
+        }
         if (tipoNumero == TipoNumero.DECIMAIS
                 && operacao != Operacao.SOMA
                 && operacao != Operacao.SUBTRACAO
@@ -98,6 +110,7 @@ public class JogoService {
             case SUBTRACAO -> tipoNumero == TipoNumero.DECIMAIS
                     ? gerarSubtracaoDecimal(operacao, dificuldade)
                     : gerarSubtracao(operacao, dificuldade);
+            case FRACOES -> gerarSomaFracoes(operacao, dificuldade);
         };
     }
 
@@ -174,8 +187,20 @@ public class JogoService {
         return switch (requisicao.getOperacao()) {
             case MULTIPLICACAO -> avaliarMultiplicacao(requisicao);
             case DIVISAO -> avaliarDivisao(requisicao);
+            case FRACOES -> avaliarFracao(requisicao);
             case SOMA, SUBTRACAO -> avaliarSomaOuSubtracao(requisicao);
         };
+    }
+
+    private AvaliacaoPassos avaliarFracao(RequisicaoValidacaoDTO requisicao) {
+        int respostaCorreta = requisicao.getNumeroA() + requisicao.getNumeroB();
+        boolean denominadorCorreto = Objects.equals(
+                requisicao.getDenominadorResultado(),
+                requisicao.getDenominador());
+        String mensagem = denominadorCorreto
+                ? null
+                : "O numerador está certo, mas confira o denominador.";
+        return new AvaliacaoPassos(respostaCorreta, denominadorCorreto, mensagem);
     }
 
     private AvaliacaoPassos avaliarMultiplicacao(RequisicaoValidacaoDTO requisicao) {
@@ -338,13 +363,15 @@ public class JogoService {
             boolean resultadoCorreto) {
         Operacao operacao = requisicao.getOperacao();
         int respostaCorreta = avaliacao.respostaCorreta();
+        String respostaFracao = formatarRespostaFracao(requisicao, respostaCorreta);
 
         if (resultadoCorreto && avaliacao.passosCorretos()) {
             return new RespostaValidacaoDTO(
                     true,
                     "Muito bem! Você acertou em cheio!",
                     PONTOS_ACERTO_COMPLETO,
-                    respostaCorreta);
+                    respostaCorreta,
+                    respostaFracao);
         }
 
         if (resultadoCorreto) {
@@ -359,7 +386,8 @@ public class JogoService {
                     false,
                     mensagem,
                     PONTOS_ACERTO_PARCIAL,
-                    respostaCorreta);
+                    respostaCorreta,
+                    respostaFracao);
         }
 
         return new RespostaValidacaoDTO(
@@ -368,15 +396,29 @@ public class JogoService {
                         + formatarResposta(requisicao, respostaCorreta)
                         + ". Tente de novo!",
                 PONTOS_ERRO,
-                respostaCorreta);
+                respostaCorreta,
+                respostaFracao);
     }
 
     private String formatarResposta(RequisicaoValidacaoDTO requisicao, int respostaCorreta) {
+        if (requisicao.getOperacao() == Operacao.FRACOES) {
+            return formatarRespostaFracao(requisicao, respostaCorreta);
+        }
         if (requisicao.getTipoNumero() != TipoNumero.DECIMAIS
                 || requisicao.getOperacao() == Operacao.DIVISAO) {
             return String.valueOf(respostaCorreta);
         }
         return formatarDecimal(respostaCorreta, requisicao.getCasasDecimais());
+    }
+
+    private String formatarRespostaFracao(
+            RequisicaoValidacaoDTO requisicao,
+            int respostaCorreta) {
+        if (requisicao.getOperacao() != Operacao.FRACOES
+                || requisicao.getDenominador() == null) {
+            return null;
+        }
+        return respostaCorreta + "/" + requisicao.getDenominador();
     }
 
     private String formatarDecimal(int valorEscalado, int casasDecimais) {
@@ -390,6 +432,27 @@ public class JogoService {
     /* --------------------------------------------------------------------- */
     /* Geração das questões                                                   */
     /* --------------------------------------------------------------------- */
+
+    private QuestaoDTO gerarSomaFracoes(Operacao operacao, Dificuldade dificuldade) {
+        if (dificuldade != Dificuldade.FACIL) {
+            throw new IllegalArgumentException(
+                    "A soma de frações está disponível no nível fácil.");
+        }
+
+        int denominador = sortear(
+                FRACAO_DENOMINADOR_MINIMO,
+                FRACAO_DENOMINADOR_MAXIMO);
+        int numeradorA = sortear(1, denominador - 2);
+        int numeradorB = sortear(1, denominador - 1 - numeradorA);
+
+        QuestaoDTO questao = novaQuestao(
+                operacao,
+                dificuldade,
+                numeradorA,
+                numeradorB);
+        questao.setDenominador(denominador);
+        return questao;
+    }
 
     private QuestaoDTO gerarSoma(Operacao operacao, Dificuldade dificuldade) {
         int minimo = dificuldade.getValorMinimo();
@@ -993,6 +1056,26 @@ public class JogoService {
         }
         if (requisicao.getResultadoDigitado() == null) {
             throw new IllegalArgumentException("O resultado digitado é obrigatório.");
+        }
+        if (requisicao.getOperacao() == Operacao.FRACOES) {
+            if (requisicao.getTipoNumero() == TipoNumero.DECIMAIS) {
+                throw new IllegalArgumentException("Frações não usam números decimais.");
+            }
+            if (requisicao.getNumeroA() < 0 || requisicao.getNumeroB() < 0) {
+                throw new IllegalArgumentException("Os numeradores não podem ser negativos.");
+            }
+            if (requisicao.getDenominador() == null || requisicao.getDenominador() <= 0) {
+                throw new IllegalArgumentException("O denominador é obrigatório e deve ser positivo.");
+            }
+            if (requisicao.getDenominadorResultado() == null
+                    || requisicao.getDenominadorResultado() <= 0) {
+                throw new IllegalArgumentException(
+                        "O denominador da resposta é obrigatório e deve ser positivo.");
+            }
+            if (requisicao.getResultadoDigitado() < 0) {
+                throw new IllegalArgumentException("O numerador da resposta não pode ser negativo.");
+            }
+            return;
         }
         if (requisicao.getTipoNumero() == TipoNumero.DECIMAIS) {
             int casasDecimais = requisicao.getCasasDecimais() == null

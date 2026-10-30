@@ -22,6 +22,7 @@ public class QuestaoDTO {
     private Integer casasDecimaisB;
     private int numeroA;
     private int numeroB;
+    private Integer denominador;
     private Integer dividendoEquivalente;
     private Integer divisorEquivalente;
     private Integer vaiUm;

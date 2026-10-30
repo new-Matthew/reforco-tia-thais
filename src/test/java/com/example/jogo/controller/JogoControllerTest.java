@@ -248,6 +248,54 @@ class JogoControllerTest {
     }
 
     @Test
+    @DisplayName("Retorna uma soma de frações fácil no endpoint de próxima questão")
+    void retornaQuestaoDeFracoes() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "FRACOES")
+                        .param("dificuldade", "FACIL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("FRACOES"))
+                .andExpect(jsonPath("$.dificuldade").value("FACIL"))
+                .andExpect(jsonPath("$.denominador").isNumber())
+                .andExpect(jsonPath("$.numeroA").isNumber())
+                .andExpect(jsonPath("$.numeroB").isNumber())
+                .andExpect(jsonPath("$.respostaCorreta").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Rejeita frações fora do nível fácil")
+    void rejeitaFracoesForaDoNivelFacil() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "FRACOES")
+                        .param("dificuldade", "MEDIO"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Valida a soma de frações e retorna a fração correta")
+    void validaSomaDeFracoes() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "FRACOES",
+                  "numeroA": 1,
+                  "numeroB": 3,
+                  "resultadoDigitado": 4,
+                  "denominador": 6,
+                  "denominadorResultado": 6
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(4))
+                .andExpect(jsonPath("$.respostaCorretaFracao").value("4/6"));
+    }
+
+    @Test
     @DisplayName("Retorna uma subtração difícil no endpoint de próxima questão")
     void retornaQuestaoDeSubtracaoDificil() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
