@@ -47,6 +47,10 @@ const {
   ehDivisaoMedia,
   ehDivisaoDificil,
   ehDivisaoDecimal,
+  ehFracao,
+  rotuloBarraFracao,
+  seletoresDicaFracao,
+  seletoresDicaAtualFracao,
   divisaoDecimalEquivalente,
   casasDecimaisDivisao,
   calcularEtapasDivisaoLonga,
@@ -182,6 +186,7 @@ test('temaDaOperacao mapeia cada operação para sua cor temática', () => {
   assert.equal(temaDaOperacao('SUBTRACAO'), 'rosa');
   assert.equal(temaDaOperacao('MULTIPLICACAO'), 'roxo');
   assert.equal(temaDaOperacao('DIVISAO'), 'laranja');
+  assert.equal(temaDaOperacao('FRACOES'), 'turquesa');
 });
 
 test('lousa da subtração decimal mantém colunas compactas e sem trilhas flexíveis', () => {
@@ -218,6 +223,7 @@ test('temaDaOperacao usa o tema verde como padrão para operações desconhecida
     'SUBTRACAO',
     'MULTIPLICACAO',
     'DIVISAO',
+    'FRACOES',
   ]);
 });
 
@@ -555,6 +561,10 @@ test('atualizarTipoNumero exibe o seletor em todas as operações', () => {
   const divisao = criarEl();
   atualizarTipoNumero({ operacao: 'DIVISAO', tipoNumero: 'DECIMAIS' }, divisao);
   assert.equal(divisao.grupoTipoNumero.hidden, false);
+
+  const fracoes = criarEl();
+  atualizarTipoNumero({ operacao: 'FRACOES', tipoNumero: 'INTEIROS' }, fracoes);
+  assert.equal(fracoes.grupoTipoNumero.hidden, true);
 });
 
 test('montarRequisicao envia tipo e casas decimais nas operações decimais', () => {
@@ -941,6 +951,124 @@ test('estilos da divisão decimal usam o cartão guiado do tema laranja', () => 
   assert.match(css, /\.divisao-decimal-guia/);
   assert.match(css, /\.divisao-decimal-passos/);
   assert.match(css, /\.conta\.conta-divisao-decimal/);
+});
+
+test('frações reconhecem a operação, o nível fácil e o painel turquesa', () => {
+  assert.equal(ehFracao({ operacao: 'FRACOES' }), true);
+  assert.equal(ehFracao({ operacao: 'SOMA' }), false);
+  assert.deepEqual(niveisDificuldade('FRACOES'), ['FACIL']);
+  assert.equal(dificuldadePermitida('DIFICIL', 'FRACOES'), 'FACIL');
+  assert.equal(temaDaOperacao('FRACOES'), 'turquesa');
+
+  const html = fs.readFileSync(
+    path.join(__dirname, '../../main/resources/static/index.html'),
+    'utf8',
+  );
+  assert.match(html, /data-operacao="FRACOES"/);
+  assert.match(html, /Frações/);
+});
+
+test('aplicarPreferencias restringe frações ao nível fácil', () => {
+  const estado = aplicarPreferencias(
+    { operacao: 'SOMA', dificuldade: 'FACIL', tipoNumero: 'INTEIROS' },
+    '?operacao=FRACOES&dificuldade=DIFICIL&tipoNumero=DECIMAIS',
+  );
+
+  assert.equal(estado.operacao, 'FRACOES');
+  assert.equal(estado.dificuldade, 'FACIL');
+  assert.equal(estado.tipoNumero, 'INTEIROS');
+});
+
+test('montarRequisicao envia numeradores e denominadores das frações', () => {
+  const questao = {
+    id: 'id-fracao',
+    operacao: 'FRACOES',
+    numeroA: 1,
+    numeroB: 3,
+    denominador: 6,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 4,
+    denominadorResultado: 6,
+  });
+
+  assert.equal(requisicao.numeroA, 1);
+  assert.equal(requisicao.numeroB, 3);
+  assert.equal(requisicao.denominador, 6);
+  assert.equal(requisicao.denominadorResultado, 6);
+  assert.equal(requisicao.resultadoDigitado, 4);
+  assert.equal(requisicao.tipoNumero, undefined);
+});
+
+test('barras de fração têm rótulo acessível e dicas por etapa', () => {
+  assert.equal(rotuloBarraFracao(3, 6), '3 de 6 partes preenchidas');
+  assert.deepEqual(seletoresDicaFracao('numerador'), [
+    '.fracao-campo-numerador',
+    '.fracao-barra-parcela',
+  ]);
+  assert.deepEqual(seletoresDicaFracao('denominador'), [
+    '.fracao-campo-denominador',
+    '.fracao-barra-resultado',
+  ]);
+  assert.deepEqual(seletoresDicaFracao('desconhecido'), []);
+});
+
+test('seletoresDicaAtualFracao aponta numerador, denominador e erros', () => {
+  const criarEl = (numerador, denominador) => ({
+    conta: {
+      querySelector(seletor) {
+        if (seletor === '.fracao-campo-numerador') {
+          return { value: numerador };
+        }
+        if (seletor === '.fracao-campo-denominador') {
+          return { value: denominador };
+        }
+        return null;
+      },
+    },
+  });
+  const questao = {
+    id: 'q-fracao',
+    operacao: 'FRACOES',
+    numeroA: 1,
+    numeroB: 3,
+    denominador: 6,
+  };
+
+  assert.deepEqual(
+    seletoresDicaAtualFracao({ questao, questaoRespondida: false }, criarEl('', '')),
+    ['.fracao-campo-numerador', '.fracao-barra-parcela'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracao({ questao, questaoRespondida: false }, criarEl('4', '')),
+    ['.fracao-campo-denominador', '.fracao-barra-resultado'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracao({ questao, questaoRespondida: true }, criarEl('3', '6')),
+    ['.fracao-campo-numerador', '.fracao-barra-resultado'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracao({ questao, questaoRespondida: true }, criarEl('4', '5')),
+    ['.fracao-campo-denominador', '.fracao-barra-resultado'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracao({ questao, questaoRespondida: true }, criarEl('4', '6')),
+    [],
+  );
+});
+
+test('estilos das frações usam o tema turquesa e o bloco vertical', () => {
+  const css = fs.readFileSync(
+    path.join(__dirname, '../../main/resources/static/style.css'),
+    'utf8',
+  );
+
+  assert.match(css, /body\[data-tema="turquesa"\]/);
+  assert.match(css, /--tema-cor:\s*#06b6d4/);
+  assert.match(css, /\.fracao-barra/);
+  assert.match(css, /\.fracao-campo/);
+  assert.match(css, /\.fracao-linha-resposta/);
+  assert.match(css, /\.fracao-barra\.dica-ativa/);
 });
 
 test('estilos da multiplicação decimal reservam vírgula e controle próprio', () => {

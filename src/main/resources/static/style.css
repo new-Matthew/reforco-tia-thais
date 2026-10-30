@@ -63,6 +63,16 @@ body[data-tema="laranja"] {
   --tema-foco: rgba(251, 146, 60, 0.3);
 }
 
+body[data-tema="turquesa"] {
+  --tema-cor: #06b6d4;
+  --tema-cor-clara: #67e8f9;
+  --tema-cor-escura: #0e7490;
+  --tema-texto: #083344;
+  --tema-halo: rgba(6, 182, 212, 0.42);
+  --tema-borda: rgba(103, 232, 249, 0.58);
+  --tema-foco: rgba(6, 182, 212, 0.3);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -2063,6 +2073,19 @@ h1 {
     width: 100%;
   }
 
+  #seletor-operacao {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #seletor-operacao .seg-btn {
+    width: 100%;
+  }
+
+  #seletor-operacao .seg-btn:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   .seg-btn {
     flex: 1;
     padding: 11px 10px;
@@ -2343,6 +2366,301 @@ body[data-tema="laranja"] .apoio-mais {
   color: var(--tema-cor-escura);
 }
 
+/* ------------------------- Frações: soma fácil -------------------------- */
+
+.conta.conta-fracao {
+  display: block;
+  width: min(100%, 780px);
+  padding: 24px 20px 20px;
+}
+
+.fracao-lousa {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.fracao-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+
+.fracao-titulo {
+  margin: 0;
+  color: var(--tema-texto);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.2rem, 3vw, 1.55rem);
+  font-weight: 700;
+}
+
+.fracao-selo {
+  padding: 5px 11px;
+  border: 2px solid var(--tema-borda);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tema-cor-clara) 24%, #ffffff);
+  color: var(--tema-texto);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.fracao-exercicio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: clamp(12px, 3vw, 28px);
+}
+
+.fracao-parcela,
+.fracao-resultado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.fracao-bloco {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: clamp(58px, 13vw, 88px);
+  color: var(--tema-texto);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.8rem, 5vw, 2.65rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fracao-numerador,
+.fracao-denominador {
+  min-width: 1ch;
+  text-align: center;
+}
+
+.fracao-linha {
+  width: 100%;
+  margin: 4px 0;
+  border-top: 4px solid var(--tema-cor-escura);
+  border-radius: 3px;
+}
+
+.fracao-operador {
+  align-self: center;
+  padding-top: 16px;
+  color: var(--tema-cor-escura);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fracao-bloco-resposta {
+  width: clamp(64px, 14vw, 96px);
+  gap: 3px;
+}
+
+.fracao-campo {
+  width: 100%;
+  height: clamp(40px, 9vw, 52px);
+  padding: 2px 6px;
+  border: 3px solid var(--tema-borda);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--tema-texto);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.35rem, 3.8vw, 1.9rem);
+  font-weight: 700;
+  text-align: center;
+  caret-color: var(--tema-cor-escura);
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.fracao-campo::placeholder {
+  color: color-mix(in srgb, var(--tema-cor-escura) 45%, #ffffff);
+}
+
+.fracao-campo:focus {
+  border-color: var(--tema-cor);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--tema-foco);
+}
+
+.fracao-linha-resposta {
+  margin: 0;
+  border-top-width: 5px;
+}
+
+.fracao-barra {
+  display: grid;
+  grid-template-columns: repeat(var(--partes, 6), minmax(0, 1fr));
+  width: 100%;
+  min-width: 72px;
+  max-width: 146px;
+  height: clamp(32px, 7vw, 44px);
+  overflow: hidden;
+  border: 3px solid var(--tema-cor-escura);
+  border-radius: 12px;
+  background: #ffffff;
+  position: relative;
+}
+
+.fracao-parte {
+  min-width: 0;
+  border-right: 1px solid color-mix(in srgb, var(--tema-cor-escura) 35%, transparent);
+  background: #ffffff;
+  transition: background-color 0.25s ease;
+}
+
+.fracao-parte:last-child {
+  border-right: 0;
+}
+
+.fracao-parte.preenchida {
+  background: linear-gradient(
+    180deg,
+    var(--tema-cor-clara),
+    var(--tema-cor)
+  );
+}
+
+.fracao-barra-resultado {
+  border-style: dashed;
+  border-color: var(--tema-cor-escura);
+}
+
+.fracao-barra-resultado .fracao-parte.preenchida {
+  background: linear-gradient(
+    180deg,
+    var(--tema-cor),
+    var(--tema-cor-escura)
+  );
+}
+
+.fracao-incognita[hidden] {
+  display: none;
+}
+
+.fracao-incognita {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--tema-cor-escura);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1.05rem, 2.6vw, 1.35rem);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.fracao-barra-resultado.fracao-uniao {
+  border-style: solid;
+  animation: fracao-barra-receber 0.55s ease both;
+}
+
+.fracao-barra-resultado.fracao-uniao .fracao-parte.preenchida {
+  animation: fracao-parte-surgir 0.38s ease both;
+  animation-delay: calc(var(--indice) * 55ms);
+}
+
+.fracao-acerto .fracao-parcela .fracao-barra {
+  animation: fracao-parcela-pulsar 0.55s ease both;
+}
+
+.fracao-nota {
+  margin: 0;
+  color: #4a607a;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+@keyframes fracao-parte-surgir {
+  from {
+    opacity: 0.2;
+    transform: scaleY(0.45);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes fracao-barra-receber {
+  0% { box-shadow: 0 0 0 0 var(--tema-halo); }
+  55% { box-shadow: 0 0 0 7px var(--tema-halo); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes fracao-parcela-pulsar {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@media (max-width: 620px) {
+  .conta.conta-fracao {
+    padding: 20px 12px 16px;
+  }
+
+  .fracao-exercicio {
+    gap: 10px 14px;
+  }
+
+  .fracao-barra {
+    min-width: 58px;
+    max-width: 112px;
+  }
+
+  .fracao-operador {
+    padding-top: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .fracao-lousa {
+    gap: 16px;
+  }
+
+  .fracao-exercicio {
+    gap: 8px 10px;
+  }
+
+  .fracao-bloco {
+    width: 52px;
+    font-size: 1.75rem;
+  }
+
+  .fracao-bloco-resposta {
+    width: 58px;
+  }
+
+  .fracao-campo {
+    height: 42px;
+  }
+
+  .fracao-barra {
+    min-width: 50px;
+    max-width: 82px;
+    height: 30px;
+  }
+
+  .fracao-selo {
+    font-size: 0.7rem;
+  }
+
+  .fracao-nota {
+    font-size: 0.82rem;
+  }
+}
+
 /* --------------------- Dica progressiva (pulsante) ---------------------- */
 
 .celula-digito.dica-ativa,
@@ -2354,6 +2672,8 @@ body[data-tema="laranja"] .apoio-mais {
 .resultado-input-dificil.dica-ativa,
 .caixa-vai-um-dificil.dica-ativa,
 .controle-virgula-multiplicacao.dica-ativa,
+.fracao-campo.dica-ativa,
+.fracao-barra.dica-ativa,
 .celula-digito.dica-ativa-carry,
 .resultado-input.dica-ativa-carry,
 .caixa-vai-um.dica-ativa-carry,
@@ -2384,8 +2704,13 @@ body[data-tema="laranja"] .apoio-mais {
 
 .celula-digito.dica-ativa,
 .divisao-input.dica-ativa,
-.celula-multiplicacao-dificil.dica-ativa {
+.celula-multiplicacao-dificil.dica-ativa,
+.fracao-campo.dica-ativa {
   border-radius: 14px;
+}
+
+.fracao-barra.dica-ativa {
+  border-radius: 12px;
 }
 
 .divisao-divisor.dica-ativa {
