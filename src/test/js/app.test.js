@@ -48,6 +48,7 @@ const {
   ehDivisaoDificil,
   ehDivisaoDecimal,
   ehFracao,
+  tipoNumeroDisponivel,
   rotuloBarraFracao,
   seletoresDicaFracao,
   seletoresDicaAtualFracao,
@@ -97,6 +98,7 @@ const {
   aplicarPreferencias,
   atualizarTipoNumero,
   atualizarSegmentado,
+  atualizarControles,
   podeIniciarQuestao,
   podeValidarResposta,
   normalizarNomeJogador,
@@ -186,7 +188,7 @@ test('temaDaOperacao mapeia cada operação para sua cor temática', () => {
   assert.equal(temaDaOperacao('SUBTRACAO'), 'rosa');
   assert.equal(temaDaOperacao('MULTIPLICACAO'), 'roxo');
   assert.equal(temaDaOperacao('DIVISAO'), 'laranja');
-  assert.equal(temaDaOperacao('FRACOES'), 'turquesa');
+  assert.equal(temaDaOperacao('SOMA', 'FRACOES'), 'turquesa');
 });
 
 test('lousa da subtração decimal mantém colunas compactas e sem trilhas flexíveis', () => {
@@ -223,7 +225,6 @@ test('temaDaOperacao usa o tema verde como padrão para operações desconhecida
     'SUBTRACAO',
     'MULTIPLICACAO',
     'DIVISAO',
-    'FRACOES',
   ]);
 });
 
@@ -235,6 +236,9 @@ test('aplicarTemaOperacao grava o tema no data attribute da raiz', () => {
 
   aplicarTemaOperacao('MULTIPLICACAO', raiz);
   assert.equal(raiz.dataset.tema, 'roxo');
+
+  assert.equal(aplicarTemaOperacao('SOMA', raiz, 'FRACOES'), 'turquesa');
+  assert.equal(raiz.dataset.tema, 'turquesa');
 });
 
 test('aplicarTemaOperacao não falha quando a raiz não tem dataset', () => {
@@ -466,15 +470,27 @@ test('montarRequisicao envia emprestados apenas na subtração', () => {
 test('aplicarPreferencias lê operação e dificuldade da URL', () => {
   const estado = { operacao: 'SOMA', dificuldade: 'FACIL' };
   aplicarPreferencias(estado, '?operacao=SUBTRACAO&dificuldade=MEDIO');
-  assert.deepEqual(estado, { operacao: 'SUBTRACAO', dificuldade: 'MEDIO' });
+  assert.deepEqual(estado, {
+    operacao: 'SUBTRACAO',
+    dificuldade: 'MEDIO',
+    tipoNumero: 'INTEIROS',
+  });
 });
 
 test('aplicarPreferencias ignora valores desconhecidos', () => {
   const estado = { operacao: 'SOMA', dificuldade: 'FACIL' };
   aplicarPreferencias(estado, '?operacao=RADICIACAO&dificuldade=IMPOSSIVEL');
-  assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
+  assert.deepEqual(estado, {
+    operacao: 'SOMA',
+    dificuldade: 'FACIL',
+    tipoNumero: 'INTEIROS',
+  });
   aplicarPreferencias(estado, '');
-  assert.deepEqual(estado, { operacao: 'SOMA', dificuldade: 'FACIL' });
+  assert.deepEqual(estado, {
+    operacao: 'SOMA',
+    dificuldade: 'FACIL',
+    tipoNumero: 'INTEIROS',
+  });
 });
 
 test('aplicarPreferencias lê o tipo de número na soma, subtração e multiplicação', () => {
@@ -535,36 +551,97 @@ test('atualizarSegmentado marca o botão do tipo de número selecionado', () => 
   assert.equal(botoes[1].ariaPressed, 'true');
 });
 
-test('atualizarTipoNumero exibe o seletor em todas as operações', () => {
-  const criarEl = () => ({
-    grupoTipoNumero: { hidden: true },
-    seletorTipoNumero: {
-      id: 'seletor-tipo-numero',
-      querySelectorAll() {
-        return [];
+test('atualizarTipoNumero exibe o seletor e libera frações apenas na adição', () => {
+  const criarEl = () => {
+    const botaoFracao = { disabled: false, title: '' };
+    return {
+      botaoFracao,
+      grupoTipoNumero: { hidden: true },
+      seletorTipoNumero: {
+        id: 'seletor-tipo-numero',
+        querySelector(seletor) {
+          return seletor === '[data-tipo-numero="FRACOES"]' ? botaoFracao : null;
+        },
+        querySelectorAll() {
+          return [];
+        },
       },
-    },
-  });
+    };
+  };
 
   const soma = criarEl();
-  atualizarTipoNumero({ operacao: 'SOMA', tipoNumero: 'INTEIROS' }, soma);
+  atualizarTipoNumero({ operacao: 'SOMA', tipoNumero: 'FRACOES' }, soma);
   assert.equal(soma.grupoTipoNumero.hidden, false);
+  assert.equal(soma.botaoFracao.disabled, false);
 
   const subtracao = criarEl();
-  atualizarTipoNumero({ operacao: 'SUBTRACAO', tipoNumero: 'DECIMAIS' }, subtracao);
+  atualizarTipoNumero(
+    { operacao: 'SUBTRACAO', tipoNumero: 'FRACOES' },
+    subtracao,
+  );
   assert.equal(subtracao.grupoTipoNumero.hidden, false);
+  assert.equal(subtracao.botaoFracao.disabled, true);
 
   const multiplicacao = criarEl();
-  atualizarTipoNumero({ operacao: 'MULTIPLICACAO', tipoNumero: 'DECIMAIS' }, multiplicacao);
+  atualizarTipoNumero(
+    { operacao: 'MULTIPLICACAO', tipoNumero: 'DECIMAIS' },
+    multiplicacao,
+  );
   assert.equal(multiplicacao.grupoTipoNumero.hidden, false);
+  assert.equal(multiplicacao.botaoFracao.disabled, true);
 
   const divisao = criarEl();
   atualizarTipoNumero({ operacao: 'DIVISAO', tipoNumero: 'DECIMAIS' }, divisao);
   assert.equal(divisao.grupoTipoNumero.hidden, false);
+  assert.equal(divisao.botaoFracao.disabled, true);
+});
 
-  const fracoes = criarEl();
-  atualizarTipoNumero({ operacao: 'FRACOES', tipoNumero: 'INTEIROS' }, fracoes);
-  assert.equal(fracoes.grupoTipoNumero.hidden, true);
+test('atualizarControles preserva frações desabilitadas fora da adição', () => {
+  const criarBotao = (dataset) => ({ dataset, disabled: false });
+  const botoes = {
+    operacao: [
+      criarBotao({ operacao: 'SOMA' }),
+      criarBotao({ operacao: 'SUBTRACAO' }),
+    ],
+    dificuldade: [criarBotao({ dificuldade: 'FACIL' })],
+    tipo: [
+      criarBotao({ tipoNumero: 'INTEIROS' }),
+      criarBotao({ tipoNumero: 'FRACOES' }),
+    ],
+  };
+  const el = {
+    seletorOperacao: {
+      querySelectorAll: () => botoes.operacao,
+    },
+    seletorDificuldade: {
+      querySelectorAll: () => botoes.dificuldade,
+    },
+    seletorTipoNumero: {
+      querySelectorAll: () => botoes.tipo,
+    },
+    btnNovaQuestao: { disabled: false },
+    btnRecarregar: { disabled: false },
+    btnValidar: { disabled: false },
+    conta: {
+      querySelectorAll: () => [],
+    },
+  };
+  const estado = {
+    operacao: 'SUBTRACAO',
+    questao: null,
+    carregando: false,
+    validando: false,
+    questaoRespondida: false,
+  };
+
+  atualizarControles(estado, el);
+  assert.equal(botoes.tipo[0].disabled, false);
+  assert.equal(botoes.tipo[1].disabled, true);
+
+  estado.carregando = true;
+  atualizarControles(estado, el);
+  assert.equal(botoes.tipo[0].disabled, true);
+  assert.equal(botoes.tipo[1].disabled, true);
 });
 
 test('montarRequisicao envia tipo e casas decimais nas operações decimais', () => {
@@ -953,36 +1030,71 @@ test('estilos da divisão decimal usam o cartão guiado do tema laranja', () => 
   assert.match(css, /\.conta\.conta-divisao-decimal/);
 });
 
-test('frações reconhecem a operação, o nível fácil e o painel turquesa', () => {
-  assert.equal(ehFracao({ operacao: 'FRACOES' }), true);
-  assert.equal(ehFracao({ operacao: 'SOMA' }), false);
-  assert.deepEqual(niveisDificuldade('FRACOES'), ['FACIL']);
-  assert.equal(dificuldadePermitida('DIFICIL', 'FRACOES'), 'FACIL');
-  assert.equal(temaDaOperacao('FRACOES'), 'turquesa');
+test('frações são um tipo de número da adição com nível fácil e painel turquesa', () => {
+  assert.equal(ehFracao({ operacao: 'SOMA', tipoNumero: 'FRACOES' }), true);
+  assert.equal(ehFracao({ operacao: 'SOMA', tipoNumero: 'INTEIROS' }), false);
+  assert.equal(tipoNumeroDisponivel('SOMA', 'FRACOES'), true);
+  assert.equal(tipoNumeroDisponivel('SUBTRACAO', 'FRACOES'), false);
+  assert.deepEqual(niveisDificuldade('SOMA', 'FRACOES'), ['FACIL']);
+  assert.equal(dificuldadePermitida('DIFICIL', 'SOMA', 'FRACOES'), 'FACIL');
+  assert.equal(temaDaOperacao('SOMA', 'FRACOES'), 'turquesa');
+  assert.equal(proximaDificuldade('FACIL', 'SOMA', 'FRACOES'), null);
+
+  const progresso = resolverProgresso(4, 'FACIL', true, 5, 'SOMA', 'FRACOES');
+  assert.equal(progresso.subiuNivel, false);
+  assert.equal(progresso.nivelMaximo, true);
+  assert.equal(progresso.dificuldade, 'FACIL');
 
   const html = fs.readFileSync(
     path.join(__dirname, '../../main/resources/static/index.html'),
     'utf8',
   );
-  assert.match(html, /data-operacao="FRACOES"/);
+  assert.doesNotMatch(html, /data-operacao="FRACOES"/);
+  assert.deepEqual(
+    Array.from(html.matchAll(/data-operacao="([^"]+)"/g), (item) => item[1]),
+    ['SOMA', 'SUBTRACAO', 'MULTIPLICACAO', 'DIVISAO'],
+  );
+  assert.match(html, /data-tipo-numero="FRACOES"/);
   assert.match(html, /Frações/);
 });
 
 test('aplicarPreferencias restringe frações ao nível fácil', () => {
   const estado = aplicarPreferencias(
     { operacao: 'SOMA', dificuldade: 'FACIL', tipoNumero: 'INTEIROS' },
-    '?operacao=FRACOES&dificuldade=DIFICIL&tipoNumero=DECIMAIS',
+    '?operacao=SOMA&dificuldade=DIFICIL&tipoNumero=FRACOES',
   );
 
-  assert.equal(estado.operacao, 'FRACOES');
+  assert.equal(estado.operacao, 'SOMA');
   assert.equal(estado.dificuldade, 'FACIL');
+  assert.equal(estado.tipoNumero, 'FRACOES');
+});
+
+test('aplicarPreferencias converte a antiga operação de frações em tipo de número', () => {
+  const estado = aplicarPreferencias(
+    { operacao: 'SOMA', dificuldade: 'FACIL', tipoNumero: 'INTEIROS' },
+    '?operacao=FRACOES&dificuldade=DIFICIL',
+  );
+
+  assert.equal(estado.operacao, 'SOMA');
+  assert.equal(estado.dificuldade, 'FACIL');
+  assert.equal(estado.tipoNumero, 'FRACOES');
+});
+
+test('aplicarPreferencias descarta frações fora da adição', () => {
+  const estado = aplicarPreferencias(
+    { operacao: 'SOMA', dificuldade: 'FACIL', tipoNumero: 'INTEIROS' },
+    '?operacao=SUBTRACAO&tipoNumero=FRACOES',
+  );
+
+  assert.equal(estado.operacao, 'SUBTRACAO');
   assert.equal(estado.tipoNumero, 'INTEIROS');
 });
 
 test('montarRequisicao envia numeradores e denominadores das frações', () => {
   const questao = {
     id: 'id-fracao',
-    operacao: 'FRACOES',
+    operacao: 'SOMA',
+    tipoNumero: 'FRACOES',
     numeroA: 1,
     numeroB: 3,
     denominador: 6,
@@ -997,7 +1109,7 @@ test('montarRequisicao envia numeradores e denominadores das frações', () => {
   assert.equal(requisicao.denominador, 6);
   assert.equal(requisicao.denominadorResultado, 6);
   assert.equal(requisicao.resultadoDigitado, 4);
-  assert.equal(requisicao.tipoNumero, undefined);
+  assert.equal(requisicao.tipoNumero, 'FRACOES');
 });
 
 test('barras de fração têm rótulo acessível e dicas por etapa', () => {
@@ -1029,7 +1141,8 @@ test('seletoresDicaAtualFracao aponta numerador, denominador e erros', () => {
   });
   const questao = {
     id: 'q-fracao',
-    operacao: 'FRACOES',
+    operacao: 'SOMA',
+    tipoNumero: 'FRACOES',
     numeroA: 1,
     numeroB: 3,
     denominador: 6,
@@ -2864,21 +2977,29 @@ test('aplicarPreferencias aceita o nível difícil na soma, subtração e multip
       { operacao: 'SOMA', dificuldade: 'FACIL' },
       '?operacao=MULTIPLICACAO&dificuldade=DIFICIL',
     ),
-    { operacao: 'MULTIPLICACAO', dificuldade: 'DIFICIL' },
+    {
+      operacao: 'MULTIPLICACAO',
+      dificuldade: 'DIFICIL',
+      tipoNumero: 'INTEIROS',
+    },
   );
   assert.deepEqual(
     aplicarPreferencias(
       { operacao: 'SOMA', dificuldade: 'FACIL' },
       '?operacao=SOMA&dificuldade=DIFICIL',
     ),
-    { operacao: 'SOMA', dificuldade: 'DIFICIL' },
+    { operacao: 'SOMA', dificuldade: 'DIFICIL', tipoNumero: 'INTEIROS' },
   );
   assert.deepEqual(
     aplicarPreferencias(
       { operacao: 'SOMA', dificuldade: 'FACIL' },
       '?operacao=SUBTRACAO&dificuldade=DIFICIL',
     ),
-    { operacao: 'SUBTRACAO', dificuldade: 'DIFICIL' },
+    {
+      operacao: 'SUBTRACAO',
+      dificuldade: 'DIFICIL',
+      tipoNumero: 'INTEIROS',
+    },
   );
 });
 
