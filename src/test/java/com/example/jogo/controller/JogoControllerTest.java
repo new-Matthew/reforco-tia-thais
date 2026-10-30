@@ -251,10 +251,12 @@ class JogoControllerTest {
     @DisplayName("Retorna uma soma de frações fácil no endpoint de próxima questão")
     void retornaQuestaoDeFracoes() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
-                        .param("operacao", "FRACOES")
-                        .param("dificuldade", "FACIL"))
+                        .param("operacao", "SOMA")
+                        .param("dificuldade", "FACIL")
+                        .param("tipoNumero", "FRACOES"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.operacao").value("FRACOES"))
+                .andExpect(jsonPath("$.operacao").value("SOMA"))
+                .andExpect(jsonPath("$.tipoNumero").value("FRACOES"))
                 .andExpect(jsonPath("$.dificuldade").value("FACIL"))
                 .andExpect(jsonPath("$.denominador").isNumber())
                 .andExpect(jsonPath("$.numeroA").isNumber())
@@ -266,8 +268,9 @@ class JogoControllerTest {
     @DisplayName("Rejeita frações fora do nível fácil")
     void rejeitaFracoesForaDoNivelFacil() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
-                        .param("operacao", "FRACOES")
-                        .param("dificuldade", "MEDIO"))
+                        .param("operacao", "SOMA")
+                        .param("dificuldade", "MEDIO")
+                        .param("tipoNumero", "FRACOES"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -276,7 +279,8 @@ class JogoControllerTest {
     void validaSomaDeFracoes() throws Exception {
         String corpo = """
                 {
-                  "operacao": "FRACOES",
+                  "operacao": "SOMA",
+                  "tipoNumero": "FRACOES",
                   "numeroA": 1,
                   "numeroB": 3,
                   "resultadoDigitado": 4,

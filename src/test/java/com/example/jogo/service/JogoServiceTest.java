@@ -1254,11 +1254,11 @@ class JogoServiceTest {
 
         for (int i = 0; i < 300; i++) {
             QuestaoDTO questao = jogoService.gerarQuestao(
-                    Operacao.FRACOES, Dificuldade.FACIL);
+                    Operacao.SOMA, Dificuldade.FACIL, TipoNumero.FRACOES);
 
-            assertEquals(Operacao.FRACOES, questao.getOperacao());
+            assertEquals(Operacao.SOMA, questao.getOperacao());
             assertEquals(Dificuldade.FACIL, questao.getDificuldade());
-            assertEquals(TipoNumero.INTEIROS, questao.getTipoNumero());
+            assertEquals(TipoNumero.FRACOES, questao.getTipoNumero());
             assertTrue(questao.getDenominador() >= 3 && questao.getDenominador() <= 10);
             assertTrue(questao.getNumeroA() >= 1);
             assertTrue(questao.getNumeroB() >= 1);
@@ -1273,14 +1273,18 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Restringe frações ao nível fácil e a números inteiros")
-    void rejeitaFracoesForaDoNivelFacilOuComDecimais() {
+    @DisplayName("Restringe frações ao nível fácil e à adição")
+    void rejeitaFracoesForaDoNivelFacilOuDeOutraOperacao() {
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
-                Operacao.FRACOES, Dificuldade.MEDIO));
+                Operacao.SOMA, Dificuldade.MEDIO, TipoNumero.FRACOES));
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
-                Operacao.FRACOES, Dificuldade.DIFICIL));
+                Operacao.SOMA, Dificuldade.DIFICIL, TipoNumero.FRACOES));
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
-                Operacao.FRACOES, Dificuldade.FACIL, TipoNumero.DECIMAIS));
+                Operacao.SUBTRACAO, Dificuldade.FACIL, TipoNumero.FRACOES));
+        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
+                Operacao.MULTIPLICACAO, Dificuldade.FACIL, TipoNumero.FRACOES));
+        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
+                Operacao.DIVISAO, Dificuldade.FACIL, TipoNumero.FRACOES));
     }
 
     @Test
@@ -1336,6 +1340,26 @@ class JogoServiceTest {
                 () -> jogoService.validar(denominadorInvalido));
     }
 
+    @Test
+    @DisplayName("Rejeita denominadores quando o tipo de número não é frações")
+    void rejeitaDenominadoresSemTipoFracao() {
+        RequisicaoValidacaoDTO requisicao = requisicaoFracao(1, 3, 4, 6, 6);
+        requisicao.setTipoNumero(TipoNumero.INTEIROS);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(requisicao));
+    }
+
+    @Test
+    @DisplayName("Rejeita fração fora da adição")
+    void rejeitaFracaoEmOutraOperacao() {
+        RequisicaoValidacaoDTO requisicao = requisicaoFracao(1, 3, 4, 6, 6);
+        requisicao.setOperacao(Operacao.SUBTRACAO);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(requisicao));
+    }
+
     private RequisicaoValidacaoDTO requisicaoFracao(
             int numeradorA,
             int numeradorB,
@@ -1344,13 +1368,14 @@ class JogoServiceTest {
             int denominadorResultado) {
         RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
                 "id-fracao",
-                Operacao.FRACOES,
+                Operacao.SOMA,
                 numeradorA,
                 numeradorB,
                 numeradorResultado,
                 null,
                 null,
                 null);
+        requisicao.setTipoNumero(TipoNumero.FRACOES);
         requisicao.setDenominador(denominador);
         requisicao.setDenominadorResultado(denominadorResultado);
         return requisicao;

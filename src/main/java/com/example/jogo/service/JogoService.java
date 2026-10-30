@@ -78,23 +78,15 @@ public class JogoService {
         if (tipoNumero == null) {
             throw new IllegalArgumentException("O tipo de número é obrigatório.");
         }
-        if (operacao == Operacao.FRACOES) {
-            if (tipoNumero == TipoNumero.DECIMAIS) {
-                throw new IllegalArgumentException("Frações não usam números decimais.");
+        if (tipoNumero == TipoNumero.FRACOES) {
+            if (operacao != Operacao.SOMA) {
+                throw new IllegalArgumentException(
+                        "Frações estão disponíveis apenas na adição.");
             }
             if (dificuldade != Dificuldade.FACIL) {
                 throw new IllegalArgumentException(
                         "A soma de frações está disponível no nível fácil.");
             }
-        }
-        if (tipoNumero == TipoNumero.DECIMAIS
-                && operacao != Operacao.SOMA
-                && operacao != Operacao.SUBTRACAO
-                && operacao != Operacao.MULTIPLICACAO
-                && operacao != Operacao.DIVISAO) {
-            throw new IllegalArgumentException(
-                    "Números decimais estão disponíveis na soma, subtração, "
-                            + "multiplicação e divisão.");
         }
 
         return switch (operacao) {
@@ -104,13 +96,14 @@ public class JogoService {
             case DIVISAO -> tipoNumero == TipoNumero.DECIMAIS
                     ? gerarDivisaoDecimal(operacao, dificuldade)
                     : gerarDivisao(operacao, dificuldade);
-            case SOMA -> tipoNumero == TipoNumero.DECIMAIS
-                    ? gerarSomaDecimal(operacao, dificuldade)
-                    : gerarSoma(operacao, dificuldade);
+            case SOMA -> switch (tipoNumero) {
+                case FRACOES -> gerarSomaFracoes(operacao, dificuldade);
+                case DECIMAIS -> gerarSomaDecimal(operacao, dificuldade);
+                default -> gerarSoma(operacao, dificuldade);
+            };
             case SUBTRACAO -> tipoNumero == TipoNumero.DECIMAIS
                     ? gerarSubtracaoDecimal(operacao, dificuldade)
                     : gerarSubtracao(operacao, dificuldade);
-            case FRACOES -> gerarSomaFracoes(operacao, dificuldade);
         };
     }
 
@@ -187,8 +180,10 @@ public class JogoService {
         return switch (requisicao.getOperacao()) {
             case MULTIPLICACAO -> avaliarMultiplicacao(requisicao);
             case DIVISAO -> avaliarDivisao(requisicao);
-            case FRACOES -> avaliarFracao(requisicao);
-            case SOMA, SUBTRACAO -> avaliarSomaOuSubtracao(requisicao);
+            case SOMA -> requisicao.getTipoNumero() == TipoNumero.FRACOES
+                    ? avaliarFracao(requisicao)
+                    : avaliarSomaOuSubtracao(requisicao);
+            case SUBTRACAO -> avaliarSomaOuSubtracao(requisicao);
         };
     }
 
@@ -401,7 +396,7 @@ public class JogoService {
     }
 
     private String formatarResposta(RequisicaoValidacaoDTO requisicao, int respostaCorreta) {
-        if (requisicao.getOperacao() == Operacao.FRACOES) {
+        if (requisicao.getTipoNumero() == TipoNumero.FRACOES) {
             return formatarRespostaFracao(requisicao, respostaCorreta);
         }
         if (requisicao.getTipoNumero() != TipoNumero.DECIMAIS
@@ -414,7 +409,7 @@ public class JogoService {
     private String formatarRespostaFracao(
             RequisicaoValidacaoDTO requisicao,
             int respostaCorreta) {
-        if (requisicao.getOperacao() != Operacao.FRACOES
+        if (requisicao.getTipoNumero() != TipoNumero.FRACOES
                 || requisicao.getDenominador() == null) {
             return null;
         }
@@ -450,6 +445,7 @@ public class JogoService {
                 dificuldade,
                 numeradorA,
                 numeradorB);
+        questao.setTipoNumero(TipoNumero.FRACOES);
         questao.setDenominador(denominador);
         return questao;
     }
@@ -1057,9 +1053,16 @@ public class JogoService {
         if (requisicao.getResultadoDigitado() == null) {
             throw new IllegalArgumentException("O resultado digitado é obrigatório.");
         }
-        if (requisicao.getOperacao() == Operacao.FRACOES) {
-            if (requisicao.getTipoNumero() == TipoNumero.DECIMAIS) {
-                throw new IllegalArgumentException("Frações não usam números decimais.");
+        if (requisicao.getTipoNumero() != TipoNumero.FRACOES
+                && (requisicao.getDenominador() != null
+                || requisicao.getDenominadorResultado() != null)) {
+            throw new IllegalArgumentException(
+                    "Denominadores só podem ser usados quando o tipo de número é frações.");
+        }
+        if (requisicao.getTipoNumero() == TipoNumero.FRACOES) {
+            if (requisicao.getOperacao() != Operacao.SOMA) {
+                throw new IllegalArgumentException(
+                        "Frações estão disponíveis apenas na adição.");
             }
             if (requisicao.getNumeroA() < 0 || requisicao.getNumeroB() < 0) {
                 throw new IllegalArgumentException("Os numeradores não podem ser negativos.");
