@@ -4,13 +4,14 @@ Jogo educativo de adição, subtração, multiplicação, divisão e frações p
 
 ## Funcionalidades
 
-- Contas de adição nos níveis fácil (2 dígitos), médio (3 dígitos) e difícil (4 dígitos com reservas encadeadas), com seletor de números inteiros ou decimais.
+- Contas de adição nos níveis fácil (2 dígitos), médio (3 dígitos) e difícil (4 dígitos com reservas encadeadas), com seletor de tipos de número inteiros, decimais ou frações.
 - Somas decimais com vírgula alinhada, zeros de preenchimento e casas de centésimos e décimos em todos os níveis.
 - Contas de subtração nos níveis fácil (2 dígitos), médio (3 dígitos) e difícil (4 dígitos com empréstimos encadeados), com seletor de números inteiros ou decimais.
 - Subtrações decimais com vírgula alinhada, zeros de preenchimento e empréstimos encadeados, com variação na quantidade de algarismos antes e depois da vírgula no nível difícil.
 - Multiplicação nos níveis fácil, médio e difícil, com seletor de números inteiros ou decimais, preenchimento do "vai um" e alinhamento dos fatores pela vírgula.
 - Multiplicações decimais resolvidas como inteiros, com zeros de preenchimento e controle da vírgula liberado só depois do produto final, movendo a vírgula entre as células preenchidas pelo aluno sem revelar o produto pronto.
-- Frações no nível fácil: soma de frações próprias com denominadores iguais (3 a 10), barras coloridas para representar os numeradores e resposta digitada em numerador e denominador separados, sem simplificação automática.
+- Frações como tipo de número da adição, no nível fácil: soma de frações próprias com denominadores iguais (3 a 10), barras coloridas para representar os numeradores e resposta digitada em numerador e denominador separados, sem simplificação automática.
+- Menu de operações restrito a adição, subtração, multiplicação e divisão; o tipo de número (inteiros, decimais ou frações) é escolhido separadamente.
 - Dica progressiva nas operações difíceis, nas operações decimais e nas frações: destaca apenas os números da etapa atual, incluindo colunas decimais, divisor, dividendo parcial, produto, resto na divisão e campos/barras das frações, após 3 segundos de inatividade ou quando a resposta é recusada.
 - Divisão em formato de chave nos níveis fácil (2 dígitos por 1 dígito, exata), médio (3 dígitos por 2 dígitos) e difícil (4 dígitos por 2 dígitos), com quociente, subtrações intermediárias, resto e indicação do dígito que desce a cada etapa.
 - Divisões decimais nos níveis fácil, médio e difícil, com um passo guiado para igualar as casas decimais, acrescentar zeros e eliminar as vírgulas antes de abrir a conta inteira equivalente.

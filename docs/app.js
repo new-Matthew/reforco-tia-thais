@@ -134,17 +134,22 @@ const TEMAS_POR_OPERACAO = {
   SUBTRACAO: 'rosa',
   MULTIPLICACAO: 'roxo',
   DIVISAO: 'laranja',
+};
+
+const TEMA_POR_TIPO_NUMERO = {
   FRACOES: 'turquesa',
 };
 
 const TEMA_OPERACAO_PADRAO = 'verde';
 
-function temaDaOperacao(operacao) {
-  return TEMAS_POR_OPERACAO[operacao] || TEMA_OPERACAO_PADRAO;
+function temaDaOperacao(operacao, tipoNumero) {
+  return TEMA_POR_TIPO_NUMERO[tipoNumero]
+    || TEMAS_POR_OPERACAO[operacao]
+    || TEMA_OPERACAO_PADRAO;
 }
 
-function aplicarTemaOperacao(operacao, raiz) {
-  const tema = temaDaOperacao(operacao);
+function aplicarTemaOperacao(operacao, raiz, tipoNumero) {
+  const tema = temaDaOperacao(operacao, tipoNumero);
   const alvo = raiz || (typeof document !== 'undefined' ? document.body : null);
   if (alvo && alvo.dataset) {
     alvo.dataset.tema = tema;
@@ -1467,7 +1472,10 @@ function quantidadeCaixasVaiUm(dificuldade) {
   return digitos - 1;
 }
 
-function niveisDificuldade(operacao) {
+function niveisDificuldade(operacao, tipoNumero = 'INTEIROS') {
+  if (tipoNumero === 'FRACOES') {
+    return NIVEIS_DIFICULDADE_FRACOES;
+  }
   if (operacao === 'MULTIPLICACAO') {
     return NIVEIS_DIFICULDADE_MULTIPLICACAO;
   }
@@ -1480,14 +1488,11 @@ function niveisDificuldade(operacao) {
   if (operacao === 'DIVISAO') {
     return NIVEIS_DIFICULDADE_DIVISAO;
   }
-  if (operacao === 'FRACOES') {
-    return NIVEIS_DIFICULDADE_FRACOES;
-  }
   return NIVEIS_DIFICULDADE;
 }
 
-function proximaDificuldade(dificuldade, operacao = 'SOMA') {
-  const niveis = niveisDificuldade(operacao);
+function proximaDificuldade(dificuldade, operacao = 'SOMA', tipoNumero = 'INTEIROS') {
+  const niveis = niveisDificuldade(operacao, tipoNumero);
   const indice = niveis.indexOf(dificuldade);
   if (indice === -1) {
     throw new Error('Dificuldade inválida: ' + dificuldade);
@@ -1495,8 +1500,8 @@ function proximaDificuldade(dificuldade, operacao = 'SOMA') {
   return niveis[indice + 1] ?? null;
 }
 
-function dificuldadePermitida(dificuldade, operacao) {
-  const niveis = niveisDificuldade(operacao);
+function dificuldadePermitida(dificuldade, operacao, tipoNumero = 'INTEIROS') {
+  const niveis = niveisDificuldade(operacao, tipoNumero);
   return niveis.includes(dificuldade) ? dificuldade : niveis[niveis.length - 1];
 }
 
@@ -1519,6 +1524,7 @@ function resolverProgresso(
   correto,
   meta = META_NIVEL,
   operacao = 'SOMA',
+  tipoNumero = 'INTEIROS',
 ) {
   const resultadoBase = {
     sequencia: 0,
@@ -1541,7 +1547,7 @@ function resolverProgresso(
     };
   }
 
-  const proxima = proximaDificuldade(dificuldadeAtual, operacao);
+  const proxima = proximaDificuldade(dificuldadeAtual, operacao, tipoNumero);
   return {
     sequencia: 0,
     progresso: 1,
@@ -1594,7 +1600,14 @@ function preencherAte(valores, quantidade) {
 }
 
 function ehFracao(questao) {
-  return Boolean(questao) && questao.operacao === 'FRACOES';
+  return Boolean(questao) && questao.tipoNumero === 'FRACOES';
+}
+
+function tipoNumeroDisponivel(operacao, tipoNumero) {
+  if (tipoNumero === 'FRACOES') {
+    return operacao === 'SOMA';
+  }
+  return tipoNumero === 'INTEIROS' || tipoNumero === 'DECIMAIS';
 }
 
 function rotuloBarraFracao(numerador, denominador) {
@@ -2169,6 +2182,7 @@ function montarRequisicao(questao, entradas) {
   };
 
   if (fracao) {
+    requisicao.tipoNumero = 'FRACOES';
     requisicao.denominador = Number(questao.denominador);
     requisicao.denominadorResultado = entradas.denominadorResultado ?? null;
   }
@@ -2410,7 +2424,7 @@ function iniciarInterface() {
   });
 
   aplicarPreferencias(estado, typeof window !== 'undefined' ? window.location.search : '');
-  aplicarTemaOperacao(estado.operacao);
+  aplicarTemaOperacao(estado.operacao, null, estado.tipoNumero);
   atualizarSegmentado(el.seletorOperacao, estado.operacao);
   atualizarNiveisDificuldade(estado, el);
   atualizarTipoNumero(estado, el);
@@ -2423,20 +2437,22 @@ function iniciarInterface() {
       return;
     }
     estado.operacao = botao.dataset.operacao;
-    aplicarTemaOperacao(estado.operacao);
+    atualizarTipoNumero(estado, el);
+    aplicarTemaOperacao(estado.operacao, null, estado.tipoNumero);
     atualizarSegmentado(el.seletorOperacao, estado.operacao);
     atualizarNiveisDificuldade(estado, el);
-    atualizarTipoNumero(estado, el);
     carregarQuestao(estado, el);
   });
 
   el.seletorTipoNumero.addEventListener('click', (evento) => {
     const botao = evento.target.closest('[data-tipo-numero]');
-    if (!botao) {
+    if (!botao || botao.disabled) {
       return;
     }
     estado.tipoNumero = botao.dataset.tipoNumero;
+    aplicarTemaOperacao(estado.operacao, null, estado.tipoNumero);
     atualizarSegmentado(el.seletorTipoNumero, estado.tipoNumero);
+    atualizarNiveisDificuldade(estado, el);
     carregarQuestao(estado, el);
   });
 
@@ -2490,35 +2506,47 @@ function iniciarInterface() {
 
 function aplicarPreferencias(estado, busca) {
   const parametros = new URLSearchParams(busca || '');
-  const operacao = parametros.get('operacao');
+  let operacao = parametros.get('operacao');
   const dificuldade = parametros.get('dificuldade');
-  const tipoNumero = parametros.get('tipoNumero');
+  let tipoNumero = parametros.get('tipoNumero');
 
-  if (operacao === 'SOMA' || operacao === 'SUBTRACAO' || operacao === 'MULTIPLICACAO'
-    || operacao === 'DIVISAO' || operacao === 'FRACOES') {
+  if (operacao === 'FRACOES') {
+    operacao = 'SOMA';
+    tipoNumero = 'FRACOES';
+  }
+  if (operacao === 'SOMA' || operacao === 'SUBTRACAO'
+    || operacao === 'MULTIPLICACAO' || operacao === 'DIVISAO') {
     estado.operacao = operacao;
   }
-  const niveisDisponiveis = niveisDificuldade(estado.operacao);
+  if (tipoNumero === 'INTEIROS' || tipoNumero === 'DECIMAIS'
+    || tipoNumero === 'FRACOES') {
+    estado.tipoNumero = tipoNumero;
+  }
+  if (!tipoNumeroDisponivel(estado.operacao, estado.tipoNumero)) {
+    estado.tipoNumero = 'INTEIROS';
+  }
+  const niveisDisponiveis = niveisDificuldade(estado.operacao, estado.tipoNumero);
   if (dificuldade && niveisDisponiveis.includes(dificuldade)) {
     estado.dificuldade = dificuldade;
-  }
-  if ((tipoNumero === 'INTEIROS' || tipoNumero === 'DECIMAIS')
-    && (estado.operacao === 'SOMA'
-      || estado.operacao === 'SUBTRACAO'
-      || estado.operacao === 'MULTIPLICACAO'
-      || estado.operacao === 'DIVISAO')) {
-    estado.tipoNumero = tipoNumero;
   }
   return estado;
 }
 
 function atualizarTipoNumero(estado, el) {
-  const disponivel = estado.operacao === 'SOMA'
-    || estado.operacao === 'SUBTRACAO'
-    || estado.operacao === 'MULTIPLICACAO'
-    || estado.operacao === 'DIVISAO';
+  const disponivel = tipoNumeroDisponivel(estado.operacao, 'FRACOES');
+  if (!disponivel && estado.tipoNumero === 'FRACOES') {
+    estado.tipoNumero = 'INTEIROS';
+  }
+  const botaoFracao = el.seletorTipoNumero
+    ?.querySelector('[data-tipo-numero="FRACOES"]');
+  if (botaoFracao) {
+    botaoFracao.disabled = !disponivel;
+    botaoFracao.title = disponivel
+      ? 'Frações na adição'
+      : 'Frações disponíveis na adição';
+  }
   if (el.grupoTipoNumero) {
-    el.grupoTipoNumero.hidden = !disponivel;
+    el.grupoTipoNumero.hidden = false;
   }
   if (el.seletorTipoNumero) {
     atualizarSegmentado(el.seletorTipoNumero, estado.tipoNumero);
@@ -2526,8 +2554,12 @@ function atualizarTipoNumero(estado, el) {
 }
 
 function atualizarNiveisDificuldade(estado, el) {
-  const niveis = niveisDificuldade(estado.operacao);
-  estado.dificuldade = dificuldadePermitida(estado.dificuldade, estado.operacao);
+  const niveis = niveisDificuldade(estado.operacao, estado.tipoNumero);
+  estado.dificuldade = dificuldadePermitida(
+    estado.dificuldade,
+    estado.operacao,
+    estado.tipoNumero,
+  );
   el.seletorDificuldade.querySelectorAll('[data-dificuldade]').forEach((botao) => {
     botao.hidden = !niveis.includes(botao.dataset.dificuldade);
   });
@@ -2558,7 +2590,9 @@ function atualizarControles(estado, el) {
       return;
     }
     container.querySelectorAll('button').forEach((botao) => {
-      botao.disabled = ocupado;
+      const fracaoIndisponivel = botao.dataset?.tipoNumero === 'FRACOES'
+        && !tipoNumeroDisponivel(estado.operacao, 'FRACOES');
+      botao.disabled = ocupado || fracaoIndisponivel;
     });
   });
 
@@ -2644,15 +2678,10 @@ async function carregarQuestao(estado, el) {
   const concluirAviso = estado.avisoServidor.iniciar();
 
   try {
-    let url = API_BASE + '/proxima-questao?operacao='
+    const url = API_BASE + '/proxima-questao?operacao='
       + encodeURIComponent(estado.operacao)
-      + '&dificuldade=' + encodeURIComponent(estado.dificuldade);
-    if (estado.operacao === 'SOMA'
-      || estado.operacao === 'SUBTRACAO'
-      || estado.operacao === 'MULTIPLICACAO'
-      || estado.operacao === 'DIVISAO') {
-      url += '&tipoNumero=' + encodeURIComponent(estado.tipoNumero);
-    }
+      + '&dificuldade=' + encodeURIComponent(estado.dificuldade)
+      + '&tipoNumero=' + encodeURIComponent(estado.tipoNumero);
     const resposta = await fetch(url);
 
     if (pedido !== estado.pedido) {
@@ -5963,7 +5992,7 @@ function atualizarDica(estado, el) {
   if (!estado.questao) {
     return;
   }
-  if (estado.questao.operacao === 'FRACOES') {
+  if (ehFracao(estado.questao)) {
     el.dica.textContent = 'Some os numeradores e mantenha o mesmo denominador. As partes coloridas das barras mostram quantas partes cada fração tem.';
   } else if (estado.questao.operacao === 'SOMA') {
     el.dica.textContent = ehSomaDecimal(estado.questao)
@@ -6044,7 +6073,7 @@ async function validarResposta(estado, el) {
   const questao = estado.questao;
   let requisicao;
 
-  if (questao.operacao === 'FRACOES') {
+  if (ehFracao(questao)) {
     const numerador = lerCampoInteiro(el, '.fracao-campo-numerador');
     const denominador = lerCampoInteiro(el, '.fracao-campo-denominador');
 
@@ -6355,6 +6384,7 @@ function atualizarPlacar(estado, el, dados) {
     dados.correto,
     META_NIVEL,
     estado.questao?.operacao,
+    estado.questao?.tipoNumero,
   );
 
   estado.pontos += dados.pontosGanhos;
@@ -6405,11 +6435,11 @@ function atualizarBarraProgresso(estado, el, resolucao) {
       const rotulo = ROTULOS_DIFICULDADE[resolucao.dificuldade] ?? resolucao.dificuldade;
       el.progressoLegenda.textContent = 'Nível ' + rotulo + ' desbloqueado!';
     } else if (resolucao && resolucao.nivelMaximo) {
-      el.progressoLegenda.textContent = estado.operacao === 'FRACOES'
+      el.progressoLegenda.textContent = ehFracao(estado.questao)
         ? 'Rodada concluída! Continue praticando as frações.'
         : 'Nível máximo alcançado! Continue praticando.';
     } else {
-      el.progressoLegenda.textContent = estado.operacao === 'FRACOES'
+      el.progressoLegenda.textContent = ehFracao(estado.questao)
         ? 'Acerte ' + META_NIVEL + ' seguidas para concluir a rodada!'
         : 'Acerte ' + META_NIVEL + ' seguidas para subir de nível!';
     }
@@ -6629,6 +6659,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ehDivisaoDificil,
     ehDivisaoDecimal,
     ehFracao,
+    tipoNumeroDisponivel,
     rotuloBarraFracao,
     seletoresDicaFracao,
     seletoresDicaAtualFracao,
@@ -6720,6 +6751,7 @@ if (typeof module !== 'undefined' && module.exports) {
     aplicarPreferencias,
     atualizarTipoNumero,
     atualizarSegmentado,
+    atualizarControles,
     podeIniciarQuestao,
     podeValidarResposta,
     normalizarNomeJogador,
