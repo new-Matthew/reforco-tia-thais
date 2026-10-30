@@ -17,6 +17,8 @@ public class RequisicaoValidacaoDTO {
     private Operacao operacao;
     private Integer numeroA;
     private Integer numeroB;
+    private Integer dividendoEquivalente;
+    private Integer divisorEquivalente;
     private Integer resultadoDigitado;
     private List<Integer> vaiUm;
     private List<Integer> emprestados;

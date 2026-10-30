@@ -132,7 +132,7 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Mantém inteiros como padrão e aceita decimais na soma e subtração")
+    @DisplayName("Mantém inteiros como padrão e aceita decimais nas operações suportadas")
     void validaTipoNumeroNaGeracao() {
         QuestaoDTO questao = jogoService.gerarQuestao(Operacao.SOMA, Dificuldade.FACIL);
         assertEquals(TipoNumero.INTEIROS, questao.getTipoNumero());
@@ -145,8 +145,12 @@ class JogoServiceTest {
                 Operacao.MULTIPLICACAO, Dificuldade.FACIL, TipoNumero.DECIMAIS);
         assertEquals(TipoNumero.DECIMAIS, multiplicacao.getTipoNumero());
 
-        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
-                Operacao.DIVISAO, Dificuldade.FACIL, TipoNumero.DECIMAIS));
+        QuestaoDTO divisao = jogoService.gerarQuestao(
+                Operacao.DIVISAO, Dificuldade.FACIL, TipoNumero.DECIMAIS);
+        assertEquals(TipoNumero.DECIMAIS, divisao.getTipoNumero());
+        assertTrue(divisao.getDividendoEquivalente() > 0);
+        assertTrue(divisao.getDivisorEquivalente() > 0);
+
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
                 Operacao.SOMA, Dificuldade.FACIL, null));
     }
@@ -1119,6 +1123,128 @@ class JogoServiceTest {
         assertEquals(1, questao.getNumeroB());
         assertEquals(0, questao.getVaiUm());
         assertEquals(10, questao.getResultadoParcial());
+    }
+
+    @Test
+    @DisplayName("Gera divisões decimais nos três níveis com equivalência inteira exata")
+    void geraDivisoesDecimaisComEquivalentesInteiros() {
+        for (Dificuldade dificuldade : Dificuldade.values()) {
+            for (int i = 0; i < 200; i++) {
+                QuestaoDTO questao = jogoService.gerarQuestao(
+                        Operacao.DIVISAO, dificuldade, TipoNumero.DECIMAIS);
+
+                assertEquals(Operacao.DIVISAO, questao.getOperacao());
+                assertEquals(dificuldade, questao.getDificuldade());
+                assertEquals(TipoNumero.DECIMAIS, questao.getTipoNumero());
+                assertTrue(questao.getCasasDecimaisA() >= 1 && questao.getCasasDecimaisA() <= 2);
+                assertTrue(questao.getCasasDecimaisB() >= 1 && questao.getCasasDecimaisB() <= 2);
+                assertTrue(questao.getDividendoEquivalente() != null);
+                assertTrue(questao.getDivisorEquivalente() != null);
+                assertTrue(questao.getDivisorEquivalente() > 0);
+
+                int alvo = Math.max(questao.getCasasDecimaisA(), questao.getCasasDecimaisB());
+                int dividendoEsperado = questao.getNumeroA()
+                        * (int) Math.pow(10, alvo - questao.getCasasDecimaisA());
+                int divisorEsperado = questao.getNumeroB()
+                        * (int) Math.pow(10, alvo - questao.getCasasDecimaisB());
+
+                assertEquals(dividendoEsperado, questao.getDividendoEquivalente());
+                assertEquals(divisorEsperado, questao.getDivisorEquivalente());
+                assertEquals(dividendoEsperado / divisorEsperado, questao.getQuociente());
+                assertEquals(0, dividendoEsperado % divisorEsperado);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Valida as etapas geradas para a divisão decimal em cada nível")
+    void validaEtapasGeradasDaDivisaoDecimal() {
+        for (Dificuldade dificuldade : Dificuldade.values()) {
+            QuestaoDTO questao = jogoService.gerarQuestao(
+                    Operacao.DIVISAO, dificuldade, TipoNumero.DECIMAIS);
+            RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                    "id-etapas-decimais-" + dificuldade,
+                    Operacao.DIVISAO,
+                    questao.getNumeroA(),
+                    questao.getNumeroB(),
+                    questao.getQuociente(),
+                    null,
+                    null,
+                    null);
+            requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+            requisicao.setCasasDecimais(Math.max(
+                    questao.getCasasDecimaisA(), questao.getCasasDecimaisB()));
+            requisicao.setDividendoEquivalente(questao.getDividendoEquivalente());
+            requisicao.setDivisorEquivalente(questao.getDivisorEquivalente());
+
+            if (questao.getEtapas() == null) {
+                requisicao.setSubtracaoDigitada(questao.getSubtracaoIntermediaria());
+                requisicao.setRestoDigitado(questao.getResto());
+            } else {
+                requisicao.setQuocientesParciaisDigitados(
+                        questao.getEtapas().stream().map(EtapaDivisaoDTO::getQuociente).toList());
+                requisicao.setSubtracoesParciaisDigitadas(
+                        questao.getEtapas().stream().map(EtapaDivisaoDTO::getSubtracao).toList());
+                requisicao.setRestosParciaisDigitados(
+                        questao.getEtapas().stream().map(EtapaDivisaoDTO::getResto).toList());
+                requisicao.setRestoDigitado(
+                        questao.getEtapas().get(questao.getEtapas().size() - 1).getResto());
+            }
+
+            RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+            assertTrue(resposta.isCorreto(), "Etapas inválidas em " + dificuldade);
+        }
+    }
+
+    @Test
+    @DisplayName("Valida divisão decimal usando os números inteiros equivalentes")
+    void validaDivisaoDecimalComEquivalentes() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-decimal", Operacao.DIVISAO, 125, 5, 25,
+                null, null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(1);
+        requisicao.setDividendoEquivalente(125);
+        requisicao.setDivisorEquivalente(5);
+        requisicao.setSubtracaoDigitada(125);
+        requisicao.setRestoDigitado(0);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(25, resposta.getRespostaCorreta());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+    }
+
+    @Test
+    @DisplayName("Não formata o quociente da divisão decimal com vírgula")
+    void naoFormataQuocienteDivisaoDecimalComVirgula() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-decimal-errada", Operacao.DIVISAO, 125, 5, 24,
+                null, null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(1);
+        requisicao.setDividendoEquivalente(125);
+        requisicao.setDivisorEquivalente(5);
+
+        RespostaValidacaoDTO resposta = jogoService.validar(requisicao);
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(25, resposta.getRespostaCorreta());
+        assertTrue(resposta.getMensagem().contains("25"));
+        assertFalse(resposta.getMensagem().contains("2,5"));
+    }
+
+    @Test
+    @DisplayName("Rejeita divisão decimal sem os números equivalentes")
+    void rejeitaDivisaoDecimalSemEquivalentes() {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-div-decimal-sem-equivalente", Operacao.DIVISAO, 125, 5, 25,
+                null, null, null);
+        requisicao.setTipoNumero(TipoNumero.DECIMAIS);
+        requisicao.setCasasDecimais(1);
+
+        assertThrows(IllegalArgumentException.class, () -> jogoService.validar(requisicao));
     }
 
     @Test

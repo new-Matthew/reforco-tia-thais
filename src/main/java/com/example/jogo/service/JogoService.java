@@ -41,6 +41,7 @@ public class JogoService {
     private static final int DIVIDENDO_MAXIMO_DIFICIL = 9_999;
     private static final int DIVISOR_MINIMO_LONGO = 10;
     private static final int DIVISOR_MAXIMO_LONGO = 99;
+    private static final int DIVISOR_MAXIMO_LONGO_DIVISAO = 999;
 
     private static final int ESCALA_DECIMAL = 100;
     private static final int CASAS_DECIMAIS_MINIMAS = 1;
@@ -77,16 +78,20 @@ public class JogoService {
         if (tipoNumero == TipoNumero.DECIMAIS
                 && operacao != Operacao.SOMA
                 && operacao != Operacao.SUBTRACAO
-                && operacao != Operacao.MULTIPLICACAO) {
+                && operacao != Operacao.MULTIPLICACAO
+                && operacao != Operacao.DIVISAO) {
             throw new IllegalArgumentException(
-                    "Números decimais estão disponíveis na soma, subtração e multiplicação.");
+                    "Números decimais estão disponíveis na soma, subtração, "
+                            + "multiplicação e divisão.");
         }
 
         return switch (operacao) {
             case MULTIPLICACAO -> tipoNumero == TipoNumero.DECIMAIS
                     ? gerarMultiplicacaoDecimal(operacao, dificuldade)
                     : gerarMultiplicacao(operacao, dificuldade);
-            case DIVISAO -> gerarDivisao(operacao, dificuldade);
+            case DIVISAO -> tipoNumero == TipoNumero.DECIMAIS
+                    ? gerarDivisaoDecimal(operacao, dificuldade)
+                    : gerarDivisao(operacao, dificuldade);
             case SOMA -> tipoNumero == TipoNumero.DECIMAIS
                     ? gerarSomaDecimal(operacao, dificuldade)
                     : gerarSoma(operacao, dificuldade);
@@ -204,6 +209,20 @@ public class JogoService {
         int numeroB = requisicao.getNumeroB();
         if (numeroB == 0) {
             throw new IllegalArgumentException("O divisor não pode ser zero.");
+        }
+
+        boolean decimal = requisicao.getTipoNumero() == TipoNumero.DECIMAIS;
+        if (decimal) {
+            if (requisicao.getDividendoEquivalente() == null
+                    || requisicao.getDivisorEquivalente() == null) {
+                throw new IllegalArgumentException(
+                        "Informe os números equivalentes da divisão decimal.");
+            }
+            numeroA = requisicao.getDividendoEquivalente();
+            numeroB = requisicao.getDivisorEquivalente();
+            if (numeroB == 0) {
+                throw new IllegalArgumentException("O divisor não pode ser zero.");
+            }
         }
 
         int respostaCorreta = numeroA / numeroB;
@@ -353,7 +372,8 @@ public class JogoService {
     }
 
     private String formatarResposta(RequisicaoValidacaoDTO requisicao, int respostaCorreta) {
-        if (requisicao.getTipoNumero() != TipoNumero.DECIMAIS) {
+        if (requisicao.getTipoNumero() != TipoNumero.DECIMAIS
+                || requisicao.getOperacao() == Operacao.DIVISAO) {
             return String.valueOf(respostaCorreta);
         }
         return formatarDecimal(respostaCorreta, requisicao.getCasasDecimais());
@@ -715,6 +735,153 @@ public class JogoService {
         return questao;
     }
 
+    private QuestaoDTO gerarDivisaoDecimal(
+            Operacao operacao,
+            Dificuldade dificuldade) {
+        return gerarComTentativas(
+                "Não foi possível gerar uma divisão decimal.",
+                () -> switch (dificuldade) {
+                    case FACIL -> sortearDivisaoDecimalFacil(operacao, dificuldade);
+                    case MEDIO -> sortearDivisaoDecimalMedia(operacao, dificuldade);
+                    case DIFICIL -> sortearDivisaoDecimalDificil(operacao, dificuldade);
+                });
+    }
+
+    /*
+     * A divisão decimal é montada a partir da divisão inteira equivalente:
+     * igualamos as casas decimais e removemos as vírgulas antes de abrir a
+     * chave. Por isso os passos exibidos na lousa são sempre inteiros.
+     */
+    private QuestaoDTO sortearDivisaoDecimalFacil(
+            Operacao operacao,
+            Dificuldade dificuldade) {
+        int divisor = sortear(DIVISOR_MINIMO_FACIL, DIVISOR_MAXIMO_FACIL);
+        int quociente = sortear(DIVISOR_MINIMO_FACIL, DIVISOR_MAXIMO_FACIL);
+        int dividendo = divisor * quociente;
+
+        if (!dentroDosLimites(dividendo, Dificuldade.FACIL)) {
+            return null;
+        }
+
+        int casas = CASAS_DECIMAIS_MINIMAS;
+        QuestaoDTO questao = montarQuestaoDivisaoExata(
+                operacao, dificuldade, dividendo, divisor, quociente);
+        aplicarMetadadosDivisaoDecimal(
+                questao, dividendo, divisor, casas, casas, dividendo, divisor);
+        return questao;
+    }
+
+    private QuestaoDTO sortearDivisaoDecimalMedia(
+            Operacao operacao,
+            Dificuldade dificuldade) {
+        int quociente = sortear(MENOR_FATOR_DUAS_CASAS, MAIOR_FATOR_DUAS_CASAS);
+        if (quociente % 10 == 0) {
+            return null;
+        }
+
+        int divisorMinimo = Math.max(
+                DIVISOR_MINIMO_LONGO,
+                (DIVIDENDO_MINIMO_LONGO + quociente - 1) / quociente);
+        int divisorMaximo = Math.min(
+                DIVISOR_MAXIMO_LONGO,
+                DIVIDENDO_MAXIMO_LONGO / quociente);
+        if (divisorMinimo > divisorMaximo) {
+            return null;
+        }
+
+        int divisorEquivalente = sortear(divisorMinimo, divisorMaximo);
+        int dividendoEquivalente = divisorEquivalente * quociente;
+        List<EtapaDivisaoDTO> etapas = calcularEtapasDivisaoLonga(
+                dividendoEquivalente, divisorEquivalente);
+        if (etapas.size() != 2) {
+            return null;
+        }
+
+        int casas = CASAS_DECIMAIS_MINIMAS;
+        QuestaoDTO questao = montarQuestaoDivisaoLonga(
+                operacao,
+                dificuldade,
+                dividendoEquivalente,
+                divisorEquivalente,
+                quociente,
+                etapas);
+        aplicarMetadadosDivisaoDecimal(
+                questao,
+                dividendoEquivalente,
+                divisorEquivalente,
+                casas,
+                casas,
+                dividendoEquivalente,
+                divisorEquivalente);
+        return questao;
+    }
+
+    private QuestaoDTO sortearDivisaoDecimalDificil(
+            Operacao operacao,
+            Dificuldade dificuldade) {
+        int casasA = CASAS_DECIMAIS_MAXIMAS;
+        boolean acrescentarZero = random.nextBoolean();
+        int casasB = acrescentarZero
+                ? CASAS_DECIMAIS_MINIMAS
+                : CASAS_DECIMAIS_MAXIMAS;
+        int divisorEquivalente = acrescentarZero
+                ? sortear(1, DIVISOR_MAXIMO_FACIL) * 10
+                : sortear(DIVISOR_MINIMO_LONGO, DIVISOR_MAXIMO_LONGO);
+        int quociente = sortear(MENOR_FATOR_DUAS_CASAS, MAIOR_FATOR_DUAS_CASAS);
+        int dividendoEquivalente = divisorEquivalente * quociente;
+
+        if (quociente % 10 == 0
+                || dividendoEquivalente < DIVIDENDO_MINIMO_DIFICIL
+                || dividendoEquivalente > DIVIDENDO_MAXIMO_DIFICIL) {
+            return null;
+        }
+
+        List<EtapaDivisaoDTO> etapas = calcularEtapasDivisaoLonga(
+                dividendoEquivalente, divisorEquivalente);
+        boolean etapasValidas = etapas.size() >= 2
+                && etapas.stream().allMatch(etapa -> etapa.getQuociente() > 0);
+        if (!etapasValidas) {
+            return null;
+        }
+
+        int numeroA = dividendoEquivalente;
+        int numeroB = divisorEquivalente
+                / potenciaDeDez(casasA - casasB);
+        QuestaoDTO questao = montarQuestaoDivisaoLonga(
+                operacao,
+                dificuldade,
+                dividendoEquivalente,
+                divisorEquivalente,
+                quociente,
+                etapas);
+        aplicarMetadadosDivisaoDecimal(
+                questao,
+                numeroA,
+                numeroB,
+                casasA,
+                casasB,
+                dividendoEquivalente,
+                divisorEquivalente);
+        return questao;
+    }
+
+    private void aplicarMetadadosDivisaoDecimal(
+            QuestaoDTO questao,
+            int numeroA,
+            int numeroB,
+            int casasDecimaisA,
+            int casasDecimaisB,
+            int dividendoEquivalente,
+            int divisorEquivalente) {
+        questao.setTipoNumero(TipoNumero.DECIMAIS);
+        questao.setNumeroA(numeroA);
+        questao.setNumeroB(numeroB);
+        questao.setCasasDecimaisA(casasDecimaisA);
+        questao.setCasasDecimaisB(casasDecimaisB);
+        questao.setDividendoEquivalente(dividendoEquivalente);
+        questao.setDivisorEquivalente(divisorEquivalente);
+    }
+
     /*
      * Repete o sorteio até a tentativa montar uma questão válida. Devolver
      * `null` sinaliza que os números sorteados não atendem aos critérios do
@@ -742,7 +909,7 @@ public class JogoService {
         return dividendo >= DIVIDENDO_MINIMO_LONGO
                 && dividendo <= DIVIDENDO_MAXIMO_DIFICIL
                 && divisor >= DIVISOR_MINIMO_LONGO
-                && divisor <= DIVISOR_MAXIMO_LONGO
+                && divisor <= DIVISOR_MAXIMO_LONGO_DIVISAO
                 && dividendo / divisor >= MENOR_FATOR_DUAS_CASAS;
     }
 
@@ -828,6 +995,24 @@ public class JogoService {
             throw new IllegalArgumentException("O resultado digitado é obrigatório.");
         }
         if (requisicao.getTipoNumero() == TipoNumero.DECIMAIS) {
+            int casasDecimais = requisicao.getCasasDecimais() == null
+                    ? -1
+                    : requisicao.getCasasDecimais();
+            if (requisicao.getOperacao() == Operacao.DIVISAO) {
+                if (casasDecimais < CASAS_DECIMAIS_MINIMAS
+                        || casasDecimais > CASAS_DECIMAIS_MAXIMAS) {
+                    throw new IllegalArgumentException(
+                            "A quantidade de casas decimais deve ser 1 ou 2.");
+                }
+                if (requisicao.getDividendoEquivalente() == null
+                        || requisicao.getDivisorEquivalente() == null
+                        || requisicao.getDividendoEquivalente() <= 0
+                        || requisicao.getDivisorEquivalente() <= 0) {
+                    throw new IllegalArgumentException(
+                            "Informe os números equivalentes da divisão decimal.");
+                }
+                return;
+            }
             if (requisicao.getOperacao() != Operacao.SOMA
                     && requisicao.getOperacao() != Operacao.SUBTRACAO
                     && requisicao.getOperacao() != Operacao.MULTIPLICACAO) {
@@ -836,9 +1021,6 @@ public class JogoService {
                                 + "subtração e multiplicação.");
             }
             boolean multiplicacao = requisicao.getOperacao() == Operacao.MULTIPLICACAO;
-            int casasDecimais = requisicao.getCasasDecimais() == null
-                    ? -1
-                    : requisicao.getCasasDecimais();
             int limiteCasas = multiplicacao
                     ? CASAS_DECIMAIS_MAXIMAS + 1
                     : CASAS_DECIMAIS_MAXIMAS;

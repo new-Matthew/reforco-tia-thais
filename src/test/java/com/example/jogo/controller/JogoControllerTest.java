@@ -132,13 +132,20 @@ class JogoControllerTest {
     }
 
     @Test
-    @DisplayName("Rejeita números decimais fora das operações suportadas")
-    void rejeitaDecimaisForaDasOperacoesSuportadas() throws Exception {
+    @DisplayName("Retorna uma divisão decimal com casas e equivalentes inteiros")
+    void retornaQuestaoDeDivisaoDecimal() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
                         .param("operacao", "DIVISAO")
-                        .param("dificuldade", "FACIL")
+                        .param("dificuldade", "MEDIO")
                         .param("tipoNumero", "DECIMAIS"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("DIVISAO"))
+                .andExpect(jsonPath("$.dificuldade").value("MEDIO"))
+                .andExpect(jsonPath("$.tipoNumero").value("DECIMAIS"))
+                .andExpect(jsonPath("$.casasDecimaisA").isNumber())
+                .andExpect(jsonPath("$.casasDecimaisB").isNumber())
+                .andExpect(jsonPath("$.dividendoEquivalente").isNumber())
+                .andExpect(jsonPath("$.divisorEquivalente").isNumber());
     }
 
     @Test
@@ -211,6 +218,33 @@ class JogoControllerTest {
                 .andExpect(jsonPath("$.correto").value(true))
                 .andExpect(jsonPath("$.pontosGanhos").value(10))
                 .andExpect(jsonPath("$.respostaCorreta").value(850));
+    }
+
+    @Test
+    @DisplayName("Valida uma divisão decimal pelos números inteiros equivalentes")
+    void validaDivisaoDecimal() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "DIVISAO",
+                  "numeroA": 125,
+                  "numeroB": 5,
+                  "resultadoDigitado": 25,
+                  "tipoNumero": "DECIMAIS",
+                  "casasDecimais": 1,
+                  "dividendoEquivalente": 125,
+                  "divisorEquivalente": 5,
+                  "subtracaoDigitada": 125,
+                  "restoDigitado": 0
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(25));
     }
 
     @Test
