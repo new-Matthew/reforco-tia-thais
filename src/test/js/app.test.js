@@ -57,7 +57,11 @@ const {
   denominadorComumFracoes,
   fracoesEquivalentes,
   normalizarInteiroFracao,
-  listasMultiplosFracao,
+  ehPrimoFracao,
+  fatorPrimoDivideValoresFracao,
+  proximaLinhaFatoracaoFracao,
+  fatoracaoFracaoConcluida,
+  produtoFatoresFracao,
   seletorCampoConversaoFracaoMedia,
   lerConversoesFracaoMedia,
   avaliarConversoesFracaoMedia,
@@ -1246,7 +1250,7 @@ test('dica da fração média prioriza o denominador comum', () => {
       { questao, questaoRespondida: false },
       criarEl('', '', ''),
     ),
-    ['.fracao-campo-comum', '.fracao-barra-comum'],
+    ['.fracao-fatoracao-linha.ativa .fracao-fator-primo'],
   );
   assert.deepEqual(
     seletoresDicaAtualFracaoMedia(
@@ -1313,22 +1317,48 @@ test('dica da fração média prioriza o denominador comum', () => {
   );
 });
 
-test('listasMultiplosFracao mostra os múltiplos até depois do MMC', () => {
-  assert.deepEqual(listasMultiplosFracao(3, 4), {
-    comum: 12,
-    multiplosA: [3, 6, 9, 12, 15],
-    multiplosB: [4, 8, 12, 16],
+test('fatoração simultânea repete números não divisíveis e calcula o MMC', () => {
+  assert.equal(ehPrimoFracao(2), true);
+  assert.equal(ehPrimoFracao(3), true);
+  assert.equal(ehPrimoFracao(11), true);
+  assert.equal(ehPrimoFracao(1), false);
+  assert.equal(ehPrimoFracao(4), false);
+  assert.equal(ehPrimoFracao(9), false);
+
+  assert.equal(fatorPrimoDivideValoresFracao([21, 4], 2), true);
+  assert.equal(fatorPrimoDivideValoresFracao([21, 1], 2), false);
+  assert.equal(fatorPrimoDivideValoresFracao([21, 1], 3), true);
+  assert.equal(fatorPrimoDivideValoresFracao([21, 1], 4), false);
+
+  assert.deepEqual(proximaLinhaFatoracaoFracao([48, 84], 2), [24, 42]);
+  assert.deepEqual(proximaLinhaFatoracaoFracao([21, 4], 2), [21, 2]);
+  assert.deepEqual(proximaLinhaFatoracaoFracao([1, 7], 7), [1, 1]);
+
+  let valores = [48, 84];
+  const fatores = [];
+  const passos = [
+    [2, [24, 42]],
+    [2, [12, 21]],
+    [2, [6, 21]],
+    [2, [3, 21]],
+    [3, [1, 7]],
+    [7, [1, 1]],
+  ];
+  passos.forEach(([fator, esperado]) => {
+    assert.equal(fatorPrimoDivideValoresFracao(valores, fator), true);
+    valores = proximaLinhaFatoracaoFracao(valores, fator);
+    fatores.push(fator);
+    assert.deepEqual(valores, esperado);
   });
-  assert.deepEqual(listasMultiplosFracao(2, 10), {
-    comum: 10,
-    multiplosA: [2, 4, 6, 8, 10, 12],
-    multiplosB: [10, 20],
-  });
-  assert.deepEqual(listasMultiplosFracao(0, 5), {
-    comum: 0,
-    multiplosA: [],
-    multiplosB: [],
-  });
+  assert.equal(fatoracaoFracaoConcluida(valores), true);
+  assert.equal(fatoracaoFracaoConcluida([1, 2]), false);
+  assert.equal(produtoFatoresFracao(fatores), 336);
+});
+
+test('produtoFatoresFracao ignora fatores inválidos e lida com lista vazia', () => {
+  assert.equal(produtoFatoresFracao([]), 1);
+  assert.equal(produtoFatoresFracao([2, null, 3]), 6);
+  assert.equal(produtoFatoresFracao([2, 1, 5]), 10);
 });
 
 test('avaliarConversoesFracaoMedia encontra o próximo campo pendente', () => {
@@ -1695,8 +1725,11 @@ test('estilos das frações usam o tema turquesa e o bloco vertical', () => {
   assert.match(css, /\.fracao-equivalente/);
   assert.match(css, /\.fracao-barra-equivalente/);
   assert.match(css, /\.fracao-caderno/);
-  assert.match(css, /\.fracao-mmc-listas/);
-  assert.match(css, /\.fracao-multiplo-mmc/);
+  assert.match(css, /\.fracao-fatoracao-linha/);
+  assert.match(css, /\.fracao-fatoracao-barra/);
+  assert.match(css, /\.fracao-fator-primo/);
+  assert.match(css, /\.fracao-mmc-resultado/);
+  assert.match(css, /\.fracao-mmc-injetado/);
   assert.match(css, /\.fracao-rascunho/);
   assert.match(css, /\.fracao-etapa-painel\.bloqueada/);
   assert.match(css, /\.fracao-etapa\.ativa\s*\{[^}]*var\(--dica-ambar\)/s);
