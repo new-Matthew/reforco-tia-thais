@@ -56,6 +56,12 @@ const {
   calcularMmcFracao,
   denominadorComumFracoes,
   fracoesEquivalentes,
+  normalizarInteiroFracao,
+  listasMultiplosFracao,
+  seletorCampoConversaoFracaoMedia,
+  lerConversoesFracaoMedia,
+  avaliarConversoesFracaoMedia,
+  descreverConversaoFracaoMedia,
   tipoNumeroDisponivel,
   rotuloBarraFracao,
   seletoresDicaFracao,
@@ -1212,7 +1218,7 @@ test('dica da fração média prioriza o denominador comum', () => {
     denominadorB: 4,
     denominadorComum: 4,
   };
-  const criarEl = (comum, numerador, denominador) => ({
+  const criarEl = (comum, numerador, denominador, conversoes = {}) => ({
     conta: {
       querySelector(seletor) {
         if (seletor === '.fracao-campo-comum') {
@@ -1223,6 +1229,12 @@ test('dica da fração média prioriza o denominador comum', () => {
         }
         if (seletor === '.fracao-campo-denominador') {
           return { value: denominador };
+        }
+        const conversao = seletor.match(
+          /^\.fracao-conversao-(fator|numerador)\[data-fracao="(A|B)"\]$/,
+        );
+        if (conversao) {
+          return { value: conversoes[conversao[2]]?.[conversao[1]] ?? '' };
         }
         return null;
       },
@@ -1241,28 +1253,235 @@ test('dica da fração média prioriza o denominador comum', () => {
       { questao, questaoRespondida: false },
       criarEl('4', '', ''),
     ),
-    ['.fracao-campo-numerador', '.fracao-barra-resultado'],
+    ['.fracao-conversao-fator[data-fracao="A"]'],
   );
   assert.deepEqual(
     seletoresDicaAtualFracaoMedia(
       { questao, questaoRespondida: false },
-      criarEl('4', '3', ''),
+      criarEl('4', '', '', { A: { fator: '2' } }),
+    ),
+    ['.fracao-conversao-numerador[data-fracao="A"]'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracaoMedia(
+      { questao, questaoRespondida: false },
+      criarEl('4', '', '', { A: { fator: '2', numerador: '2' } }),
+    ),
+    ['.fracao-conversao-fator[data-fracao="B"]'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracaoMedia(
+      { questao, questaoRespondida: false },
+      criarEl('4', '', '', {
+        A: { fator: '2', numerador: '2' },
+        B: { fator: '1' },
+      }),
+    ),
+    ['.fracao-conversao-numerador[data-fracao="B"]'],
+  );
+  const conversoesCompletas = {
+    A: { fator: '2', numerador: '2' },
+    B: { fator: '1', numerador: '1' },
+  };
+  assert.deepEqual(
+    seletoresDicaAtualFracaoMedia(
+      { questao, questaoRespondida: false },
+      criarEl('4', '', '', conversoesCompletas),
+    ),
+    ['.fracao-campo-numerador', '.fracao-barra-resultado'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracaoMedia(
+      { questao, questaoRespondida: true },
+      criarEl('4', '2', '4', conversoesCompletas),
+    ),
+    ['.fracao-campo-numerador', '.fracao-barra-resultado'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracaoMedia(
+      { questao, questaoRespondida: true },
+      criarEl('4', '3', '5', conversoesCompletas),
     ),
     ['.fracao-campo-denominador', '.fracao-barra-resultado'],
   );
   assert.deepEqual(
     seletoresDicaAtualFracaoMedia(
       { questao, questaoRespondida: true },
-      criarEl('4', '3', '5'),
-    ),
-    ['.fracao-campo-denominador', '.fracao-barra-resultado'],
-  );
-  assert.deepEqual(
-    seletoresDicaAtualFracaoMedia(
-      { questao, questaoRespondida: true },
-      criarEl('4', '3', '4'),
+      criarEl('4', '3', '4', conversoesCompletas),
     ),
     [],
+  );
+});
+
+test('listasMultiplosFracao mostra os múltiplos até depois do MMC', () => {
+  assert.deepEqual(listasMultiplosFracao(3, 4), {
+    comum: 12,
+    multiplosA: [3, 6, 9, 12, 15],
+    multiplosB: [4, 8, 12, 16],
+  });
+  assert.deepEqual(listasMultiplosFracao(2, 10), {
+    comum: 10,
+    multiplosA: [2, 4, 6, 8, 10, 12],
+    multiplosB: [10, 20],
+  });
+  assert.deepEqual(listasMultiplosFracao(0, 5), {
+    comum: 0,
+    multiplosA: [],
+    multiplosB: [],
+  });
+});
+
+test('avaliarConversoesFracaoMedia encontra o próximo campo pendente', () => {
+  const equivalentes = {
+    denominadorComum: 12,
+    fatorA: 4,
+    fatorB: 3,
+    numeradorEquivalenteA: 8,
+    numeradorEquivalenteB: 3,
+    numeradorSoma: 11,
+  };
+
+  assert.deepEqual(avaliarConversoesFracaoMedia(equivalentes, {}), {
+    cartoes: [
+      {
+        fracao: 'A',
+        fator: null,
+        numerador: null,
+        fatorEsperado: 4,
+        numeradorEsperado: 8,
+        fatorCorreto: false,
+        numeradorCorreto: false,
+        completa: false,
+      },
+      {
+        fracao: 'B',
+        fator: null,
+        numerador: null,
+        fatorEsperado: 3,
+        numeradorEsperado: 3,
+        fatorCorreto: false,
+        numeradorCorreto: false,
+        completa: false,
+      },
+    ],
+    completa: false,
+    pendente: { fracao: 'A', campo: 'fator' },
+  });
+
+  assert.equal(
+    avaliarConversoesFracaoMedia(equivalentes, { A: { fator: '4' } }).pendente.campo,
+    'numerador',
+  );
+  assert.equal(
+    avaliarConversoesFracaoMedia(equivalentes, {
+      A: { fator: '4', numerador: '8' },
+    }).pendente.fracao,
+    'B',
+  );
+  assert.deepEqual(
+    avaliarConversoesFracaoMedia(equivalentes, {
+      A: { fator: '4', numerador: '8' },
+      B: { fator: '3', numerador: '3' },
+    }),
+    {
+      cartoes: [
+        {
+          fracao: 'A',
+          fator: 4,
+          numerador: 8,
+          fatorEsperado: 4,
+          numeradorEsperado: 8,
+          fatorCorreto: true,
+          numeradorCorreto: true,
+          completa: true,
+        },
+        {
+          fracao: 'B',
+          fator: 3,
+          numerador: 3,
+          fatorEsperado: 3,
+          numeradorEsperado: 3,
+          fatorCorreto: true,
+          numeradorCorreto: true,
+          completa: true,
+        },
+      ],
+      completa: true,
+      pendente: null,
+    },
+  );
+  assert.deepEqual(avaliarConversoesFracaoMedia(null, {}), {
+    cartoes: [],
+    completa: false,
+    pendente: null,
+  });
+});
+
+test('descreverConversaoFracaoMedia orienta cada tentativa', () => {
+  assert.equal(
+    descreverConversaoFracaoMedia(
+      { completa: false, fator: null, fatorCorreto: false, numerador: null },
+      12,
+      2,
+      3,
+    ),
+    'Comece dividindo 12 por 3.',
+  );
+  assert.equal(
+    descreverConversaoFracaoMedia(
+      { completa: false, fator: 5, fatorCorreto: false, numerador: null },
+      12,
+      2,
+      3,
+    ),
+    'Ainda não. Quantas vezes 3 cabe em 12?',
+  );
+  assert.equal(
+    descreverConversaoFracaoMedia(
+      { completa: false, fator: 4, fatorCorreto: true, numerador: null },
+      12,
+      2,
+      3,
+    ),
+    'Boa! Agora multiplique 4 por 2.',
+  );
+  assert.equal(
+    descreverConversaoFracaoMedia(
+      {
+        completa: false,
+        fator: 4,
+        fatorCorreto: true,
+        numerador: 6,
+        numeradorCorreto: false,
+      },
+      12,
+      2,
+      3,
+    ),
+    'Confira a multiplicação: 4 × 2.',
+  );
+  assert.equal(
+    descreverConversaoFracaoMedia(
+      {
+        completa: true,
+        fatorEsperado: 4,
+        numeradorEsperado: 8,
+      },
+      12,
+      2,
+      3,
+    ),
+    'Isso! 12 ÷ 3 = 4 e 4 × 2 = 8.',
+  );
+});
+
+test('normalizarInteiroFracao e o seletor dos campos de conversão', () => {
+  assert.equal(normalizarInteiroFracao(' 12 '), 12);
+  assert.equal(normalizarInteiroFracao(''), null);
+  assert.equal(normalizarInteiroFracao('2,5'), null);
+  assert.equal(
+    seletorCampoConversaoFracaoMedia('A', 'fator'),
+    '.fracao-conversao-fator[data-fracao="A"]',
   );
 });
 
@@ -1475,6 +1694,12 @@ test('estilos das frações usam o tema turquesa e o bloco vertical', () => {
   assert.match(css, /\.fracao-campo-comum/);
   assert.match(css, /\.fracao-equivalente/);
   assert.match(css, /\.fracao-barra-equivalente/);
+  assert.match(css, /\.fracao-caderno/);
+  assert.match(css, /\.fracao-mmc-listas/);
+  assert.match(css, /\.fracao-multiplo-mmc/);
+  assert.match(css, /\.fracao-rascunho/);
+  assert.match(css, /\.fracao-etapa-painel\.bloqueada/);
+  assert.match(css, /\.fracao-etapa\.ativa\s*\{[^}]*var\(--dica-ambar\)/s);
 });
 
 test('estilos da multiplicação decimal reservam vírgula e controle próprio', () => {
