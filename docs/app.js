@@ -4570,16 +4570,62 @@ function criarBlocoFracao(numerador, denominador, resposta) {
   return bloco;
 }
 
-function configurarCampoFracao(campo, aoEnter) {
+const ATRASO_AUTOAVANCO_FRACAO = 800;
+
+function configurarCampoFracao(campo, aoEnter, opcoes = {}) {
+  const agendar = opcoes.agendar
+    ?? ((fn, atraso) => window.setTimeout(fn, atraso));
+  const cancelar = opcoes.cancelar
+    ?? ((id) => window.clearTimeout(id));
+  const atraso = Number.isFinite(opcoes.atraso)
+    ? opcoes.atraso
+    : ATRASO_AUTOAVANCO_FRACAO;
+  const aoAvancar = opcoes.aoAvancar;
+  let temporizador = null;
+
+  const cancelarAvanco = () => {
+    if (temporizador !== null) {
+      cancelar(temporizador);
+      temporizador = null;
+    }
+  };
+
   campo.addEventListener('input', () => {
     campo.value = campo.value.replace(/\D/g, '').slice(0, Number(campo.maxLength));
+    cancelarAvanco();
+    if (campo.value === '' || typeof aoAvancar !== 'function') {
+      return;
+    }
+    temporizador = agendar(() => {
+      temporizador = null;
+      aoAvancar();
+    }, atraso);
   });
   campo.addEventListener('keydown', (evento) => {
     if (evento.key !== 'Enter') {
       return;
     }
     evento.preventDefault();
+    cancelarAvanco();
     aoEnter();
+  });
+  campo.addEventListener('blur', cancelarAvanco);
+  campo.addEventListener('focus', cancelarAvanco);
+}
+
+/*
+- Liga os dois campos da resposta em ciclo: ao terminar de digitar o numerador
+- o foco segue para o denominador e, ao terminar o denominador, volta para o
+- numerador. O Enter continua validando a resposta a partir do denominador.
+ */
+function configurarCamposFracaoResposta(campoNumerador, campoDenominador, aoValidar, opcoes = {}) {
+  configurarCampoFracao(campoNumerador, () => campoDenominador?.focus(), {
+    ...opcoes,
+    aoAvancar: () => campoDenominador?.focus(),
+  });
+  configurarCampoFracao(campoDenominador, aoValidar, {
+    ...opcoes,
+    aoAvancar: () => campoNumerador?.focus(),
   });
 }
 
@@ -4654,8 +4700,7 @@ function renderFracao(estado, el) {
 
   const campoNumerador = el.conta.querySelector('.fracao-campo-numerador');
   const campoDenominador = el.conta.querySelector('.fracao-campo-denominador');
-  configurarCampoFracao(campoNumerador, () => campoDenominador.focus());
-  configurarCampoFracao(campoDenominador, () => {
+  configurarCamposFracaoResposta(campoNumerador, campoDenominador, () => {
     if (!el.btnValidar.disabled) {
       el.btnValidar.click();
     }
@@ -4890,10 +4935,15 @@ function renderFracaoMedia(estado, el) {
       return;
     }
     campoComum.focus();
+  }, {
+    aoAvancar: () => {
+      if (Number(campoComum.value) === comum) {
+        campoNumerador?.focus();
+      }
+    },
   });
   campoComum.addEventListener('input', atualizarEtapas);
-  configurarCampoFracao(campoNumerador, () => campoDenominador?.focus());
-  configurarCampoFracao(campoDenominador, () => {
+  configurarCamposFracaoResposta(campoNumerador, campoDenominador, () => {
     if (!el.btnValidar.disabled) {
       el.btnValidar.click();
     }
@@ -7235,6 +7285,9 @@ if (typeof module !== 'undefined' && module.exports) {
     ordemFocoSoma,
     proximaColunaResultadoADireita,
     configurarEntradaResultado,
+    configurarCampoFracao,
+    configurarCamposFracaoResposta,
+    ATRASO_AUTOAVANCO_FRACAO,
     proximoItemOrdem,
     itemAnteriorOrdem,
     chaveAlvoFoco,
