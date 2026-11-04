@@ -23,6 +23,11 @@ public class QuestaoDTO {
     private int numeroA;
     private int numeroB;
     private Integer denominador;
+    private Integer denominadorA;
+    private Integer denominadorB;
+    private Integer denominadorComum;
+    private Integer numeradorEquivalenteA;
+    private Integer numeradorEquivalenteB;
     private Integer dividendoEquivalente;
     private Integer divisorEquivalente;
     private Integer vaiUm;

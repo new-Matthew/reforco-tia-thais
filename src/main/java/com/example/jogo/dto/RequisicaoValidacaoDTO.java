@@ -18,6 +18,9 @@ public class RequisicaoValidacaoDTO {
     private Integer numeroA;
     private Integer numeroB;
     private Integer denominador;
+    private Integer denominadorA;
+    private Integer denominadorB;
+    private Integer denominadorComum;
     private Integer denominadorResultado;
     private Integer dividendoEquivalente;
     private Integer divisorEquivalente;
