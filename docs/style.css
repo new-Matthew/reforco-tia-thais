@@ -2661,6 +2661,234 @@ body[data-tema="laranja"] .apoio-mais {
   }
 }
 
+/* ------------------- Frações: soma com denominadores diferentes -------- */
+
+.conta.conta-fracao-media {
+  width: min(100%, 900px);
+}
+
+.fracao-lousa-media {
+  gap: 18px;
+}
+
+.fracao-etapas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.fracao-etapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 2px solid var(--tema-borda);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #4a607a;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.fracao-etapa.ativa {
+  border-color: var(--tema-cor);
+  background: color-mix(in srgb, var(--tema-cor-clara) 26%, #ffffff);
+  color: var(--tema-texto);
+  box-shadow: 0 0 0 3px var(--tema-foco);
+}
+
+.fracao-etapa.concluida {
+  border-color: var(--tema-cor-escura);
+  background: var(--tema-cor);
+  color: #ffffff;
+}
+
+.fracao-etapa-numero {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: rgba(6, 182, 212, 0.16);
+  font-size: 0.8rem;
+}
+
+.fracao-etapa.ativa .fracao-etapa-numero {
+  background: var(--tema-cor);
+  color: #ffffff;
+}
+
+.fracao-etapa.concluida .fracao-etapa-numero {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.fracao-etapa-painel {
+  display: grid;
+  gap: 14px;
+  padding: clamp(14px, 2.6vw, 20px);
+  border: 3px solid var(--tema-borda);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.fracao-etapa-painel-2 {
+  border-color: var(--tema-cor);
+  background:
+    radial-gradient(circle at 88% 10%, var(--tema-halo), transparent 38%),
+    rgba(255, 255, 255, 0.84);
+}
+
+.fracao-etapa-instrucao {
+  margin: 0;
+  color: var(--tema-texto);
+  font-size: clamp(0.95rem, 2vw, 1.08rem);
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.fracao-exercicio-media,
+.fracao-exercicio-final {
+  align-items: flex-start;
+}
+
+.fracao-comum {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 2px dashed var(--tema-cor);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tema-cor-clara) 18%, #ffffff);
+}
+
+.fracao-comum-rotulo {
+  color: var(--tema-cor-escura);
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.fracao-comum-controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.fracao-campo-comum {
+  width: clamp(64px, 14vw, 96px);
+  height: auto;
+  min-height: 46px;
+}
+
+.fracao-comum-barra {
+  display: flex;
+  justify-content: center;
+  width: clamp(120px, 30vw, 220px);
+}
+
+.fracao-barra.fracao-barra-comum {
+  max-width: 220px;
+}
+
+.fracao-comum-status {
+  margin: 0;
+  color: #4a607a;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.fracao-comum-status.correto {
+  color: var(--tema-cor-escura);
+}
+
+.fracao-comum-status.incorreto {
+  color: #b45309;
+}
+
+.fracao-equivalentes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+
+.fracao-equivalente {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid var(--tema-borda);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.fracao-equivalente-antes,
+.fracao-equivalente-depois {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.fracao-equivalente-fator {
+  padding: 4px 9px;
+  border: 2px solid var(--tema-cor);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tema-cor-clara) 26%, #ffffff);
+  color: var(--tema-cor-escura);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.fracao-barra.fracao-barra-equivalente {
+  max-width: 170px;
+}
+
+.fracao-etapa-painel-3 .fracao-nota {
+  text-align: center;
+}
+
+@media (max-width: 620px) {
+  .fracao-equivalente {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .fracao-etapa {
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .fracao-etapas {
+    gap: 6px;
+  }
+
+  .fracao-etapa {
+    padding: 6px 9px;
+    font-size: 0.72rem;
+  }
+
+  .fracao-etapa-numero {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .fracao-etapa-painel {
+    padding: 12px 8px;
+  }
+
+  .fracao-comum-barra {
+    width: 100%;
+  }
+}
+
 /* --------------------- Dica progressiva (pulsante) ---------------------- */
 
 .celula-digito.dica-ativa,
