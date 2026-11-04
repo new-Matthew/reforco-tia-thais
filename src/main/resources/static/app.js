@@ -1684,26 +1684,59 @@ function normalizarInteiroFracao(valor) {
   return Number.isInteger(numero) ? numero : null;
 }
 
-/*
-- Monta as listas de múltiplos usadas no rascunho do MMC. Cada lista vai até
-- um múltiplo depois do MMC para a criança perceber que a sequência continua.
- */
-function listasMultiplosFracao(denominadorA, denominadorB) {
-  const a = Math.max(0, Math.trunc(Number(denominadorA) || 0));
-  const b = Math.max(0, Math.trunc(Number(denominadorB) || 0));
-  if (a <= 0 || b <= 0) {
-    return { comum: 0, multiplosA: [], multiplosB: [] };
+function ehPrimoFracao(valor) {
+  const numero = normalizarInteiroFracao(valor);
+  if (numero === null || numero < 2) {
+    return false;
   }
-  const comum = calcularMmcFracao(a, b);
-  const listar = (denominador) => {
-    const itens = [];
-    const limite = comum + denominador;
-    for (let valor = denominador; valor <= limite; valor += denominador) {
-      itens.push(valor);
+  if (numero === 2) {
+    return true;
+  }
+  if (numero % 2 === 0) {
+    return false;
+  }
+  const limite = Math.floor(Math.sqrt(numero));
+  for (let divisor = 3; divisor <= limite; divisor += 2) {
+    if (numero % divisor === 0) {
+      return false;
     }
-    return itens;
-  };
-  return { comum, multiplosA: listar(a), multiplosB: listar(b) };
+  }
+  return true;
+}
+
+function fatorPrimoDivideValoresFracao(valores, fator) {
+  const numero = normalizarInteiroFracao(fator);
+  if (!ehPrimoFracao(numero)) {
+    return false;
+  }
+  return (Array.isArray(valores) ? valores : []).some((valor) => {
+    const atual = normalizarInteiroFracao(valor);
+    return atual !== null && atual > 1 && atual % numero === 0;
+  });
+}
+
+function proximaLinhaFatoracaoFracao(valores, fator) {
+  const divisor = normalizarInteiroFracao(fator);
+  if (divisor === null || divisor < 2) {
+    return (Array.isArray(valores) ? valores : [])
+      .map((valor) => Math.max(1, Math.trunc(Number(valor) || 1)));
+  }
+  return (Array.isArray(valores) ? valores : []).map((valor) => {
+    const atual = Math.max(1, Math.trunc(Number(valor) || 1));
+    return atual % divisor === 0 ? atual / divisor : atual;
+  });
+}
+
+function fatoracaoFracaoConcluida(valores) {
+  const lista = Array.isArray(valores) ? valores : [];
+  return lista.length > 0 && lista.every((valor) => Number(valor) === 1);
+}
+
+function produtoFatoresFracao(fatores) {
+  return (Array.isArray(fatores) ? fatores : []).reduce((produto, fator) => {
+    const numero = normalizarInteiroFracao(fator);
+    return numero === null || numero < 2 ? produto : produto * numero;
+  }, 1);
 }
 
 function seletorCampoConversaoFracaoMedia(fracao, campo) {
@@ -1847,8 +1880,8 @@ function seletoresDicaAtualFracao(estado, el) {
 
 function seletoresDicaFracaoMedia(alvo) {
   const mapa = {
-    denominadorComum: ['.fracao-campo-comum', '.fracao-barra-comum'],
-    denominadorComumErro: ['.fracao-campo-comum', '.fracao-barra-comum'],
+    denominadorComum: ['.fracao-fatoracao-linha.ativa .fracao-fator-primo'],
+    denominadorComumErro: ['.fracao-fatoracao-linha.ativa .fracao-fator-primo'],
     numerador: ['.fracao-campo-numerador', '.fracao-barra-resultado'],
     denominador: ['.fracao-campo-denominador', '.fracao-barra-resultado'],
     numeradorErro: ['.fracao-campo-numerador', '.fracao-barra-resultado'],
@@ -4887,30 +4920,205 @@ function criarCabecalhoPassoFracaoMedia(numero, titulo) {
   return cabecalho;
 }
 
-function criarListaMultiplosFracao(denominador, multiplos, comum) {
-  const lista = document.createElement('div');
-  lista.className = 'fracao-mmc-lista';
-  lista.dataset.denominador = String(denominador);
-  const titulo = document.createElement('span');
-  titulo.className = 'fracao-mmc-titulo';
-  titulo.textContent = denominador + ' →';
-  const itens = document.createElement('div');
-  itens.className = 'fracao-mmc-itens';
-  multiplos.forEach((valor) => {
-    const item = document.createElement('span');
-    item.className = 'fracao-multiplo';
-    if (valor === comum) {
-      item.classList.add('fracao-multiplo-mmc');
-    }
-    item.textContent = String(valor);
-    itens.appendChild(item);
+/*
+- Tabela tradicional de fatoração simultânea: os denominadores ficam à
+- esquerda de uma barra vertical e o aluno digita o fator primo à direita.
+- Cada acerto cria automaticamente a próxima linha, repetindo os números que
+- não forem divisíveis pelo fator escolhido.
+ */
+function criarTabelaFatoracaoFracao(denominadores, aoConcluir) {
+  const raiz = document.createElement('div');
+  raiz.className = 'fracao-fatoracao';
+  raiz.setAttribute('role', 'group');
+  raiz.setAttribute('aria-label', 'Fatoração simultânea dos denominadores');
+
+  const instrucao = document.createElement('p');
+  instrucao.className = 'fracao-fatoracao-instrucao';
+  instrucao.textContent = 'Escreva à direita da barra um fator primo que divida pelo menos um dos números.';
+
+  const linhas = document.createElement('div');
+  linhas.className = 'fracao-fatoracao-linhas';
+
+  const resultado = document.createElement('div');
+  resultado.className = 'fracao-mmc-resultado';
+  resultado.hidden = true;
+  resultado.setAttribute('role', 'status');
+
+  const status = document.createElement('p');
+  status.className = 'fracao-fatoracao-status';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+
+  const fatores = [];
+  let valores = (Array.isArray(denominadores) ? denominadores : []).map((valor) => {
+    const numero = Math.trunc(Number(valor));
+    return Number.isFinite(numero) && numero > 1 ? numero : 1;
   });
-  const reticencias = document.createElement('span');
-  reticencias.className = 'fracao-mmc-reticencias';
-  reticencias.textContent = '…';
-  itens.appendChild(reticencias);
-  lista.append(titulo, itens);
-  return lista;
+  let concluido = false;
+  let inputAtivo = null;
+
+  const definirStatus = (texto, tipo) => {
+    status.textContent = texto;
+    status.classList.toggle('correto', tipo === 'correto');
+    status.classList.toggle('incorreto', tipo === 'incorreto');
+  };
+
+  function criarLinha(numeros, ativa = false) {
+    const linha = document.createElement('div');
+    linha.className = 'fracao-fatoracao-linha' + (ativa ? ' ativa' : '');
+
+    const blocoNumeros = document.createElement('div');
+    blocoNumeros.className = 'fracao-fatoracao-numeros';
+    numeros.forEach((numero) => {
+      const celula = document.createElement('span');
+      celula.className = 'fracao-fatoracao-numero';
+      celula.textContent = String(numero);
+      blocoNumeros.appendChild(celula);
+    });
+
+    const barra = document.createElement('span');
+    barra.className = 'fracao-fatoracao-barra';
+    barra.setAttribute('aria-hidden', 'true');
+
+    const blocoFator = document.createElement('div');
+    blocoFator.className = 'fracao-fatoracao-fator';
+
+    let input = null;
+    if (ativa) {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'fracao-campo fracao-fator-primo';
+      input.inputMode = 'numeric';
+      input.autocomplete = 'off';
+      input.maxLength = 3;
+      input.setAttribute('placeholder', '?');
+      input.setAttribute('aria-label', 'Fator primo para ' + numeros.join(' e '));
+      input.addEventListener('input', () => {
+        input.value = input.value.replace(/\D+/g, '').slice(0, 3);
+        if (concluido || input.readOnly) {
+          return;
+        }
+        const numero = normalizarInteiroFracao(input.value);
+        if (numero === null) {
+          return;
+        }
+        if (ehPrimoFracao(numero) && fatorPrimoDivideValoresFracao(valores, numero)) {
+          aplicarFator(numero);
+        }
+      });
+      input.addEventListener('keydown', (evento) => {
+        if (evento.key !== 'Enter') {
+          return;
+        }
+        evento.preventDefault();
+        conferirEntrada(input);
+      });
+      input.addEventListener('blur', () => {
+        if (!concluido && !input.readOnly && input.value.trim() !== '') {
+          conferirEntrada(input);
+        }
+      });
+      blocoFator.appendChild(input);
+    } else {
+      const conclusao = document.createElement('span');
+      conclusao.className = 'fracao-fatoracao-conclusao';
+      conclusao.textContent = '✓';
+      conclusao.setAttribute('aria-hidden', 'true');
+      blocoFator.appendChild(conclusao);
+    }
+
+    linha.append(blocoNumeros, barra, blocoFator);
+    linhas.appendChild(linha);
+    return { linha, input };
+  }
+
+  function conferirEntrada(input) {
+    if (concluido || input.readOnly) {
+      return false;
+    }
+    const numero = normalizarInteiroFracao(input.value);
+    if (numero === null) {
+      definirStatus('Digite um número inteiro primo.', 'incorreto');
+      input.focus();
+      return false;
+    }
+    if (!ehPrimoFracao(numero)) {
+      definirStatus('Ainda não. Use um número primo: 2, 3, 5, 7, 11...', 'incorreto');
+      input.focus();
+      return false;
+    }
+    if (!fatorPrimoDivideValoresFracao(valores, numero)) {
+      definirStatus('Esse primo não divide nenhum dos números desta linha. Tente outro.', 'incorreto');
+      input.focus();
+      return false;
+    }
+    aplicarFator(numero);
+    return true;
+  }
+
+  function aplicarFator(fator) {
+    if (concluido || !inputAtivo || inputAtivo.readOnly) {
+      return;
+    }
+    const entrada = inputAtivo;
+    const linhaAtual = entrada.closest('.fracao-fatoracao-linha');
+    entrada.readOnly = true;
+    entrada.classList.add('fracao-fator-aplicado');
+    entrada.setAttribute('aria-label', 'Fator primo aplicado: ' + fator);
+    linhaAtual?.classList.remove('ativa');
+    linhaAtual?.classList.add('aplicada');
+    fatores.push(fator);
+    valores = proximaLinhaFatoracaoFracao(valores, fator);
+
+    if (fatoracaoFracaoConcluida(valores)) {
+      criarLinha(valores, false);
+      concluido = true;
+      inputAtivo = null;
+      const mmc = produtoFatoresFracao(fatores);
+      const rotuloResultado = document.createElement('span');
+      rotuloResultado.className = 'fracao-mmc-resultado-rotulo';
+      rotuloResultado.textContent = 'MMC';
+      const contaResultado = document.createElement('span');
+      contaResultado.className = 'fracao-mmc-resultado-conta';
+      const fatoresTexto = document.createElement('span');
+      fatoresTexto.textContent = fatores.join(' × ');
+      const igual = document.createElement('span');
+      igual.className = 'fracao-mmc-resultado-igual';
+      igual.textContent = '=';
+      const valor = document.createElement('strong');
+      valor.className = 'fracao-mmc-resultado-valor';
+      valor.textContent = String(mmc);
+      contaResultado.append(fatoresTexto, igual, valor);
+      resultado.innerHTML = '';
+      resultado.append(rotuloResultado, contaResultado);
+      resultado.hidden = false;
+      resultado.classList.add('fracao-mmc-encontrado');
+      definirStatus('Muito bem! A fatoração chegou em 1, 1. O MMC é ' + mmc + '.', 'correto');
+      aoConcluir?.(mmc, fatores.slice());
+      return;
+    }
+
+    definirStatus('Boa! ' + fator + ' é primo e foi aplicado. Continue na próxima linha.', 'correto');
+    const proxima = criarLinha(valores, true);
+    inputAtivo = proxima.input;
+    proxima.input?.focus();
+  }
+
+  definirStatus('Digite um fator primo à direita da barra.', null);
+  raiz.append(instrucao, linhas, resultado, status);
+  const primeiraLinha = criarLinha(valores, true);
+  inputAtivo = primeiraLinha.input;
+
+  return {
+    elemento: raiz,
+    focar: () => {
+      if (concluido || !inputAtivo || inputAtivo.readOnly) {
+        return false;
+      }
+      inputAtivo.focus();
+      return true;
+    },
+  };
 }
 
 function criarCampoConversaoFracaoMedia(fracao, campo, rotulo) {
@@ -5043,10 +5251,6 @@ function renderFracaoMedia(estado, el) {
   const questao = estado.questao;
   const equivalentes = fracoesEquivalentes(questao);
   const comum = equivalentes ? equivalentes.denominadorComum : 0;
-  const multiplos = listasMultiplosFracao(
-    questao.denominadorA,
-    questao.denominadorB,
-  );
   el.conta.innerHTML = '';
 
   const lousa = document.createElement('div');
@@ -5066,7 +5270,7 @@ function renderFracaoMedia(estado, el) {
   etapas.className = 'fracao-etapas';
   etapas.setAttribute('aria-label', 'Etapas da soma de frações');
   etapas.append(
-    criarEtapaFracao(1, 'Múltiplos e MMC', 'ativa'),
+    criarEtapaFracao(1, 'Fatoração e MMC', 'ativa'),
     criarEtapaFracao(2, 'Divide e multiplica', 'aguardando'),
     criarEtapaFracao(3, 'Soma final', 'aguardando'),
   );
@@ -5075,11 +5279,10 @@ function renderFracaoMedia(estado, el) {
   painel1.className = 'fracao-etapa-painel fracao-etapa-painel-1 ativa';
   const conteudo1 = document.createElement('div');
   conteudo1.className = 'fracao-etapa-conteudo';
-  conteudo1.append(criarCabecalhoPassoFracaoMedia(1, 'Cálculo visual do MMC'));
+  conteudo1.append(criarCabecalhoPassoFracaoMedia(1, 'Fatoração simultânea'));
   const instrucao1 = document.createElement('p');
   instrucao1.className = 'fracao-etapa-instrucao';
-  instrucao1.textContent = 'Liste os múltiplos de ' + questao.denominadorA + ' e de '
-    + questao.denominadorB + ' até encontrar o menor número que aparece nas duas listas.';
+  instrucao1.textContent = 'Fatore os dois denominadores ao mesmo tempo, como na chave de MMC da escola.';
   const exercicioOriginal = document.createElement('div');
   exercicioOriginal.className = 'fracao-exercicio fracao-exercicio-media';
   exercicioOriginal.append(
@@ -5099,25 +5302,11 @@ function renderFracaoMedia(estado, el) {
   );
 
   const blocoComum = document.createElement('div');
-  blocoComum.className = 'fracao-comum fracao-mmc';
+  blocoComum.className = 'fracao-comum fracao-mmc fracao-mmc-resultado-comum';
   const rotuloComum = document.createElement('label');
   rotuloComum.className = 'fracao-comum-rotulo';
   rotuloComum.htmlFor = 'fracao-campo-comum';
-  rotuloComum.textContent = 'Encontre o MMC e escreva o denominador comum';
-  const listasMultiplos = document.createElement('div');
-  listasMultiplos.className = 'fracao-mmc-listas';
-  listasMultiplos.append(
-    criarListaMultiplosFracao(
-      questao.denominadorA,
-      multiplos.multiplosA,
-      multiplos.comum,
-    ),
-    criarListaMultiplosFracao(
-      questao.denominadorB,
-      multiplos.multiplosB,
-      multiplos.comum,
-    ),
-  );
+  rotuloComum.textContent = 'MMC encontrado (denominador comum)';
   const controlesComum = document.createElement('div');
   controlesComum.className = 'fracao-comum-controles';
   const campoComum = document.createElement('input');
@@ -5126,7 +5315,9 @@ function renderFracaoMedia(estado, el) {
   campoComum.className = 'fracao-campo fracao-campo-comum';
   campoComum.inputMode = 'numeric';
   campoComum.autocomplete = 'off';
-  campoComum.maxLength = 2;
+  campoComum.maxLength = 3;
+  campoComum.readOnly = true;
+  campoComum.tabIndex = -1;
   campoComum.setAttribute('aria-label', 'Denominador comum da soma');
   campoComum.setAttribute('placeholder', '?');
   const barraComum = document.createElement('div');
@@ -5137,13 +5328,20 @@ function renderFracaoMedia(estado, el) {
     'fracao-barra-comum',
     'Barra de fatias do denominador comum',
   ));
-  const statusComum = document.createElement('p');
-  statusComum.className = 'fracao-comum-status';
-  statusComum.setAttribute('role', 'status');
-  statusComum.textContent = 'Toque nos múltiplos repetidos para conferir.';
   controlesComum.append(campoComum, barraComum);
-  blocoComum.append(rotuloComum, listasMultiplos, controlesComum, statusComum);
-  conteudo1.append(instrucao1, exercicioOriginal, blocoComum);
+  blocoComum.append(rotuloComum, controlesComum);
+
+  const blocoFatoracao = document.createElement('div');
+  blocoFatoracao.className = 'fracao-mmc fracao-mmc-fatoracao';
+  const fatoracao = criarTabelaFatoracaoFracao(
+    [questao.denominadorA, questao.denominadorB],
+    (mmcEncontrado) => {
+      campoComum.value = String(mmcEncontrado);
+      recalcular();
+    },
+  );
+  blocoFatoracao.appendChild(fatoracao.elemento);
+  conteudo1.append(instrucao1, exercicioOriginal, blocoFatoracao, blocoComum);
   painel1.appendChild(conteudo1);
 
   const painel2 = document.createElement('section');
@@ -5162,8 +5360,14 @@ function renderFracaoMedia(estado, el) {
   );
   const instrucao2 = document.createElement('p');
   instrucao2.className = 'fracao-etapa-instrucao';
-  instrucao2.textContent = 'Para cada fração, divida o denominador comum pelo denominador '
-    + 'e multiplique o resultado pelo numerador.';
+  const mmcInjetado2 = document.createElement('strong');
+  mmcInjetado2.className = 'fracao-mmc-injetado';
+  mmcInjetado2.textContent = 'MMC ' + comum;
+  instrucao2.append(
+    'Use o ',
+    mmcInjetado2,
+    ' em cada fração: divida o MMC pelo denominador e multiplique o resultado pelo numerador.',
+  );
   const conversoes = document.createElement('div');
   conversoes.className = 'fracao-conversoes';
   let rascunhoA = null;
@@ -5201,7 +5405,14 @@ function renderFracaoMedia(estado, el) {
   conteudo3.append(criarCabecalhoPassoFracaoMedia(3, 'Soma final'));
   const instrucao3 = document.createElement('p');
   instrucao3.className = 'fracao-etapa-instrucao';
-  instrucao3.textContent = 'Com os denominadores iguais, some apenas os numeradores e escreva a fração final.';
+  const mmcInjetado3 = document.createElement('strong');
+  mmcInjetado3.className = 'fracao-mmc-injetado';
+  mmcInjetado3.textContent = 'MMC ' + comum;
+  instrucao3.append(
+    'Com os denominadores iguais em ',
+    mmcInjetado3,
+    ', some apenas os numeradores e escreva a fração final.',
+  );
   const exercicioFinal = document.createElement('div');
   exercicioFinal.className = 'fracao-exercicio fracao-exercicio-final';
   const resultadoFinal = document.createElement('div');
@@ -5286,16 +5497,6 @@ function renderFracaoMedia(estado, el) {
     return true;
   };
 
-  const avancarDoComum = () => {
-    if (normalizarInteiroFracao(campoComum.value) !== comum) {
-      campoComum.focus();
-      return;
-    }
-    if (!focarConversaoPendente()) {
-      campoNumerador?.focus();
-    }
-  };
-
   const recalcular = () => {
     const resultado = atualizarEtapasFracaoMedia(estado, el, {
       comum,
@@ -5304,7 +5505,6 @@ function renderFracaoMedia(estado, el) {
       painel1,
       painel2,
       painel3,
-      statusComum,
       barraComum,
       conversoes: dadosConversoes,
       campoNumerador,
@@ -5329,9 +5529,6 @@ function renderFracaoMedia(estado, el) {
     }
   };
 
-  configurarCampoFracao(campoComum, avancarDoComum, { aoAvancar: avancarDoComum });
-  campoComum.addEventListener('input', recalcular);
-
   Object.values(dadosConversoes).forEach((conversao) => {
     const avancar = () => {
       if (!focarConversaoPendente() && !estado.questaoRespondida) {
@@ -5352,7 +5549,7 @@ function renderFracaoMedia(estado, el) {
 
   recalcular();
   if (!estado.questaoRespondida) {
-    window.setTimeout(() => campoComum.focus(), 0);
+    window.setTimeout(() => fatoracao.focar(), 0);
   }
 }
 
@@ -5417,18 +5614,14 @@ function atualizarEtapasFracaoMedia(estado, el, dados) {
     }
   });
 
-  if (dados.statusComum) {
-    dados.statusComum.classList.toggle('correto', passo1);
-    dados.statusComum.classList.toggle('incorreto', texto !== '' && !passo1);
-    if (texto === '') {
-      dados.statusComum.textContent = 'Toque nos múltiplos repetidos para conferir.';
-    } else if (passo1) {
-      dados.statusComum.textContent = 'Muito bem! ' + comumEsperado
-        + ' é o menor múltiplo comum de ' + questao.denominadorA
-        + ' e ' + questao.denominadorB + '.';
-    } else {
-      dados.statusComum.textContent = 'Ainda não. Procure o menor número que aparece nas duas listas.';
-    }
+  if (dados.campoComum) {
+    dados.campoComum.classList.toggle('fracao-mmc-encontrado', passo1);
+    dados.campoComum.setAttribute(
+      'aria-label',
+      passo1
+        ? 'MMC encontrado: ' + comumEsperado
+        : 'MMC ainda não encontrado',
+    );
   }
 
   if (dados.lousa) {
@@ -7681,7 +7874,11 @@ if (typeof module !== 'undefined' && module.exports) {
     denominadorComumFracoes,
     fracoesEquivalentes,
     normalizarInteiroFracao,
-    listasMultiplosFracao,
+    ehPrimoFracao,
+    fatorPrimoDivideValoresFracao,
+    proximaLinhaFatoracaoFracao,
+    fatoracaoFracaoConcluida,
+    produtoFatoresFracao,
     seletorCampoConversaoFracaoMedia,
     lerConversoesFracaoMedia,
     avaliarConversoesFracaoMedia,
