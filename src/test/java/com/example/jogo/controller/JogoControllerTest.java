@@ -265,11 +265,30 @@ class JogoControllerTest {
     }
 
     @Test
-    @DisplayName("Rejeita frações fora do nível fácil")
-    void rejeitaFracoesForaDoNivelFacil() throws Exception {
+    @DisplayName("Retorna uma soma de frações média com denominadores diferentes")
+    void retornaQuestaoDeFracoesMedias() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
                         .param("operacao", "SOMA")
                         .param("dificuldade", "MEDIO")
+                        .param("tipoNumero", "FRACOES"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("SOMA"))
+                .andExpect(jsonPath("$.tipoNumero").value("FRACOES"))
+                .andExpect(jsonPath("$.dificuldade").value("MEDIO"))
+                .andExpect(jsonPath("$.denominadorA").isNumber())
+                .andExpect(jsonPath("$.denominadorB").isNumber())
+                .andExpect(jsonPath("$.denominadorComum").isNumber())
+                .andExpect(jsonPath("$.numeradorEquivalenteA").isNumber())
+                .andExpect(jsonPath("$.numeradorEquivalenteB").isNumber())
+                .andExpect(jsonPath("$.respostaCorreta").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Rejeita frações difíceis")
+    void rejeitaFracoesDificeis() throws Exception {
+        mockMvc.perform(get("/api/jogo/proxima-questao")
+                        .param("operacao", "SOMA")
+                        .param("dificuldade", "DIFICIL")
                         .param("tipoNumero", "FRACOES"))
                 .andExpect(status().isBadRequest());
     }
@@ -297,6 +316,33 @@ class JogoControllerTest {
                 .andExpect(jsonPath("$.pontosGanhos").value(10))
                 .andExpect(jsonPath("$.respostaCorreta").value(4))
                 .andExpect(jsonPath("$.respostaCorretaFracao").value("4/6"));
+    }
+
+    @Test
+    @DisplayName("Valida a soma de frações com denominadores diferentes")
+    void validaSomaDeFracoesComDenominadoresDiferentes() throws Exception {
+        String corpo = """
+                {
+                  "operacao": "SOMA",
+                  "tipoNumero": "FRACOES",
+                  "numeroA": 1,
+                  "numeroB": 1,
+                  "resultadoDigitado": 3,
+                  "denominadorA": 2,
+                  "denominadorB": 4,
+                  "denominadorComum": 4,
+                  "denominadorResultado": 4
+                }
+                """;
+
+        mockMvc.perform(post("/api/jogo/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.correto").value(true))
+                .andExpect(jsonPath("$.pontosGanhos").value(10))
+                .andExpect(jsonPath("$.respostaCorreta").value(3))
+                .andExpect(jsonPath("$.respostaCorretaFracao").value("3/4"));
     }
 
     @Test

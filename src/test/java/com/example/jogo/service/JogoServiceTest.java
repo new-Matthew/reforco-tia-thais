@@ -18,6 +18,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -1273,10 +1275,49 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Restringe frações ao nível fácil e à adição")
-    void rejeitaFracoesForaDoNivelFacilOuDeOutraOperacao() {
-        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
-                Operacao.SOMA, Dificuldade.MEDIO, TipoNumero.FRACOES));
+    @DisplayName("Gera somas médias de frações com denominadores diferentes e MMC amigável")
+    void geraSomaDeFracoesComDenominadoresDiferentes() {
+        Set<Integer> denominadoresComuns = new HashSet<>();
+
+        for (int i = 0; i < 300; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(
+                    Operacao.SOMA, Dificuldade.MEDIO, TipoNumero.FRACOES);
+
+            assertEquals(Operacao.SOMA, questao.getOperacao());
+            assertEquals(Dificuldade.MEDIO, questao.getDificuldade());
+            assertEquals(TipoNumero.FRACOES, questao.getTipoNumero());
+            assertNotNull(questao.getDenominadorA());
+            assertNotNull(questao.getDenominadorB());
+            assertNotEquals(questao.getDenominadorA(), questao.getDenominadorB());
+            assertTrue(questao.getDenominadorA() >= 2);
+            assertTrue(questao.getDenominadorB() >= 2);
+            assertTrue(questao.getNumeroA() >= 1);
+            assertTrue(questao.getNumeroB() >= 1);
+            assertTrue(questao.getNumeroA() < questao.getDenominadorA());
+            assertTrue(questao.getNumeroB() < questao.getDenominadorB());
+
+            int denominadorComum = questao.getDenominadorComum();
+            assertEquals(questao.getDenominador(), denominadorComum);
+            assertEquals(0, denominadorComum % questao.getDenominadorA());
+            assertEquals(0, denominadorComum % questao.getDenominadorB());
+            assertTrue(denominadorComum <= 20);
+
+            int equivalenteA = questao.getNumeroA()
+                    * (denominadorComum / questao.getDenominadorA());
+            int equivalenteB = questao.getNumeroB()
+                    * (denominadorComum / questao.getDenominadorB());
+            assertEquals(equivalenteA, questao.getNumeradorEquivalenteA());
+            assertEquals(equivalenteB, questao.getNumeradorEquivalenteB());
+            assertTrue(equivalenteA + equivalenteB < denominadorComum);
+            denominadoresComuns.add(denominadorComum);
+        }
+
+        assertTrue(denominadoresComuns.size() > 1);
+    }
+
+    @Test
+    @DisplayName("Restringe frações aos níveis fácil e médio e à adição")
+    void rejeitaFracoesForaDosNiveisPermitidosOuDeOutraOperacao() {
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
                 Operacao.SOMA, Dificuldade.DIFICIL, TipoNumero.FRACOES));
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
@@ -1323,6 +1364,63 @@ class JogoServiceTest {
     }
 
     @Test
+    @DisplayName("Valida soma de frações médias com denominadores diferentes")
+    void validaSomaDeFracoesComDenominadoresDiferentes() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracaoMedia(1, 2, 1, 4, 4, 3, 4));
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+        assertEquals(3, resposta.getRespostaCorreta());
+        assertEquals("3/4", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando o denominador comum da fração está errado")
+    void daAcertoParcialQuandoDenominadorComumEstaErrado() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracaoMedia(1, 2, 1, 4, 6, 3, 4));
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("denominador comum"));
+        assertEquals("3/4", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando só o denominador final da fração está errado")
+    void daAcertoParcialQuandoDenominadorFinalEstaErrado() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracaoMedia(1, 2, 1, 4, 4, 3, 5));
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("denominador"));
+        assertEquals("3/4", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Zera os pontos quando o numerador da fração média está errado")
+    void zeraPontosQuandoNumeradorDaFracaoMediaEstaErrado() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracaoMedia(1, 2, 1, 4, 4, 2, 4));
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("3/4"));
+    }
+
+    @Test
+    @DisplayName("Rejeita fração média sem o denominador comum")
+    void rejeitaFracaoMediaSemDenominadorComum() {
+        RequisicaoValidacaoDTO semComum = requisicaoFracaoMedia(1, 2, 1, 4, 4, 3, 4);
+        semComum.setDenominadorComum(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(semComum));
+    }
+
+    @Test
     @DisplayName("Rejeita fração sem denominadores válidos")
     void rejeitaFracaoSemDenominadoresValidos() {
         RequisicaoValidacaoDTO semDenominador = requisicaoFracao(1, 3, 4, 6, 6);
@@ -1358,6 +1456,31 @@ class JogoServiceTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> jogoService.validar(requisicao));
+    }
+
+    private RequisicaoValidacaoDTO requisicaoFracaoMedia(
+            int numeradorA,
+            int denominadorA,
+            int numeradorB,
+            int denominadorB,
+            int denominadorComum,
+            int numeradorResultado,
+            int denominadorResultado) {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-fracao-media",
+                Operacao.SOMA,
+                numeradorA,
+                numeradorB,
+                numeradorResultado,
+                null,
+                null,
+                null);
+        requisicao.setTipoNumero(TipoNumero.FRACOES);
+        requisicao.setDenominadorA(denominadorA);
+        requisicao.setDenominadorB(denominadorB);
+        requisicao.setDenominadorComum(denominadorComum);
+        requisicao.setDenominadorResultado(denominadorResultado);
+        return requisicao;
     }
 
     private RequisicaoValidacaoDTO requisicaoFracao(
