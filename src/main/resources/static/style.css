@@ -2889,6 +2889,459 @@ body[data-tema="laranja"] .apoio-mais {
   }
 }
 
+/* --------------- Frações médias: caderno algorítmico -------------------- */
+
+.conta.conta-fracao-media {
+  width: min(100%, 980px);
+  padding: clamp(16px, 2.8vw, 26px);
+  background-color: #fffdf7;
+  background-image:
+    linear-gradient(rgba(14, 116, 144, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 116, 144, 0.12) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.fracao-lousa-media {
+  gap: 16px;
+}
+
+.fracao-caderno {
+  position: relative;
+  padding-left: clamp(18px, 4vw, 38px);
+}
+
+.fracao-caderno::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: clamp(7px, 1.8vw, 14px);
+  width: 3px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--dica-ambar) 0 12px,
+    transparent 12px 21px
+  );
+  opacity: 0.72;
+}
+
+.fracao-etapas {
+  gap: 8px;
+}
+
+.fracao-etapa {
+  border-color: rgba(74, 96, 122, 0.28);
+  background: rgba(255, 255, 255, 0.82);
+  transition:
+    opacity 0.25s ease,
+    border-color 0.25s ease,
+    background-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.fracao-etapa.ativa {
+  border-color: var(--dica-ambar);
+  background: #fff3c4;
+  color: #5c4200;
+  box-shadow: 0 0 0 3px rgba(255, 183, 3, 0.25);
+}
+
+.fracao-etapa.ativa .fracao-etapa-numero {
+  background: var(--dica-ambar);
+  color: #3b2a00;
+}
+
+.fracao-etapa.concluida {
+  border-color: var(--tema-cor-escura);
+  background: var(--tema-cor);
+  color: #ffffff;
+}
+
+.fracao-etapa.aguardando {
+  opacity: 0.5;
+  filter: grayscale(0.35);
+}
+
+.fracao-etapa-painel {
+  display: grid;
+  gap: 12px;
+  padding: clamp(14px, 2.6vw, 20px);
+  border: 3px solid var(--tema-borda);
+  border-radius: 18px;
+  background: rgba(255, 253, 247, 0.94);
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+
+.fracao-etapa-painel.ativa {
+  border-color: var(--dica-ambar);
+  background: #fffdf3;
+  box-shadow:
+    0 0 0 4px rgba(255, 183, 3, 0.22),
+    0 10px 22px rgba(255, 183, 3, 0.14);
+}
+
+.fracao-etapa-painel.concluida {
+  border-color: var(--tema-cor);
+}
+
+.conta-fracao-media .fracao-etapa-painel.ativa .fracao-campo:focus {
+  border-color: var(--dica-ambar);
+  box-shadow: 0 0 0 3px rgba(255, 183, 3, 0.32);
+}
+
+.fracao-etapa-painel.bloqueada {
+  border-style: dashed;
+  border-color: rgba(74, 96, 122, 0.32);
+  background: rgba(241, 245, 249, 0.74);
+  opacity: 0.72;
+  box-shadow: none;
+  transform: none;
+}
+
+.fracao-etapa-conteudo {
+  display: grid;
+  gap: 14px;
+}
+
+.fracao-etapa-bloqueio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 54px;
+  color: #64748b;
+  text-align: center;
+}
+
+.fracao-etapa-bloqueio-icone {
+  font-size: 1.15rem;
+}
+
+.fracao-etapa-bloqueio p {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.fracao-passo-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fracao-passo-numero {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--dica-ambar);
+  color: #3b2a00;
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+}
+
+.fracao-etapa-painel.concluida .fracao-passo-numero {
+  background: var(--tema-cor);
+  color: #ffffff;
+}
+
+.fracao-passo-titulo {
+  color: var(--tema-texto);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(1rem, 2.2vw, 1.2rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.fracao-mmc {
+  display: grid;
+  justify-items: stretch;
+  gap: 12px;
+  padding: clamp(12px, 2.4vw, 16px);
+  border: 2px dashed var(--tema-cor);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tema-cor-clara) 14%, #ffffff);
+}
+
+.fracao-mmc .fracao-comum-rotulo {
+  text-align: center;
+}
+
+.fracao-mmc-listas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px 24px;
+}
+
+.fracao-mmc-lista {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: min(100%, 210px);
+}
+
+.fracao-mmc-titulo {
+  color: var(--tema-cor-escura);
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.fracao-mmc-itens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.fracao-multiplo {
+  min-width: 2.15rem;
+  padding: 0.25rem 0.45rem;
+  border: 2px solid var(--tema-borda);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #4a607a;
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-align: center;
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+
+.fracao-multiplo-mmc {
+  border-style: dashed;
+  border-color: var(--tema-cor);
+}
+
+.fracao-mmc-resolvido .fracao-multiplo-mmc {
+  border-style: solid;
+  border-color: var(--dica-ambar);
+  background: #fff3c4;
+  color: #5c4200;
+  box-shadow: 0 0 0 3px rgba(255, 183, 3, 0.24);
+  transform: translateY(-1px) scale(1.06);
+}
+
+.fracao-mmc-reticencias {
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.fracao-comum-controles {
+  gap: 12px;
+}
+
+.fracao-campo-comum {
+  width: clamp(64px, 14vw, 92px);
+  height: auto;
+  min-height: 46px;
+  border-color: var(--tema-cor);
+}
+
+.fracao-campo:disabled {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
+.fracao-conversoes {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 720px) {
+  .fracao-conversoes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.fracao-rascunho {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: clamp(12px, 2.2vw, 16px);
+  border: 2px solid var(--tema-borda);
+  border-radius: 14px;
+  background: #ffffff;
+  transition:
+    border-color 0.25s ease,
+    background-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.fracao-rascunho.correto {
+  border-color: var(--tema-cor);
+  background: #f0fdf9;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tema-cor-clara) 28%, transparent);
+}
+
+.fracao-rascunho.incorreto {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.fracao-rascunho-titulo {
+  color: var(--tema-cor-escura);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.fracao-rascunho-original {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed var(--tema-borda);
+}
+
+.fracao-rascunho-original .fracao-bloco,
+.fracao-rascunho-resultado .fracao-bloco {
+  width: clamp(48px, 11vw, 60px);
+  font-size: clamp(1.5rem, 3.6vw, 1.9rem);
+}
+
+.fracao-rascunho-original .fracao-barra,
+.fracao-rascunho-resultado .fracao-barra {
+  max-width: 140px;
+}
+
+.fracao-rascunho-contas {
+  display: grid;
+  gap: 8px;
+}
+
+.fracao-rascunho-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.fracao-rascunho-termo {
+  color: #334155;
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: clamp(0.96rem, 2.2vw, 1.08rem);
+  font-weight: 700;
+}
+
+.fracao-rascunho-espelho {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2ch;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border: 2px solid var(--dica-ambar);
+  border-radius: 8px;
+  background: #fff7d1;
+  color: #5c4200;
+  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.fracao-conversao-campo {
+  width: clamp(52px, 12vw, 70px);
+  height: 44px;
+}
+
+.fracao-rascunho-status {
+  margin: 0;
+  color: #4a607a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.fracao-rascunho-status.correto {
+  color: var(--tema-cor-escura);
+}
+
+.fracao-rascunho-status.incorreto {
+  color: #b45309;
+}
+
+.fracao-rascunho-resultado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 2px dashed var(--tema-borda);
+}
+
+.fracao-rascunho-resultado-rotulo {
+  color: var(--tema-cor-escura);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.fracao-etapa-painel-3 .fracao-exercicio-final {
+  justify-content: center;
+}
+
+@media (max-width: 620px) {
+  .conta.conta-fracao-media {
+    padding: 14px 10px;
+  }
+
+  .fracao-caderno {
+    padding-left: 18px;
+  }
+
+  .fracao-etapa-painel {
+    padding: 12px 10px;
+  }
+
+  .fracao-mmc-lista {
+    min-width: min(100%, 160px);
+  }
+
+  .fracao-rascunho-linha {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  .fracao-passo-titulo {
+    font-size: 0.94rem;
+  }
+
+  .fracao-multiplo {
+    min-width: 1.9rem;
+    font-size: 0.82rem;
+  }
+
+  .fracao-rascunho-termo {
+    font-size: 0.9rem;
+  }
+}
+
 /* --------------------- Dica progressiva (pulsante) ---------------------- */
 
 .celula-digito.dica-ativa,
