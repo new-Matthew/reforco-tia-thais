@@ -28,6 +28,9 @@ const {
   ordemFocoSoma,
   proximaColunaResultadoADireita,
   configurarEntradaResultado,
+  configurarCampoFracao,
+  configurarCamposFracaoResposta,
+  ATRASO_AUTOAVANCO_FRACAO,
   proximoItemOrdem,
   itemAnteriorOrdem,
   chaveAlvoFoco,
@@ -1319,6 +1322,140 @@ test('seletoresDicaAtualFracao aponta numerador, denominador e erros', () => {
     seletoresDicaAtualFracao({ questao, questaoRespondida: true }, criarEl('4', '6')),
     [],
   );
+});
+
+function criarCampoFracaoFalso() {
+  const ouvintes = {};
+  return {
+    value: '',
+    maxLength: 2,
+    focado: 0,
+    addEventListener(nome, fn) {
+      ouvintes[nome] = ouvintes[nome] ?? [];
+      ouvintes[nome].push(fn);
+    },
+    disparar(nome, evento = {}) {
+      (ouvintes[nome] ?? []).forEach((fn) => fn(evento));
+    },
+    focus() {
+      this.focado += 1;
+    },
+  };
+}
+
+function criarAgendadorFalso() {
+  let proximoId = 1;
+  const tarefas = [];
+  return {
+    agendar(fn) {
+      const tarefa = { id: proximoId, fn, cancelada: false, executada: false };
+      proximoId += 1;
+      tarefas.push(tarefa);
+      return tarefa.id;
+    },
+    cancelar(id) {
+      const tarefa = tarefas.find((item) => item.id === id);
+      if (tarefa) {
+        tarefa.cancelada = true;
+      }
+    },
+    pendentes() {
+      return tarefas.filter((item) => !item.cancelada && !item.executada);
+    },
+    executarPendentes() {
+      const ativas = this.pendentes();
+      ativas.forEach((item) => {
+        item.executada = true;
+        item.fn();
+      });
+      return ativas.length;
+    },
+  };
+}
+
+test('configurarCampoFracao avança após pausa e mantém apenas dígitos', () => {
+  const campo = criarCampoFracaoFalso();
+  const agenda = criarAgendadorFalso();
+  let avancos = 0;
+  let enters = 0;
+
+  configurarCampoFracao(campo, () => {
+    enters += 1;
+  }, {
+    agendar: agenda.agendar,
+    cancelar: agenda.cancelar,
+    atraso: ATRASO_AUTOAVANCO_FRACAO,
+    aoAvancar: () => {
+      avancos += 1;
+    },
+  });
+
+  campo.value = 'a1b2c3';
+  campo.disparar('input');
+  assert.equal(campo.value, '12');
+
+  campo.value = '1';
+  campo.disparar('input');
+  campo.value = '12';
+  campo.disparar('input');
+  assert.equal(agenda.pendentes().length, 1);
+  assert.equal(avancos, 0);
+
+  agenda.executarPendentes();
+  assert.equal(avancos, 1);
+
+  campo.value = '';
+  campo.disparar('input');
+  agenda.executarPendentes();
+  assert.equal(avancos, 1);
+
+  campo.value = '7';
+  campo.disparar('input');
+  campo.disparar('blur');
+  agenda.executarPendentes();
+  assert.equal(avancos, 1);
+
+  campo.disparar('keydown', {
+    key: 'Enter',
+    preventDefault() {},
+  });
+  assert.equal(enters, 1);
+});
+
+test('configurarCamposFracaoResposta alterna numerador e denominador', () => {
+  const numerador = criarCampoFracaoFalso();
+  const denominador = criarCampoFracaoFalso();
+  const agenda = criarAgendadorFalso();
+  let validacoes = 0;
+
+  configurarCamposFracaoResposta(
+    numerador,
+    denominador,
+    () => {
+      validacoes += 1;
+    },
+    {
+      agendar: agenda.agendar,
+      cancelar: agenda.cancelar,
+    },
+  );
+
+  numerador.value = '3';
+  numerador.disparar('input');
+  agenda.executarPendentes();
+  assert.equal(denominador.focado, 1);
+  assert.equal(numerador.focado, 0);
+
+  denominador.value = '4';
+  denominador.disparar('input');
+  agenda.executarPendentes();
+  assert.equal(numerador.focado, 1);
+
+  denominador.disparar('keydown', {
+    key: 'Enter',
+    preventDefault() {},
+  });
+  assert.equal(validacoes, 1);
 });
 
 test('estilos das frações usam o tema turquesa e o bloco vertical', () => {
