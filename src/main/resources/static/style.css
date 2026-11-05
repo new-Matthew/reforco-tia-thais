@@ -3702,3 +3702,162 @@ body[data-tema="laranja"] .apoio-mais {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ------------------ Soma difícil de três frações --------------------- */
+
+.conta.conta-fracao-dificil {
+  padding: clamp(14px, 2.4vw, 22px);
+}
+
+.fracao-lousa-dificil .fracao-exercicio-tres {
+  gap: clamp(6px, 1.6vw, 14px);
+  flex-wrap: wrap;
+}
+
+.fracao-lousa-dificil .fracao-exercicio-tres .fracao-parcela {
+  min-width: clamp(58px, 15vw, 86px);
+}
+
+.fracao-lousa-dificil .fracao-exercicio-tres .fracao-barra {
+  max-width: 120px;
+}
+
+.fracao-conversoes.fracao-conversoes-tres {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .fracao-conversoes.fracao-conversoes-tres {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.fracao-fatoracao-linhas.fracao-fatoracao-linhas-tres {
+  --fracao-fatoracao-esquerda: 8.6rem;
+  --fracao-fatoracao-direita: 3.4rem;
+}
+
+.fracao-fatoracao-linhas.fracao-fatoracao-linhas-tres .fracao-fatoracao-numeros {
+  gap: 6px;
+  padding-left: 6px;
+}
+
+.fracao-bloco-soma {
+  width: clamp(64px, 16vw, 82px);
+  border: 2px dashed var(--dica-ambar);
+  border-radius: 12px;
+  background: #fffdf2;
+  padding: 4px 6px;
+}
+
+.fracao-soma-numerador {
+  width: 100%;
+  min-width: 2.6ch;
+}
+
+.fracao-soma-denominador {
+  color: var(--tema-cor-escura);
+}
+
+.fracao-soma-status {
+  margin: 0;
+  color: #4a607a;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.fracao-soma-status.correto,
+.fracao-simplificacao-status.correto {
+  color: var(--tema-cor-escura);
+}
+
+.fracao-soma-status.incorreto,
+.fracao-simplificacao-status.incorreto {
+  color: #b45309;
+}
+
+.fracao-soma-numerador.fracao-soma-correta {
+  border-color: var(--tema-cor);
+  background: #ecfdf5;
+}
+
+.fracao-etapa-painel-4 .fracao-etapa-conteudo {
+  gap: 12px;
+}
+
+.fracao-simplificacao {
+  display: grid;
+  gap: 12px;
+  padding: clamp(12px, 2.4vw, 18px);
+  border: 2px solid var(--dica-ambar);
+  border-radius: 14px;
+  background: #fffdf4;
+}
+
+.fracao-simplificacao-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px dashed #f3d58a;
+}
+
+.fracao-simplificacao-rotulo {
+  color: #7c5a12;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fracao-simplificacao-divisor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.fracao-simplificacao-etiqueta {
+  color: #5c4200;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.fracao-mdc-divisor {
+  width: clamp(56px, 14vw, 74px);
+  border-color: var(--dica-ambar);
+  background: #fff7d1;
+}
+
+.fracao-mdc-divisor.fracao-mdc-correto {
+  border-color: var(--tema-cor);
+  background: #ecfdf5;
+}
+
+.fracao-simplificacao-status {
+  margin: 0;
+  color: #4a607a;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.fracao-resultado-simplificado {
+  justify-content: center;
+}
+
+@media (max-width: 620px) {
+  .fracao-lousa-dificil .fracao-exercicio-tres {
+    gap: 6px;
+  }
+
+  .fracao-lousa-dificil .fracao-exercicio-tres .fracao-parcela {
+    min-width: 52px;
+  }
+}
