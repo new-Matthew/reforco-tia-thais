@@ -17,11 +17,14 @@ public class RequisicaoValidacaoDTO {
     private Operacao operacao;
     private Integer numeroA;
     private Integer numeroB;
+    private Integer numeroC;
     private Integer denominador;
     private Integer denominadorA;
     private Integer denominadorB;
+    private Integer denominadorC;
     private Integer denominadorComum;
     private Integer denominadorResultado;
+    private Integer mdcSimplificacao;
     private Integer dividendoEquivalente;
     private Integer divisorEquivalente;
     private Integer resultadoDigitado;

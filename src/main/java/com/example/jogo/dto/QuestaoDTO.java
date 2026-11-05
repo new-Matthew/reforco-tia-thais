@@ -22,12 +22,18 @@ public class QuestaoDTO {
     private Integer casasDecimaisB;
     private int numeroA;
     private int numeroB;
+    private Integer numeroC;
     private Integer denominador;
     private Integer denominadorA;
     private Integer denominadorB;
+    private Integer denominadorC;
     private Integer denominadorComum;
     private Integer numeradorEquivalenteA;
     private Integer numeradorEquivalenteB;
+    private Integer numeradorEquivalenteC;
+    private Integer mdcSimplificacao;
+    private Integer numeradorSimplificado;
+    private Integer denominadorSimplificado;
     private Integer dividendoEquivalente;
     private Integer divisorEquivalente;
     private Integer vaiUm;

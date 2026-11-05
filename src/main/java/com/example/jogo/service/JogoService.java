@@ -50,6 +50,9 @@ public class JogoService {
 
     private static final int FRACAO_DENOMINADOR_MINIMO = 3;
     private static final int FRACAO_DENOMINADOR_MAXIMO = 10;
+    private static final int FRACAO_DIFICIL_DENOMINADOR_MINIMO = 2;
+    private static final int FRACAO_DIFICIL_DENOMINADOR_MAXIMO = 10;
+    private static final int FRACAO_DIFICIL_MMC_MAXIMO = 60;
     private static final int[][] PARES_DENOMINADORES_FRACAO_MEDIA = {
             {2, 4},
             {2, 6},
@@ -98,10 +101,6 @@ public class JogoService {
             if (operacao != Operacao.SOMA) {
                 throw new IllegalArgumentException(
                         "Frações estão disponíveis apenas na adição.");
-            }
-            if (dificuldade == Dificuldade.DIFICIL) {
-                throw new IllegalArgumentException(
-                        "A soma de frações está disponível nos níveis fácil e médio.");
             }
         }
 
@@ -204,6 +203,9 @@ public class JogoService {
     }
 
     private AvaliacaoPassos avaliarFracao(RequisicaoValidacaoDTO requisicao) {
+        if (fracaoComTresDenominadores(requisicao)) {
+            return avaliarFracaoComTresDenominadores(requisicao);
+        }
         if (fracaoComDenominadoresDiferentes(requisicao)) {
             return avaliarFracaoComDenominadoresDiferentes(requisicao);
         }
@@ -247,6 +249,58 @@ public class JogoService {
                 respostaCorreta,
                 comumCorreto && denominadorCorreto,
                 mensagem);
+    }
+
+    private AvaliacaoPassos avaliarFracaoComTresDenominadores(
+            RequisicaoValidacaoDTO requisicao) {
+        int denominadorA = requisicao.getDenominadorA();
+        int denominadorB = requisicao.getDenominadorB();
+        int denominadorC = requisicao.getDenominadorC();
+        int denominadorComum = calcularMmc(
+                denominadorA,
+                denominadorB,
+                denominadorC);
+        int numeradorEquivalenteA = requisicao.getNumeroA()
+                * (denominadorComum / denominadorA);
+        int numeradorEquivalenteB = requisicao.getNumeroB()
+                * (denominadorComum / denominadorB);
+        int numeradorEquivalenteC = requisicao.getNumeroC()
+                * (denominadorComum / denominadorC);
+        int numeradorSoma = numeradorEquivalenteA
+                + numeradorEquivalenteB
+                + numeradorEquivalenteC;
+        int mdc = calcularMdc(numeradorSoma, denominadorComum);
+        int numeradorFinal = numeradorSoma / mdc;
+        int denominadorFinal = denominadorComum / mdc;
+
+        boolean comumCorreto = Objects.equals(
+                requisicao.getDenominadorComum(),
+                denominadorComum);
+        boolean denominadorCorreto = Objects.equals(
+                requisicao.getDenominadorResultado(),
+                denominadorFinal);
+
+        String mensagem = null;
+        if (!comumCorreto) {
+            mensagem = "Confira o denominador comum: ele precisa ser o MMC dos três denominadores.";
+        } else if (!denominadorCorreto) {
+            mensagem = "Confira o denominador da fração simplificada.";
+        }
+
+        boolean somouSemSimplificar = mdc > 1
+                && Objects.equals(requisicao.getResultadoDigitado(), numeradorSoma)
+                && Objects.equals(requisicao.getDenominadorResultado(), denominadorComum);
+        String mensagemResultado = somouSemSimplificar
+                ? "Você encontrou a soma " + numeradorSoma + "/" + denominadorComum
+                        + ", mas ainda pode simplificar. Divida os dois números por "
+                        + mdc + "."
+                : null;
+
+        return new AvaliacaoPassos(
+                numeradorFinal,
+                comumCorreto && denominadorCorreto,
+                mensagem,
+                mensagemResultado);
     }
 
     private AvaliacaoPassos avaliarMultiplicacao(RequisicaoValidacaoDTO requisicao) {
@@ -436,11 +490,14 @@ public class JogoService {
                     respostaFracao);
         }
 
+        String mensagemErro = avaliacao.mensagemResultadoIncorreto() != null
+                ? avaliacao.mensagemResultadoIncorreto()
+                : "Quase lá! A resposta correta é "
+                        + formatarResposta(requisicao, respostaCorreta)
+                        + ". Tente de novo!";
         return new RespostaValidacaoDTO(
                 false,
-                "Quase lá! A resposta correta é "
-                        + formatarResposta(requisicao, respostaCorreta)
-                        + ". Tente de novo!",
+                mensagemErro,
                 PONTOS_ERRO,
                 respostaCorreta,
                 respostaFracao);
@@ -469,6 +526,22 @@ public class JogoService {
     }
 
     private Integer denominadorEsperadoFracao(RequisicaoValidacaoDTO requisicao) {
+        if (fracaoComTresDenominadores(requisicao)) {
+            int denominadorComum = calcularMmc(
+                    requisicao.getDenominadorA(),
+                    requisicao.getDenominadorB(),
+                    requisicao.getDenominadorC());
+            int numeradorEquivalenteA = requisicao.getNumeroA()
+                    * (denominadorComum / requisicao.getDenominadorA());
+            int numeradorEquivalenteB = requisicao.getNumeroB()
+                    * (denominadorComum / requisicao.getDenominadorB());
+            int numeradorEquivalenteC = requisicao.getNumeroC()
+                    * (denominadorComum / requisicao.getDenominadorC());
+            int numeradorSoma = numeradorEquivalenteA
+                    + numeradorEquivalenteB
+                    + numeradorEquivalenteC;
+            return denominadorComum / calcularMdc(numeradorSoma, denominadorComum);
+        }
         if (fracaoComDenominadoresDiferentes(requisicao)) {
             return calcularMmc(
                     requisicao.getDenominadorA(),
@@ -477,9 +550,19 @@ public class JogoService {
         return requisicao.getDenominador();
     }
 
+    private boolean fracaoComTresDenominadores(
+            RequisicaoValidacaoDTO requisicao) {
+        return requisicao.getTipoNumero() == TipoNumero.FRACOES
+                && requisicao.getNumeroC() != null
+                && requisicao.getDenominadorA() != null
+                && requisicao.getDenominadorB() != null
+                && requisicao.getDenominadorC() != null;
+    }
+
     private boolean fracaoComDenominadoresDiferentes(
             RequisicaoValidacaoDTO requisicao) {
         return requisicao.getTipoNumero() == TipoNumero.FRACOES
+                && requisicao.getDenominadorC() == null
                 && requisicao.getDenominadorA() != null
                 && requisicao.getDenominadorB() != null
                 && !Objects.equals(
@@ -489,6 +572,10 @@ public class JogoService {
 
     private int calcularMmc(int numeroA, int numeroB) {
         return numeroA / calcularMdc(numeroA, numeroB) * numeroB;
+    }
+
+    private int calcularMmc(int numeroA, int numeroB, int numeroC) {
+        return calcularMmc(calcularMmc(numeroA, numeroB), numeroC);
     }
 
     private int calcularMdc(int numeroA, int numeroB) {
@@ -516,8 +603,7 @@ public class JogoService {
         return switch (dificuldade) {
             case FACIL -> gerarSomaFracoesFaceis(operacao, dificuldade);
             case MEDIO -> gerarSomaFracoesMedias(operacao, dificuldade);
-            case DIFICIL -> throw new IllegalArgumentException(
-                    "A soma de frações está disponível nos níveis fácil e médio.");
+            case DIFICIL -> gerarSomaFracoesDificeis(operacao, dificuldade);
         };
     }
 
@@ -571,6 +657,72 @@ public class JogoService {
                     questao.setDenominadorComum(denominadorComum);
                     questao.setNumeradorEquivalenteA(numeradorEquivalenteA);
                     questao.setNumeradorEquivalenteB(numeradorEquivalenteB);
+                    return questao;
+                });
+    }
+
+    private QuestaoDTO gerarSomaFracoesDificeis(
+            Operacao operacao,
+            Dificuldade dificuldade) {
+        return gerarComTentativas(
+                "Não foi possível gerar uma soma de três frações com denominadores diferentes.",
+                () -> {
+                    int denominadorA = sortear(
+                            FRACAO_DIFICIL_DENOMINADOR_MINIMO,
+                            FRACAO_DIFICIL_DENOMINADOR_MAXIMO);
+                    int denominadorB = sortear(
+                            FRACAO_DIFICIL_DENOMINADOR_MINIMO,
+                            FRACAO_DIFICIL_DENOMINADOR_MAXIMO);
+                    int denominadorC = sortear(
+                            FRACAO_DIFICIL_DENOMINADOR_MINIMO,
+                            FRACAO_DIFICIL_DENOMINADOR_MAXIMO);
+
+                    if (denominadorA == denominadorB
+                            || denominadorA == denominadorC
+                            || denominadorB == denominadorC) {
+                        return null;
+                    }
+
+                    int denominadorComum = calcularMmc(
+                            denominadorA,
+                            denominadorB,
+                            denominadorC);
+                    if (denominadorComum > FRACAO_DIFICIL_MMC_MAXIMO) {
+                        return null;
+                    }
+
+                    int numeradorA = sortear(1, denominadorA - 1);
+                    int numeradorB = sortear(1, denominadorB - 1);
+                    int numeradorC = sortear(1, denominadorC - 1);
+                    int numeradorEquivalenteA = numeradorA
+                            * (denominadorComum / denominadorA);
+                    int numeradorEquivalenteB = numeradorB
+                            * (denominadorComum / denominadorB);
+                    int numeradorEquivalenteC = numeradorC
+                            * (denominadorComum / denominadorC);
+                    int numeradorSoma = numeradorEquivalenteA
+                            + numeradorEquivalenteB
+                            + numeradorEquivalenteC;
+                    int mdc = calcularMdc(numeradorSoma, denominadorComum);
+
+                    QuestaoDTO questao = novaQuestao(
+                            operacao,
+                            dificuldade,
+                            numeradorA,
+                            numeradorB);
+                    questao.setNumeroC(numeradorC);
+                    questao.setTipoNumero(TipoNumero.FRACOES);
+                    questao.setDenominador(denominadorComum);
+                    questao.setDenominadorA(denominadorA);
+                    questao.setDenominadorB(denominadorB);
+                    questao.setDenominadorC(denominadorC);
+                    questao.setDenominadorComum(denominadorComum);
+                    questao.setNumeradorEquivalenteA(numeradorEquivalenteA);
+                    questao.setNumeradorEquivalenteB(numeradorEquivalenteB);
+                    questao.setNumeradorEquivalenteC(numeradorEquivalenteC);
+                    questao.setMdcSimplificacao(mdc);
+                    questao.setNumeradorSimplificado(numeradorSoma / mdc);
+                    questao.setDenominadorSimplificado(denominadorComum / mdc);
                     return questao;
                 });
     }
@@ -1182,6 +1334,7 @@ public class JogoService {
                 && (requisicao.getDenominador() != null
                 || requisicao.getDenominadorA() != null
                 || requisicao.getDenominadorB() != null
+                || requisicao.getDenominadorC() != null
                 || requisicao.getDenominadorComum() != null
                 || requisicao.getDenominadorResultado() != null)) {
             throw new IllegalArgumentException(
@@ -1192,10 +1345,33 @@ public class JogoService {
                 throw new IllegalArgumentException(
                         "Frações estão disponíveis apenas na adição.");
             }
-            if (requisicao.getNumeroA() < 0 || requisicao.getNumeroB() < 0) {
+            if (requisicao.getNumeroA() < 0 || requisicao.getNumeroB() < 0
+                    || (requisicao.getNumeroC() != null && requisicao.getNumeroC() < 0)) {
                 throw new IllegalArgumentException("Os numeradores não podem ser negativos.");
             }
-            if (fracaoComDenominadoresDiferentes(requisicao)) {
+            if (requisicao.getNumeroC() != null && requisicao.getDenominadorC() == null) {
+                throw new IllegalArgumentException(
+                        "As três frações precisam de numeradores e denominadores completos.");
+            }
+            if (requisicao.getDenominadorC() != null) {
+                if (requisicao.getNumeroC() == null
+                        || requisicao.getDenominadorA() == null
+                        || requisicao.getDenominadorB() == null) {
+                    throw new IllegalArgumentException(
+                            "As três frações precisam de numeradores e denominadores completos.");
+                }
+                if (requisicao.getDenominadorA() <= 0
+                        || requisicao.getDenominadorB() <= 0
+                        || requisicao.getDenominadorC() <= 0) {
+                    throw new IllegalArgumentException(
+                            "Os denominadores das frações devem ser positivos.");
+                }
+                if (requisicao.getDenominadorComum() == null
+                        || requisicao.getDenominadorComum() <= 0) {
+                    throw new IllegalArgumentException(
+                            "O denominador comum é obrigatório e deve ser positivo.");
+                }
+            } else if (fracaoComDenominadoresDiferentes(requisicao)) {
                 if (requisicao.getDenominadorA() <= 0 || requisicao.getDenominadorB() <= 0) {
                     throw new IllegalArgumentException(
                             "Os denominadores das frações devem ser positivos.");
@@ -1270,10 +1446,18 @@ public class JogoService {
     private record AvaliacaoPassos(
             int respostaCorreta,
             boolean passosCorretos,
-            String mensagemPassoIncorreto) {
+            String mensagemPassoIncorreto,
+            String mensagemResultadoIncorreto) {
 
         AvaliacaoPassos(int respostaCorreta, boolean passosCorretos) {
-            this(respostaCorreta, passosCorretos, null);
+            this(respostaCorreta, passosCorretos, null, null);
+        }
+
+        AvaliacaoPassos(
+                int respostaCorreta,
+                boolean passosCorretos,
+                String mensagemPassoIncorreto) {
+            this(respostaCorreta, passosCorretos, mensagemPassoIncorreto, null);
         }
     }
 }
