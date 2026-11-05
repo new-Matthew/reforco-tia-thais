@@ -1316,10 +1316,66 @@ class JogoServiceTest {
     }
 
     @Test
-    @DisplayName("Restringe frações aos níveis fácil e médio e à adição")
-    void rejeitaFracoesForaDosNiveisPermitidosOuDeOutraOperacao() {
-        assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
-                Operacao.SOMA, Dificuldade.DIFICIL, TipoNumero.FRACOES));
+    @DisplayName("Gera somas difíceis com três frações de denominadores diferentes")
+    void geraSomaDeTresFracoesComDenominadoresDiferentes() {
+        Set<Integer> denominadoresComuns = new HashSet<>();
+
+        for (int i = 0; i < 300; i++) {
+            QuestaoDTO questao = jogoService.gerarQuestao(
+                    Operacao.SOMA, Dificuldade.DIFICIL, TipoNumero.FRACOES);
+
+            assertEquals(Operacao.SOMA, questao.getOperacao());
+            assertEquals(Dificuldade.DIFICIL, questao.getDificuldade());
+            assertEquals(TipoNumero.FRACOES, questao.getTipoNumero());
+            assertNotNull(questao.getNumeroC());
+            assertNotNull(questao.getDenominadorC());
+            assertNotNull(questao.getDenominadorA());
+            assertNotNull(questao.getDenominadorB());
+            assertNotEquals(questao.getDenominadorA(), questao.getDenominadorB());
+            assertNotEquals(questao.getDenominadorA(), questao.getDenominadorC());
+            assertNotEquals(questao.getDenominadorB(), questao.getDenominadorC());
+            assertTrue(questao.getNumeroA() >= 1);
+            assertTrue(questao.getNumeroB() >= 1);
+            assertTrue(questao.getNumeroC() >= 1);
+            assertTrue(questao.getNumeroA() < questao.getDenominadorA());
+            assertTrue(questao.getNumeroB() < questao.getDenominadorB());
+            assertTrue(questao.getNumeroC() < questao.getDenominadorC());
+
+            int denominadorComum = questao.getDenominadorComum();
+            assertEquals(questao.getDenominador(), denominadorComum);
+            assertEquals(0, denominadorComum % questao.getDenominadorA());
+            assertEquals(0, denominadorComum % questao.getDenominadorB());
+            assertEquals(0, denominadorComum % questao.getDenominadorC());
+            assertTrue(denominadorComum <= 60);
+
+            int equivalenteA = questao.getNumeroA()
+                    * (denominadorComum / questao.getDenominadorA());
+            int equivalenteB = questao.getNumeroB()
+                    * (denominadorComum / questao.getDenominadorB());
+            int equivalenteC = questao.getNumeroC()
+                    * (denominadorComum / questao.getDenominadorC());
+            assertEquals(equivalenteA, questao.getNumeradorEquivalenteA());
+            assertEquals(equivalenteB, questao.getNumeradorEquivalenteB());
+            assertEquals(equivalenteC, questao.getNumeradorEquivalenteC());
+
+            int numeradorSoma = equivalenteA + equivalenteB + equivalenteC;
+            int mdc = mdc(numeradorSoma, denominadorComum);
+            assertEquals(mdc, questao.getMdcSimplificacao());
+            assertEquals(numeradorSoma / mdc, questao.getNumeradorSimplificado());
+            assertEquals(denominadorComum / mdc, questao.getDenominadorSimplificado());
+            denominadoresComuns.add(denominadorComum);
+        }
+
+        assertTrue(denominadoresComuns.size() > 1);
+    }
+
+    @Test
+    @DisplayName("Restringe frações à adição, aceitando os três níveis")
+    void rejeitaFracoesDeOutraOperacao() {
+        QuestaoDTO dificil = jogoService.gerarQuestao(
+                Operacao.SOMA, Dificuldade.DIFICIL, TipoNumero.FRACOES);
+        assertEquals(Dificuldade.DIFICIL, dificil.getDificuldade());
+
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
                 Operacao.SUBTRACAO, Dificuldade.FACIL, TipoNumero.FRACOES));
         assertThrows(IllegalArgumentException.class, () -> jogoService.gerarQuestao(
@@ -1456,6 +1512,116 @@ class JogoServiceTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> jogoService.validar(requisicao));
+    }
+
+    @Test
+    @DisplayName("Valida soma difícil de três frações já simplificada")
+    void validaSomaDeTresFracoesComSimplificacao() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracaoDificil(2, 5, 1, 2, 3, 10, 10, 6, 5));
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+        assertEquals(6, resposta.getRespostaCorreta());
+        assertEquals("6/5", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Valida soma difícil de três frações sem simplificação")
+    void validaSomaDeTresFracoesSemSimplificacao() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracaoDificil(1, 2, 1, 3, 1, 4, 12, 13, 12));
+
+        assertTrue(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_COMPLETO, resposta.getPontosGanhos());
+        assertEquals(13, resposta.getRespostaCorreta());
+        assertEquals("13/12", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Orienta a simplificar quando a soma difícil ficou sem simplificação")
+    void orientaSimplificacaoQuandoSomaNaoFoiSimplificada() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracaoDificil(2, 5, 1, 2, 3, 10, 10, 12, 10));
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ERRO, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("simplificar"));
+        assertTrue(resposta.getMensagem().contains("2"));
+        assertEquals(6, resposta.getRespostaCorreta());
+        assertEquals("6/5", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Dá acerto parcial quando o denominador comum da soma difícil está errado")
+    void daAcertoParcialQuandoDenominadorComumDificilEstaErrado() {
+        RespostaValidacaoDTO resposta = jogoService.validar(
+                requisicaoFracaoDificil(2, 5, 1, 2, 3, 10, 20, 6, 5));
+
+        assertFalse(resposta.isCorreto());
+        assertEquals(JogoService.PONTOS_ACERTO_PARCIAL, resposta.getPontosGanhos());
+        assertTrue(resposta.getMensagem().contains("denominador comum"));
+        assertEquals("6/5", resposta.getRespostaCorretaFracao());
+    }
+
+    @Test
+    @DisplayName("Rejeita soma difícil com a terceira fração incompleta")
+    void rejeitaTresFracoesIncompletas() {
+        RequisicaoValidacaoDTO semNumeroC = requisicaoFracaoDificil(
+                2, 5, 1, 2, 3, 10, 10, 6, 5);
+        semNumeroC.setNumeroC(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(semNumeroC));
+
+        RequisicaoValidacaoDTO semDenominadorC = requisicaoFracaoDificil(
+                2, 5, 1, 2, 3, 10, 10, 6, 5);
+        semDenominadorC.setDenominadorC(null);
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(semDenominadorC));
+
+        RequisicaoValidacaoDTO denominadorInvalido = requisicaoFracaoDificil(
+                2, 5, 1, 2, 3, 10, 10, 6, 5);
+        denominadorInvalido.setDenominadorC(0);
+        assertThrows(IllegalArgumentException.class,
+                () -> jogoService.validar(denominadorInvalido));
+    }
+
+    private RequisicaoValidacaoDTO requisicaoFracaoDificil(
+            int numeradorA,
+            int denominadorA,
+            int numeradorB,
+            int denominadorB,
+            int numeradorC,
+            int denominadorC,
+            int denominadorComum,
+            int numeradorResultado,
+            int denominadorResultado) {
+        RequisicaoValidacaoDTO requisicao = new RequisicaoValidacaoDTO(
+                "id-fracao-dificil",
+                Operacao.SOMA,
+                numeradorA,
+                numeradorB,
+                numeradorResultado,
+                null,
+                null,
+                null);
+        requisicao.setNumeroC(numeradorC);
+        requisicao.setTipoNumero(TipoNumero.FRACOES);
+        requisicao.setDenominadorA(denominadorA);
+        requisicao.setDenominadorB(denominadorB);
+        requisicao.setDenominadorC(denominadorC);
+        requisicao.setDenominadorComum(denominadorComum);
+        requisicao.setDenominadorResultado(denominadorResultado);
+        return requisicao;
+    }
+
+    private int mdc(int numeroA, int numeroB) {
+        while (numeroB != 0) {
+            int resto = numeroA % numeroB;
+            numeroA = numeroB;
+            numeroB = resto;
+        }
+        return Math.abs(numeroA);
     }
 
     private RequisicaoValidacaoDTO requisicaoFracaoMedia(

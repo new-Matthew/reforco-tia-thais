@@ -284,13 +284,24 @@ class JogoControllerTest {
     }
 
     @Test
-    @DisplayName("Rejeita frações difíceis")
-    void rejeitaFracoesDificeis() throws Exception {
+    @DisplayName("Gera frações difíceis com três denominadores")
+    void geraFracoesDificeis() throws Exception {
         mockMvc.perform(get("/api/jogo/proxima-questao")
                         .param("operacao", "SOMA")
                         .param("dificuldade", "DIFICIL")
                         .param("tipoNumero", "FRACOES"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacao").value("SOMA"))
+                .andExpect(jsonPath("$.tipoNumero").value("FRACOES"))
+                .andExpect(jsonPath("$.dificuldade").value("DIFICIL"))
+                .andExpect(jsonPath("$.numeroC").isNumber())
+                .andExpect(jsonPath("$.denominadorA").isNumber())
+                .andExpect(jsonPath("$.denominadorB").isNumber())
+                .andExpect(jsonPath("$.denominadorC").isNumber())
+                .andExpect(jsonPath("$.denominadorComum").isNumber())
+                .andExpect(jsonPath("$.numeradorEquivalenteA").isNumber())
+                .andExpect(jsonPath("$.numeradorEquivalenteB").isNumber())
+                .andExpect(jsonPath("$.numeradorEquivalenteC").isNumber());
     }
 
     @Test

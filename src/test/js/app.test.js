@@ -52,10 +52,16 @@ const {
   ehDivisaoDecimal,
   ehFracao,
   ehFracaoMedia,
+  ehFracaoDificil,
+  ehFracaoGuiada,
   calcularMdcFracao,
   calcularMmcFracao,
+  calcularMmcListaFracao,
+  parcelasFracao,
   denominadorComumFracoes,
   fracoesEquivalentes,
+  simplificacaoFracao,
+  avaliarEtapasFracaoDificil,
   normalizarInteiroFracao,
   ehPrimoFracao,
   fatorPrimoDivideValoresFracao,
@@ -72,6 +78,7 @@ const {
   seletoresDicaFracaoMedia,
   seletoresDicaAtualFracao,
   seletoresDicaAtualFracaoMedia,
+  seletoresDicaAtualFracaoDificil,
   divisaoDecimalEquivalente,
   casasDecimaisDivisao,
   calcularEtapasDivisaoLonga,
@@ -1050,28 +1057,39 @@ test('estilos da divisão decimal usam o cartão guiado do tema laranja', () => 
   assert.match(css, /\.conta\.conta-divisao-decimal/);
 });
 
-test('frações são um tipo de número da adição com níveis fácil e médio', () => {
+test('frações são um tipo de número da adição com níveis fácil, médio e difícil', () => {
   assert.equal(ehFracao({ operacao: 'SOMA', tipoNumero: 'FRACOES' }), true);
   assert.equal(ehFracao({ operacao: 'SOMA', tipoNumero: 'INTEIROS' }), false);
   assert.equal(ehFracaoMedia({ tipoNumero: 'FRACOES', dificuldade: 'MEDIO' }), true);
   assert.equal(ehFracaoMedia({ tipoNumero: 'FRACOES', dificuldade: 'FACIL' }), false);
+  assert.equal(ehFracaoDificil({ tipoNumero: 'FRACOES', dificuldade: 'DIFICIL' }), true);
+  assert.equal(ehFracaoGuiada({ tipoNumero: 'FRACOES', dificuldade: 'DIFICIL' }), true);
   assert.equal(tipoNumeroDisponivel('SOMA', 'FRACOES'), true);
   assert.equal(tipoNumeroDisponivel('SUBTRACAO', 'FRACOES'), false);
-  assert.deepEqual(niveisDificuldade('SOMA', 'FRACOES'), ['FACIL', 'MEDIO']);
-  assert.equal(dificuldadePermitida('DIFICIL', 'SOMA', 'FRACOES'), 'MEDIO');
+  assert.deepEqual(
+    niveisDificuldade('SOMA', 'FRACOES'),
+    ['FACIL', 'MEDIO', 'DIFICIL'],
+  );
+  assert.equal(dificuldadePermitida('DIFICIL', 'SOMA', 'FRACOES'), 'DIFICIL');
   assert.equal(temaDaOperacao('SOMA', 'FRACOES'), 'turquesa');
   assert.equal(proximaDificuldade('FACIL', 'SOMA', 'FRACOES'), 'MEDIO');
-  assert.equal(proximaDificuldade('MEDIO', 'SOMA', 'FRACOES'), null);
+  assert.equal(proximaDificuldade('MEDIO', 'SOMA', 'FRACOES'), 'DIFICIL');
+  assert.equal(proximaDificuldade('DIFICIL', 'SOMA', 'FRACOES'), null);
 
   const progresso = resolverProgresso(4, 'FACIL', true, 5, 'SOMA', 'FRACOES');
   assert.equal(progresso.subiuNivel, true);
   assert.equal(progresso.nivelMaximo, false);
   assert.equal(progresso.dificuldade, 'MEDIO');
 
-  const progressoMaximo = resolverProgresso(4, 'MEDIO', true, 5, 'SOMA', 'FRACOES');
+  const progressoMedio = resolverProgresso(4, 'MEDIO', true, 5, 'SOMA', 'FRACOES');
+  assert.equal(progressoMedio.subiuNivel, true);
+  assert.equal(progressoMedio.nivelMaximo, false);
+  assert.equal(progressoMedio.dificuldade, 'DIFICIL');
+
+  const progressoMaximo = resolverProgresso(4, 'DIFICIL', true, 5, 'SOMA', 'FRACOES');
   assert.equal(progressoMaximo.subiuNivel, false);
   assert.equal(progressoMaximo.nivelMaximo, true);
-  assert.equal(progressoMaximo.dificuldade, 'MEDIO');
+  assert.equal(progressoMaximo.dificuldade, 'DIFICIL');
 
   const html = fs.readFileSync(
     path.join(__dirname, '../../main/resources/static/index.html'),
@@ -1086,14 +1104,14 @@ test('frações são um tipo de número da adição com níveis fácil e médio'
   assert.match(html, /Frações/);
 });
 
-test('aplicarPreferencias restringe frações aos níveis fácil e médio', () => {
+test('aplicarPreferencias preserva frações no nível difícil', () => {
   const estado = aplicarPreferencias(
     { operacao: 'SOMA', dificuldade: 'FACIL', tipoNumero: 'INTEIROS' },
     '?operacao=SOMA&dificuldade=DIFICIL&tipoNumero=FRACOES',
   );
 
   assert.equal(estado.operacao, 'SOMA');
-  assert.equal(estado.dificuldade, 'MEDIO');
+  assert.equal(estado.dificuldade, 'DIFICIL');
   assert.equal(estado.tipoNumero, 'FRACOES');
 });
 
@@ -1104,7 +1122,7 @@ test('aplicarPreferencias converte a antiga operação de frações em tipo de n
   );
 
   assert.equal(estado.operacao, 'SOMA');
-  assert.equal(estado.dificuldade, 'MEDIO');
+  assert.equal(estado.dificuldade, 'DIFICIL');
   assert.equal(estado.tipoNumero, 'FRACOES');
 });
 
@@ -1165,6 +1183,246 @@ test('montarRequisicao envia denominadores e MMC da fração média', () => {
   assert.equal(requisicao.denominadorResultado, 4);
   assert.equal(requisicao.resultadoDigitado, 3);
   assert.equal(requisicao.denominador, undefined);
+});
+
+test('montarRequisicao envia as três frações e o MDC da fração difícil', () => {
+  const questao = {
+    id: 'id-fracao-dificil',
+    operacao: 'SOMA',
+    dificuldade: 'DIFICIL',
+    tipoNumero: 'FRACOES',
+    numeroA: 1,
+    numeroB: 1,
+    numeroC: 1,
+    denominadorA: 2,
+    denominadorB: 3,
+    denominadorC: 4,
+    denominadorComum: 12,
+  };
+  const requisicao = montarRequisicao(questao, {
+    resultadoDigitado: 7,
+    denominadorResultado: 12,
+    denominadorComum: 12,
+    mdcSimplificacao: 1,
+  });
+
+  assert.equal(requisicao.tipoNumero, 'FRACOES');
+  assert.equal(requisicao.numeroC, 1);
+  assert.equal(requisicao.denominadorA, 2);
+  assert.equal(requisicao.denominadorB, 3);
+  assert.equal(requisicao.denominadorC, 4);
+  assert.equal(requisicao.denominadorComum, 12);
+  assert.equal(requisicao.denominadorResultado, 12);
+  assert.equal(requisicao.mdcSimplificacao, 1);
+  assert.equal(requisicao.denominador, undefined);
+});
+
+test('frações difíceis calculam MMC triplo, parcelas e simplificação', () => {
+  assert.equal(calcularMmcListaFracao([2, 3, 4]), 12);
+  assert.equal(calcularMmcListaFracao([4, 6, 10]), 60);
+  assert.equal(calcularMmcListaFracao([]), 0);
+
+  const questao = {
+    tipoNumero: 'FRACOES',
+    dificuldade: 'DIFICIL',
+    numeroA: 2,
+    numeroB: 1,
+    numeroC: 3,
+    denominadorA: 5,
+    denominadorB: 2,
+    denominadorC: 10,
+    denominadorComum: 10,
+    numeradorEquivalenteA: 4,
+    numeradorEquivalenteB: 5,
+    numeradorEquivalenteC: 3,
+  };
+  assert.deepEqual(parcelasFracao(questao), [
+    { chave: 'A', numerador: 2, denominador: 5 },
+    { chave: 'B', numerador: 1, denominador: 2 },
+    { chave: 'C', numerador: 3, denominador: 10 },
+  ]);
+  assert.deepEqual(fracoesEquivalentes(questao), {
+    denominadorA: 5,
+    denominadorB: 2,
+    denominadorComum: 10,
+    fatorA: 2,
+    fatorB: 5,
+    numeradorEquivalenteA: 4,
+    numeradorEquivalenteB: 5,
+    numeradorSoma: 12,
+    denominadorC: 10,
+    fatorC: 1,
+    numeradorEquivalenteC: 3,
+  });
+  assert.deepEqual(simplificacaoFracao(questao), {
+    mdc: 2,
+    precisaSimplificar: true,
+    numeradorSoma: 12,
+    denominadorComum: 10,
+    numerador: 6,
+    denominador: 5,
+  });
+
+  const semSimplificacao = simplificacaoFracao({
+    tipoNumero: 'FRACOES',
+    dificuldade: 'DIFICIL',
+    numeroA: 1,
+    numeroB: 1,
+    numeroC: 1,
+    denominadorA: 2,
+    denominadorB: 3,
+    denominadorC: 4,
+  });
+  assert.equal(semSimplificacao.precisaSimplificar, false);
+  assert.equal(semSimplificacao.numerador, 13);
+  assert.equal(semSimplificacao.denominador, 12);
+});
+
+test('conversões da fração difícil incluem a terceira fração e as etapas', () => {
+  const equivalentes = {
+    denominadorComum: 12,
+    fatorA: 6,
+    fatorB: 4,
+    fatorC: 3,
+    numeradorEquivalenteA: 6,
+    numeradorEquivalenteB: 4,
+    numeradorEquivalenteC: 3,
+    numeradorSoma: 13,
+  };
+  const avaliacao = avaliarConversoesFracaoMedia(equivalentes, {
+    A: { fator: '6', numerador: '6' },
+    B: { fator: '4', numerador: '4' },
+    C: { fator: '3', numerador: '3' },
+  });
+  assert.equal(avaliacao.cartoes.length, 3);
+  assert.equal(avaliacao.cartoes[2].fracao, 'C');
+  assert.equal(avaliacao.completa, true);
+
+  const simplificacao = {
+    precisaSimplificar: true,
+    mdc: 2,
+    numeradorSoma: 10,
+    denominadorComum: 12,
+    numerador: 5,
+    denominador: 6,
+  };
+  const etapas = avaliarEtapasFracaoDificil(equivalentes, simplificacao, {
+    comum: '12',
+    conversoes: {
+      A: { fator: '6', numerador: '6' },
+      B: { fator: '4', numerador: '4' },
+      C: { fator: '3', numerador: '3' },
+    },
+    soma: '13',
+    divisor: '2',
+  });
+  assert.equal(etapas.passo1, true);
+  assert.equal(etapas.passo2, true);
+  assert.equal(etapas.passo3, true);
+  assert.equal(etapas.passo4, true);
+
+  const semSoma = avaliarEtapasFracaoDificil(equivalentes, simplificacao, {
+    comum: '12',
+    conversoes: {
+      A: { fator: '6', numerador: '6' },
+      B: { fator: '4', numerador: '4' },
+      C: { fator: '3', numerador: '3' },
+    },
+    soma: '',
+    divisor: '',
+  });
+  assert.equal(semSoma.passo2, true);
+  assert.equal(semSoma.passo3, false);
+  assert.equal(semSoma.passo4, false);
+});
+
+test('fatoração simultânea conclui com três números e destaca o MMC', () => {
+  let valores = [2, 3, 4];
+  const fatores = [];
+  [[2, [1, 3, 2]], [3, [1, 1, 2]], [2, [1, 1, 1]]].forEach(([fator, esperado]) => {
+    assert.equal(fatorPrimoDivideValoresFracao(valores, fator), true);
+    valores = proximaLinhaFatoracaoFracao(valores, fator);
+    fatores.push(fator);
+    assert.deepEqual(valores, esperado);
+  });
+  assert.equal(fatoracaoFracaoConcluida(valores), true);
+  assert.equal(produtoFatoresFracao(fatores), 12);
+});
+
+test('dica da fração difícil percorre soma e simplificação', () => {
+  const questao = {
+    tipoNumero: 'FRACOES',
+    dificuldade: 'DIFICIL',
+    numeroA: 2,
+    numeroB: 1,
+    numeroC: 3,
+    denominadorA: 5,
+    denominadorB: 2,
+    denominadorC: 10,
+    denominadorComum: 10,
+  };
+  const criarEl = (comum, soma, divisor, conversoes = {}) => ({
+    conta: {
+      querySelector(seletor) {
+        if (seletor === '.fracao-campo-comum') {
+          return { value: comum };
+        }
+        if (seletor === '.fracao-soma-numerador') {
+          return { value: soma };
+        }
+        if (seletor === '.fracao-mdc-divisor') {
+          return { value: divisor };
+        }
+        if (seletor === '.fracao-campo-numerador') {
+          return { value: '' };
+        }
+        if (seletor === '.fracao-campo-denominador') {
+          return { value: '' };
+        }
+        const conversao = seletor.match(
+          /^\.fracao-conversao-(fator|numerador)\[data-fracao="(A|B|C)"\]$/,
+        );
+        if (conversao) {
+          return { value: conversoes[conversao[2]]?.[conversao[1]] ?? '' };
+        }
+        return null;
+      },
+    },
+  });
+  const completas = {
+    A: { fator: '2', numerador: '4' },
+    B: { fator: '5', numerador: '5' },
+    C: { fator: '1', numerador: '3' },
+  };
+
+  assert.deepEqual(
+    seletoresDicaAtualFracaoDificil(
+      { questao, questaoRespondida: false },
+      criarEl('', '', ''),
+    ),
+    ['.fracao-fatoracao-linha.ativa .fracao-fator-primo'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracaoDificil(
+      { questao, questaoRespondida: false },
+      criarEl('10', '', '', completas),
+    ),
+    ['.fracao-soma-numerador'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracaoDificil(
+      { questao, questaoRespondida: false },
+      criarEl('10', '12', '', completas),
+    ),
+    ['.fracao-mdc-divisor'],
+  );
+  assert.deepEqual(
+    seletoresDicaAtualFracaoDificil(
+      { questao, questaoRespondida: false },
+      criarEl('10', '12', '2', completas),
+    ),
+    ['.fracao-campo-numerador', '.fracao-barra-resultado'],
+  );
 });
 
 test('frações médias calculam MMC e frações equivalentes', () => {
@@ -1733,6 +1991,12 @@ test('estilos das frações usam o tema turquesa e o bloco vertical', () => {
   assert.match(css, /\.fracao-rascunho/);
   assert.match(css, /\.fracao-etapa-painel\.bloqueada/);
   assert.match(css, /\.fracao-etapa\.ativa\s*\{[^}]*var\(--dica-ambar\)/s);
+  assert.match(css, /\.conta\.conta-fracao-dificil/);
+  assert.match(css, /\.fracao-fatoracao-linhas-tres/);
+  assert.match(css, /\.fracao-conversoes-tres/);
+  assert.match(css, /\.fracao-simplificacao/);
+  assert.match(css, /\.fracao-mdc-divisor/);
+  assert.match(css, /\.fracao-soma-status/);
 });
 
 test('estilos da multiplicação decimal reservam vírgula e controle próprio', () => {
